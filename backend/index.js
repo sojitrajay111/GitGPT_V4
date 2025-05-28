@@ -6,6 +6,7 @@ const cookieParser = require("cookie-parser");
 
 const authRoutes = require("./routes/authRoutes");
 const githubRoutes = require("./routes/githubRoutes");
+const projectRoutes = require("./routes/projectRoutes"); //
 
 const app = express();
 
@@ -25,6 +26,7 @@ connectDB();
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/github", githubRoutes);
+app.use("/api/projects", projectRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

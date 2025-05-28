@@ -1,8 +1,8 @@
 // controllers/githubController.js
-const GitHubData = require("../models/GitHubData");
-const User = require("../models/User");
+const GitHubData = require("../models/GithubData"); // Ensure this path is correct
+const User = require("../models/User"); // Required for updating user auth status
 
-// Authenticate and store GitHub data
+// Authenticate and store GitHub data (existing function)
 const authenticateGitHub = async (req, res) => {
   try {
     const { githubUsername, githubEmail, githubToken } = req.body;
@@ -20,7 +20,7 @@ const authenticateGitHub = async (req, res) => {
     const githubResponse = await fetch("https://api.github.com/user", {
       headers: {
         Authorization: `token ${githubToken}`,
-        "User-Agent": "Your-App-Name",
+        "User-Agent": "Your-App-Name", // GitHub requires a User-Agent header
       },
     });
 
@@ -86,7 +86,7 @@ const authenticateGitHub = async (req, res) => {
   }
 };
 
-// Get GitHub authentication status and data in one call
+// Get GitHub authentication status and data in one call (existing function)
 const getGitHubStatus = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -141,7 +141,7 @@ const getGitHubStatus = async (req, res) => {
   }
 };
 
-// Disconnect GitHub (logout from GitHub)
+// Disconnect GitHub (logout from GitHub) (existing function)
 const disconnectGitHub = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -167,7 +167,7 @@ const disconnectGitHub = async (req, res) => {
   }
 };
 
-// Legacy functions for backward compatibility (if needed)
+// Legacy functions for backward compatibility (if needed) (existing functions)
 const getGitHubData = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -222,10 +222,93 @@ const checkGitHubAuthStatus = async (req, res) => {
   }
 };
 
+/**
+ * @desc Get a list of private GitHub repositories for the authenticated user.
+ * This function fetches the user's PAT from the database and uses it to call the GitHub API.
+ * This keeps the PAT secure on the backend.
+ * @route GET /api/github/repos
+ * @access Private (requires user authentication middleware)
+ */
+const getUserGithubRepos = async (req, res) => {
+  try {
+    const userId = req.user.id; // Assuming userId is available from auth middleware
+
+    const githubData = await GitHubData.findOne({ userId });
+
+    // If no GitHub data or PAT is missing, indicate that GitHub is not authenticated
+    if (!githubData || !githubData.githubPAT) {
+      return res.status(200).json({
+        // Return 200 with status false for frontend handling
+        success: true,
+        message:
+          "GitHub authentication data not found for this user, or PAT is missing.",
+        isAuthenticatedToGithub: false,
+        repos: [], // Return empty array of repos
+      });
+    }
+
+    const githubPAT = githubData.githubPAT;
+    const githubUsername = githubData.githubUsername;
+
+    // Fetch user's repositories from GitHub API
+    const reposResponse = await fetch(
+      `https://api.github.com/user/repos?type=owner`,
+      {
+        headers: {
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername, // GitHub requires a User-Agent header
+        },
+      }
+    );
+
+    if (!reposResponse.ok) {
+      // If token is invalid or expired (e.g., 401 Unauthorized), update user's auth status
+      if (reposResponse.status === 401) {
+        await User.findByIdAndUpdate(userId, {
+          isAuthenticatedToGithub: false,
+        });
+      }
+      const errorData = await reposResponse.json();
+      console.error("GitHub API error fetching repos:", errorData);
+      return res.status(reposResponse.status).json({
+        success: false,
+        message: `Failed to fetch GitHub repositories: ${
+          errorData.message || "Unknown error"
+        }`,
+        isAuthenticatedToGithub: false, // Indicate authentication issue
+      });
+    }
+
+    const repos = await reposResponse.json();
+
+    // Filter for private repositories and map to relevant data for the frontend
+    const privateRepos = repos
+      .filter((repo) => repo.private)
+      .map((repo) => ({
+        name: repo.name,
+        html_url: repo.html_url,
+        full_name: repo.full_name,
+      }));
+
+    res.status(200).json({
+      success: true,
+      isAuthenticatedToGithub: true,
+      repos: privateRepos,
+    });
+  } catch (error) {
+    console.error("Error fetching GitHub repositories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while fetching GitHub repositories",
+    });
+  }
+};
+
 module.exports = {
   authenticateGitHub,
   getGitHubStatus, // New unified function
   disconnectGitHub, // New logout function
   getGitHubData, // Keep for backward compatibility
   checkGitHubAuthStatus, // Keep for backward compatibility
+  getUserGithubRepos, // New function for fetching user's GitHub repositories
 };

@@ -21,7 +21,7 @@ import {
   useGetGitHubStatusQuery,
   useDisconnectGitHubMutation,
 } from "@/features/githubApiSlice";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 const Dashboard = () => {
   const [showGitHubDialog, setShowGitHubDialog] = useState(false);
@@ -29,6 +29,7 @@ const Dashboard = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const params = useParams();
   const userId = params.userId;
+  const router = useRouter();
 
   // Get GitHub status (authentication + data in one call)
   const {
@@ -66,6 +67,10 @@ const Dashboard = () => {
 
   const handleReconnectGitHub = () => {
     setShowGitHubDialog(true);
+  };
+
+  const handleCreateProjectClick = () => {
+    router.push(`/${userId}/create-project`);
   };
 
   const handleDisconnectGitHub = async () => {
@@ -123,17 +128,14 @@ const Dashboard = () => {
         <Typography variant="h4">Dashboard</Typography>
 
         {/* Show disconnect button only if authenticated */}
-        {isAuthenticated && (
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<Logout />}
-            onClick={handleDisconnectGitHub}
-            disabled={disconnectLoading}
-          >
-            {disconnectLoading ? "Disconnecting..." : "Disconnect GitHub"}
-          </Button>
-        )}
+        <Button
+          variant="outlined"
+          color="success"
+          // CORRECTED: Wrap router.push in an arrow function
+          onClick={handleCreateProjectClick}
+        >
+          Create Project
+        </Button>
       </Box>
 
       {isAuthenticated && githubData ? (

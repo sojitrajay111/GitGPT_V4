@@ -7,6 +7,7 @@ const {
   disconnectGitHub,
   getGitHubData,
   checkGitHubAuthStatus,
+  getUserGithubRepos, // <--- Make sure this is imported
 } = require("../controllers/githubController");
 
 // Middleware to authenticate user (replace with your auth middleware)
@@ -20,6 +21,9 @@ router.post("/authenticate", authenticateUser, authenticateGitHub);
 
 // Disconnect GitHub account
 router.delete("/disconnect", authenticateUser, disconnectGitHub);
+
+// Route to get user's private GitHub repositories
+router.get("/repos", authenticateUser, getUserGithubRepos); // <--- Added this route
 
 // Legacy routes (keep for backward compatibility)
 router.get("/auth-status", authenticateUser, checkGitHubAuthStatus);
