@@ -40,7 +40,7 @@ const Login = () => {
       // Dashboard will automatically check GitHub authentication status
       // and show the dialog if user is not authenticated to GitHub
       setTimeout(() => {
-        router.push("/dashboard");
+        router.push(`/${response?.user?.id}/dashboard`);
       }, 1000);
     } catch (error) {
       setMessage(error.data?.message || "An error occurred");

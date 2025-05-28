@@ -1,20 +1,28 @@
-// routes/githubRoutes.js
+// routes/github.js (or wherever you define your routes)
 const express = require("express");
 const router = express.Router();
 const {
   authenticateGitHub,
+  getGitHubStatus,
+  disconnectGitHub,
   getGitHubData,
-  checkGitHubAuthStatus
+  checkGitHubAuthStatus,
 } = require("../controllers/githubController");
-const authMiddleware = require("../middleware/authMiddleware"); // Assuming you have auth middleware
 
-// Authenticate with GitHub
-router.post("/authenticate", authMiddleware, authenticateGitHub);
+// Middleware to authenticate user (replace with your auth middleware)
+const authenticateUser = require("../middleware/authMiddleware"); // Your auth middleware
 
-// Get GitHub data for authenticated user
-router.get("/data", authMiddleware, getGitHubData);
+// New unified route - gets both authentication status and data
+router.get("/status", authenticateUser, getGitHubStatus);
 
-// Check GitHub authentication status
-router.get("/auth-status", authMiddleware, checkGitHubAuthStatus);
+// Authenticate/Connect GitHub account
+router.post("/authenticate", authenticateUser, authenticateGitHub);
+
+// Disconnect GitHub account
+router.delete("/disconnect", authenticateUser, disconnectGitHub);
+
+// Legacy routes (keep for backward compatibility)
+router.get("/auth-status", authenticateUser, checkGitHubAuthStatus);
+router.get("/data", authenticateUser, getGitHubData);
 
 module.exports = router;

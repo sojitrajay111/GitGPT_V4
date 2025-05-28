@@ -15,27 +15,47 @@ export const githubApiSlice = createApi({
   }),
   tagTypes: ["GitHubData"],
   endpoints: (builder) => ({
+    getGitHubStatus: builder.query({
+      query: () => "/status",
+      providesTags: ["GitHubStatus"],
+    }),
+
+    // Authenticate GitHub
     authenticateGitHub: builder.mutation({
       query: (credentials) => ({
         url: "/authenticate",
         method: "POST",
         body: credentials,
       }),
-      invalidatesTags: ["GitHubData"],
+      invalidatesTags: ["GitHubStatus", "GitHubData"],
     }),
-    getGitHubData: builder.query({
-      query: () => "/data",
-      providesTags: ["GitHubData"],
+
+    // Disconnect GitHub
+    disconnectGitHub: builder.mutation({
+      query: () => ({
+        url: "/disconnect",
+        method: "DELETE",
+      }),
+      invalidatesTags: ["GitHubStatus", "GitHubData"],
     }),
+
+    // Legacy endpoints (keep for backward compatibility if needed)
     checkGitHubAuthStatus: builder.query({
       query: () => "/auth-status",
+      providesTags: ["GitHubStatus"],
+    }),
+
+    getGitHubData: builder.query({
+      query: () => "/data",
       providesTags: ["GitHubData"],
     }),
   }),
 });
 
 export const {
+  useGetGitHubStatusQuery,
   useAuthenticateGitHubMutation,
+  useDisconnectGitHubMutation,
+  useCheckGitHubAuthStatusQuery, // Legacy
   useGetGitHubDataQuery,
-  useCheckGitHubAuthStatusQuery,
 } = githubApiSlice;
