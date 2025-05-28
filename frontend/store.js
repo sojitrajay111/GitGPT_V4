@@ -1,5 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { authApiSlice } from "./features/authApiSlice";
+import authReducer from "@/features/authSlice";
+import { githubApiSlice } from "./features/githubApiSlice";
 import serviceReducer from "./features/serviceSlice"; // ✅ Import serviceReducer
 
 import storage from "redux-persist/lib/storage";
@@ -17,12 +19,15 @@ const persistedServiceReducer = persistReducer(persistConfig, serviceReducer);
 
 export const store = configureStore({
   reducer: {
+    [githubApiSlice.reducerPath]: githubApiSlice.reducer,
     [authApiSlice.reducerPath]: authApiSlice.reducer,
     service: persistedServiceReducer, // ✅ Add persisted service reducer
+    auth: authReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({ serializableCheck: false }).concat(
-      authApiSlice.middleware
+      authApiSlice.middleware,
+      githubApiSlice.middleware
     ),
 });
 
