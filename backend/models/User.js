@@ -9,6 +9,10 @@ const userSchema = new mongoose.Schema({
     enum: ["manager", "developer"],
     default: "developer",
   },
+  isAuthenticatedToGithub: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);
