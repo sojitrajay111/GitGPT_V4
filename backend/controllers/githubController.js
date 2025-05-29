@@ -344,34 +344,63 @@ const searchGithubUsers = async (req, res) => {
 };
 
 /**
- * @desc Add a collaborator to a project and GitHub repository.
+ * @desc Add or update a collaborator for a project and GitHub repository.
  * @route POST /api/github/collaborators
  * @access Private
  */
 const addCollaborator = async (req, res) => {
-  const { projectId, githubUsername } = req.body;
-  const userId = req.user.id; // from auth middleware
+  const { projectId, githubUsername, permissions } = req.body;
+  const userId = req.user.id; // Get userId from authentication middleware
 
   try {
+    // 1. Validate project existence and user authorization
     const project = await Project.findById(projectId);
     if (!project) {
       return res
         .status(404)
         .json({ success: false, message: "Project not found." });
     }
+    // Ensure the requesting user is the owner of the project
     if (project.userId.toString() !== userId) {
       return res
         .status(403)
         .json({ success: false, message: "Not authorized." });
     }
 
+    // 2. Fetch GitHub PAT for the project owner
     const githubData = await GitHubData.findOne({ userId });
     if (!githubData || !githubData.githubPAT) {
-      return res
-        .status(400)
-        .json({ success: false, message: "GitHub PAT not found." });
+      return res.status(400).json({
+        success: false,
+        message: "GitHub PAT not found for the project owner.",
+      });
     }
 
+    // 3. Search for the collaborator's GitHub profile to get their ID and avatar URL
+    const searchUserResponse = await fetch(
+      `https://api.github.com/users/${githubUsername}`,
+      {
+        headers: {
+          Authorization: `token ${githubData.githubPAT}`,
+          "User-Agent": githubData.githubUsername,
+        },
+      }
+    );
+
+    if (!searchUserResponse.ok) {
+      const errorData = await searchUserResponse.json();
+      return res.status(searchUserResponse.status).json({
+        success: false,
+        message: `Failed to find GitHub user '${githubUsername}': ${
+          errorData.message || "User not found"
+        }`,
+      });
+    }
+    const collaboratorGitHubInfo = await searchUserResponse.json();
+    const collaboratorGithubId = collaboratorGitHubInfo.id.toString();
+    const collaboratorAvatarUrl = collaboratorGitHubInfo.avatar_url;
+
+    // 4. Add collaborator to the GitHub repository (if not already added)
     const repoFullName = new URL(project.githubRepoLink).pathname.substring(1);
 
     const addCollaboratorResponse = await fetch(
@@ -381,37 +410,74 @@ const addCollaborator = async (req, res) => {
         headers: {
           Authorization: `token ${githubData.githubPAT}`,
           "User-Agent": "Your-App-Name",
+          "Content-Type": "application/json",
         },
       }
     );
 
     if (!addCollaboratorResponse.ok) {
       const errorData = await addCollaboratorResponse.json();
+      console.error("GitHub API error adding collaborator:", errorData);
       return res.status(addCollaboratorResponse.status).json({
         success: false,
-        message: `Failed to add collaborator: ${errorData.message}`,
+        message: `Failed to add collaborator to GitHub repository: ${errorData.message}`,
       });
     }
 
-    const newCollaboratorInfo = await addCollaboratorResponse.json();
-
-    const collaborator = {
+    // 5. Save or update collaborator details in ProjectCollaborator in MongoDB
+    const newCollaboratorData = {
       username: githubUsername,
-      githubId: newCollaboratorInfo.id.toString(),
+      githubId: collaboratorGithubId,
+      avatarUrl: collaboratorAvatarUrl,
+      status: "pending", // Always set to pending when added/updated by manager
+      permissions: permissions || [],
     };
 
-    await ProjectCollaborator.findOneAndUpdate(
-      { project_id: projectId },
-      {
-        $setOnInsert: { created_user_id: userId, project_id: projectId },
-        $addToSet: { collaborators: collaborator },
-      },
-      { upsert: true, new: true }
-    );
+    console.log("Attempting to save collaborator data:", newCollaboratorData); // Log data before save
+
+    // Find the ProjectCollaborator document for this project
+    let projectCollaboratorDoc = await ProjectCollaborator.findOne({
+      project_id: projectId,
+    });
+
+    if (projectCollaboratorDoc) {
+      // Document exists, check if collaborator is already in the array
+      const existingCollaboratorIndex =
+        projectCollaboratorDoc.collaborators.findIndex(
+          (collab) => collab.githubId === collaboratorGithubId
+        );
+
+      if (existingCollaboratorIndex > -1) {
+        // Collaborator exists, update their details
+        projectCollaboratorDoc.collaborators[existingCollaboratorIndex] =
+          newCollaboratorData;
+        console.log("Updating existing collaborator entry.");
+      } else {
+        // Collaborator doesn't exist, add them to the array
+        projectCollaboratorDoc.collaborators.push(newCollaboratorData);
+        console.log("Adding new collaborator entry.");
+      }
+      await projectCollaboratorDoc.save();
+      console.log(
+        "ProjectCollaborator document after update:",
+        projectCollaboratorDoc
+      ); // Log after update
+    } else {
+      // No document for this project, create a new one
+      const createdDoc = await ProjectCollaborator.create({
+        created_user_id: userId,
+        project_id: projectId,
+        collaborators: [newCollaboratorData],
+      });
+      console.log("New ProjectCollaborator document created:", createdDoc); // Log after creation
+    }
 
     res
       .status(200)
-      .json({ success: true, message: "Collaborator added successfully." });
+      .json({
+        success: true,
+        message: "Collaborator added/updated successfully.",
+      });
   } catch (error) {
     console.error("Error adding collaborator:", error);
     res.status(500).json({ success: false, message: "Internal server error." });
@@ -448,11 +514,11 @@ const getCollaboratorsByProjectId = async (req, res) => {
 
 module.exports = {
   authenticateGitHub,
-  getGitHubStatus, // New unified function
-  disconnectGitHub, // New logout function
-  getGitHubData, // Keep for backward compatibility
-  checkGitHubAuthStatus, // Keep for backward compatibility
-  getUserGithubRepos, // New function for fetching user's GitHub repositories
+  getGitHubStatus,
+  disconnectGitHub,
+  getGitHubData,
+  checkGitHubAuthStatus,
+  getUserGithubRepos,
   searchGithubUsers,
   addCollaborator,
   getCollaboratorsByProjectId,

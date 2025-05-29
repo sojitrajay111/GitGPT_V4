@@ -18,10 +18,13 @@ import {
   Link,
   List,
   ListItem,
-  ListItemButton, // Changed from ListItem button prop for better MUI v5 practice
+  ListItemButton,
   ListItemText,
   Avatar,
   ListItemAvatar,
+  Checkbox, // Import Checkbox for permissions
+  FormControlLabel, // Import FormControlLabel to wrap checkbox and label
+  FormGroup, // Import FormGroup to group checkboxes
 } from "@mui/material";
 import { styled } from "@mui/system";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
@@ -33,7 +36,6 @@ import {
   useAddCollaboratorMutation,
   useSearchGithubUsersQuery,
 } from "@/features/githubApiSlice";
-// Updated imports based on the new API slice structure
 
 const defaultTheme = createTheme();
 
@@ -51,6 +53,17 @@ const ProjectDetailPage = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState(null); // Stores the entire selected user object
+  const [selectedPermissions, setSelectedPermissions] = useState([]); // New state for managing selected permissions
+
+  // Define the available permissions
+  const availablePermissions = [
+    "Create PR",
+    "Assign PR",
+    "Review PR",
+    "User story creation",
+    "Code analysis",
+    "Documentation upload",
+  ];
 
   // Fetch project details
   const {
@@ -99,7 +112,8 @@ const ProjectDetailPage = () => {
       setOpenDialog(false);
       setSearchTerm("");
       setSelectedUser(null);
-      refetchCollaborators(); // Refetch collaborators list
+      setSelectedPermissions([]); // Reset permissions after successful addition
+      refetchCollaborators(); // Refetch collaborators list to show the newly added one
       resetAddCollaboratorMutation(); // Reset the mutation state
     }
   }, [
@@ -111,6 +125,7 @@ const ProjectDetailPage = () => {
   const handleOpenDialog = () => {
     setSearchTerm("");
     setSelectedUser(null);
+    setSelectedPermissions([]); // Reset permissions when opening the dialog
     resetAddCollaboratorMutation(); // Reset mutation state when opening dialog
     setOpenDialog(true);
   };
@@ -119,15 +134,29 @@ const ProjectDetailPage = () => {
     setOpenDialog(false);
     setSearchTerm("");
     setSelectedUser(null);
+    setSelectedPermissions([]); // Reset permissions when closing the dialog
+  };
+
+  // Handler for permission checkbox changes
+  const handlePermissionChange = (event) => {
+    const { name, checked } = event.target;
+    if (checked) {
+      // Add permission if checked
+      setSelectedPermissions((prev) => [...prev, name]);
+    } else {
+      // Remove permission if unchecked
+      setSelectedPermissions((prev) => prev.filter((p) => p !== name));
+    }
   };
 
   const handleAddCollaborator = async () => {
     if (selectedUser && projectId) {
-      // Ensure projectId is available
       try {
+        // Call the mutation with projectId, githubUsername, and selectedPermissions
         await addCollaborator({
           projectId,
           githubUsername: selectedUser.login, // 'login' is typically the GitHub username field
+          permissions: selectedPermissions, // Pass the array of selected permissions
         }).unwrap();
       } catch (err) {
         console.error("Failed to add collaborator:", err);
@@ -212,6 +241,7 @@ const ProjectDetailPage = () => {
           </CardContent>
         </Card>
 
+        {/* Existing action buttons for the project */}
         <Box
           sx={{
             display: "flex",
@@ -237,6 +267,7 @@ const ProjectDetailPage = () => {
           </StyledButton>
         </Box>
 
+        {/* Collaborators Section */}
         <Card sx={{ boxShadow: 3 }}>
           <CardContent>
             <Box
@@ -270,10 +301,40 @@ const ProjectDetailPage = () => {
               <List dense>
                 {collaborators.map((collab) => (
                   <ListItem
-                    key={collab.githubId || collab.username}
+                    key={collab.githubId || collab.username} // Use githubId as key if available
                     disablePadding
                   >
-                    <ListItemText primary={collab.username} />
+                    <ListItemAvatar>
+                      {/* Display collaborator's avatar */}
+                      <Avatar src={collab.avatarUrl} alt={collab.username} />
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <>
+                          {collab.username} {/* Display collaboration status */}
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color={
+                              collab.status === "accepted"
+                                ? "success.main"
+                                : collab.status === "pending"
+                                ? "warning.main"
+                                : "error.main"
+                            }
+                            sx={{ ml: 1, fontWeight: "bold" }}
+                          >
+                            ({collab.status})
+                          </Typography>
+                        </>
+                      }
+                      secondary={
+                        // Display permissions if available
+                        collab.permissions && collab.permissions.length > 0
+                          ? `Permissions: ${collab.permissions.join(", ")}`
+                          : "No specific permissions assigned"
+                      }
+                    />
                   </ListItem>
                 ))}
               </List>
@@ -285,6 +346,7 @@ const ProjectDetailPage = () => {
           </CardContent>
         </Card>
 
+        {/* Add New Collaborator Dialog */}
         <Dialog
           open={openDialog}
           onClose={handleCloseDialog}
@@ -354,6 +416,39 @@ const ProjectDetailPage = () => {
                 ))}
               </List>
             )}
+
+            {/* Permissions selection section - visible only when a user is selected */}
+            {selectedUser && (
+              <Box
+                sx={{
+                  mt: 3,
+                  mb: 2,
+                  p: 2,
+                  border: "1px solid #eee",
+                  borderRadius: 1,
+                }}
+              >
+                <Typography variant="h6" gutterBottom>
+                  Set Permissions for {selectedUser.login}
+                </Typography>
+                <FormGroup>
+                  {availablePermissions.map((permission) => (
+                    <FormControlLabel
+                      key={permission}
+                      control={
+                        <Checkbox
+                          name={permission}
+                          checked={selectedPermissions.includes(permission)}
+                          onChange={handlePermissionChange}
+                        />
+                      }
+                      label={permission}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
+            )}
+
             {addCollaboratorIsError && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 Failed to add collaborator:{" "}
