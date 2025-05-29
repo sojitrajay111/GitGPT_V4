@@ -22,6 +22,32 @@ const projectCollaboratorSchema = new mongoose.Schema(
           type: String,
           required: true,
         },
+        avatarUrl: {
+          // Added: Stores the collaborator's GitHub avatar URL
+          type: String,
+        },
+        status: {
+          // Added: Tracks the collaboration request status
+          type: String,
+          enum: ["pending", "accepted", "rejected"], // Possible statuses
+          default: "pending", // Default status when a collaborator is added
+          required: true,
+        },
+        permissions: [
+          // Added: Array of permissions granted to the collaborator
+          {
+            type: String,
+            enum: [
+              // Enforce specific permission values
+              "Create PR",
+              "Assign PR",
+              "Review PR",
+              "User story creation",
+              "Code analysis",
+              "Documentation upload",
+            ],
+          },
+        ],
       },
     ],
   },

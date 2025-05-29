@@ -13,7 +13,7 @@ export const githubApiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ["GitHubData", "GitHubStatus"],
+  tagTypes: ["GitHubData", "GitHubStatus", "ProjectCollaborators"], // Added ProjectCollaborators tagType
   endpoints: (builder) => ({
     getGitHubStatus: builder.query({
       query: () => "/status",
@@ -57,13 +57,37 @@ export const githubApiSlice = createApi({
       ],
     }),
     addCollaborator: builder.mutation({
-      // New endpoint
-      query: ({ projectId, githubUsername }) => ({
+      // Corrected: Destructure 'permissions' from the query arguments
+      query: ({ projectId, githubUsername, permissions }) => ({
         url: "/collaborators",
         method: "POST",
-        body: { projectId, githubUsername },
+        body: { projectId, githubUsername, permissions }, // Now 'permissions' is correctly defined
       }),
-      invalidatesTags: ["ProjectCollaborators"], // Invalidate collaborators for the specific project
+      // Invalidate ProjectCollaborators tag to refetch the list after adding/updating
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectCollaborators", id: projectId }, // Invalidate for the specific project
+      ],
+    }),
+    // New endpoint to get collaborators for a project
+    getCollaborators: builder.query({
+      query: (projectId) => `/projects/${projectId}/collaborators`,
+      providesTags: (result, error, projectId) => [
+        { type: "ProjectCollaborators", id: projectId },
+      ],
+    }),
+    deleteCollaborator: builder.mutation({
+      query: ({ projectId, githubUsername }) => ({
+        url: `collaborators/${projectId}/${githubUsername}`,
+        method: "DELETE",
+      }),
+    }),
+
+    updateCollaboratorPermissions: builder.mutation({
+      query: ({ projectId, githubUsername, permissions }) => ({
+        url: `collaborators/${projectId}/${githubUsername}/permissions`,
+        method: "PUT",
+        body: { permissions },
+      }),
     }),
   }),
 });
@@ -76,4 +100,7 @@ export const {
   useGetGitHubDataQuery,
   useSearchGithubUsersQuery,
   useAddCollaboratorMutation,
+  useGetCollaboratorsQuery, // Export the new hook
+  useDeleteCollaboratorMutation,
+  useUpdateCollaboratorPermissionsMutation,
 } = githubApiSlice;

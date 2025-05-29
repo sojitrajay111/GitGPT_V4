@@ -4,6 +4,8 @@ const User = require("../models/User"); // Required for updating user auth statu
 const Project = require("../models/Project"); // Required for collaborator logic
 const ProjectCollaborator = require("../models/ProjectCollaborator");
 
+const crypto = require("crypto");
+
 // Authenticate and store GitHub data (existing function)
 const authenticateGitHub = async (req, res) => {
   try {
@@ -344,34 +346,63 @@ const searchGithubUsers = async (req, res) => {
 };
 
 /**
- * @desc Add a collaborator to a project and GitHub repository.
+ * @desc Add or update a collaborator for a project and GitHub repository.
  * @route POST /api/github/collaborators
  * @access Private
  */
 const addCollaborator = async (req, res) => {
-  const { projectId, githubUsername } = req.body;
-  const userId = req.user.id; // from auth middleware
+  const { projectId, githubUsername, permissions } = req.body;
+  const userId = req.user.id; // Get userId from authentication middleware
 
   try {
+    // 1. Validate project existence and user authorization
     const project = await Project.findById(projectId);
     if (!project) {
       return res
         .status(404)
         .json({ success: false, message: "Project not found." });
     }
+    // Ensure the requesting user is the owner of the project
     if (project.userId.toString() !== userId) {
       return res
         .status(403)
         .json({ success: false, message: "Not authorized." });
     }
 
+    // 2. Fetch GitHub PAT for the project owner
     const githubData = await GitHubData.findOne({ userId });
     if (!githubData || !githubData.githubPAT) {
-      return res
-        .status(400)
-        .json({ success: false, message: "GitHub PAT not found." });
+      return res.status(400).json({
+        success: false,
+        message: "GitHub PAT not found for the project owner.",
+      });
     }
 
+    // 3. Search for the collaborator's GitHub profile to get their ID and avatar URL
+    const searchUserResponse = await fetch(
+      `https://api.github.com/users/${githubUsername}`,
+      {
+        headers: {
+          Authorization: `token ${githubData.githubPAT}`,
+          "User-Agent": githubData.githubUsername,
+        },
+      }
+    );
+
+    if (!searchUserResponse.ok) {
+      const errorData = await searchUserResponse.json();
+      return res.status(searchUserResponse.status).json({
+        success: false,
+        message: `Failed to find GitHub user '${githubUsername}': ${
+          errorData.message || "User not found"
+        }`,
+      });
+    }
+    const collaboratorGitHubInfo = await searchUserResponse.json();
+    const collaboratorGithubId = collaboratorGitHubInfo.id.toString();
+    const collaboratorAvatarUrl = collaboratorGitHubInfo.avatar_url;
+
+    // 4. Add collaborator to the GitHub repository (if not already added)
     const repoFullName = new URL(project.githubRepoLink).pathname.substring(1);
 
     const addCollaboratorResponse = await fetch(
@@ -381,37 +412,77 @@ const addCollaborator = async (req, res) => {
         headers: {
           Authorization: `token ${githubData.githubPAT}`,
           "User-Agent": "Your-App-Name",
+          "Content-Type": "application/json",
         },
       }
     );
 
     if (!addCollaboratorResponse.ok) {
       const errorData = await addCollaboratorResponse.json();
-      return res.status(addCollaboratorResponse.status).json({
-        success: false,
-        message: `Failed to add collaborator: ${errorData.message}`,
+      console.error("GitHub API error adding collaborator:", errorData);
+      // Handle the case where collaborator is already part of the organization
+      if (
+        addCollaboratorResponse.status === 422 &&
+        errorData.message.includes("is already a collaborator")
+      ) {
+        // Proceed to update database if already a collaborator on GitHub
+        console.log(
+          `User ${githubUsername} is already a collaborator on GitHub. Proceeding to update database.`
+        );
+      } else {
+        return res.status(addCollaboratorResponse.status).json({
+          success: false,
+          message: `Failed to add collaborator to GitHub repository: ${errorData.message}`,
+        });
+      }
+    }
+
+    // 5. Save or update collaborator details in ProjectCollaborator in MongoDB
+    const newCollaboratorData = {
+      username: githubUsername,
+      githubId: collaboratorGithubId,
+      avatarUrl: collaboratorAvatarUrl,
+      // Status is set to 'pending' as a GitHub invitation is sent.
+      // This status should be updated to 'accepted' via a GitHub webhook
+      // when the collaborator accepts the invitation.
+      status: "pending",
+      permissions: permissions || [],
+    };
+
+    let projectCollaboratorDoc = await ProjectCollaborator.findOne({
+      project_id: projectId,
+    });
+
+    if (projectCollaboratorDoc) {
+      const existingCollaboratorIndex =
+        projectCollaboratorDoc.collaborators.findIndex(
+          (collab) => collab.githubId === collaboratorGithubId
+        );
+
+      if (existingCollaboratorIndex > -1) {
+        // Collaborator exists, update their details
+        projectCollaboratorDoc.collaborators[existingCollaboratorIndex] = {
+          ...projectCollaboratorDoc.collaborators[existingCollaboratorIndex], // Keep existing data
+          ...newCollaboratorData, // Overlay new data
+        };
+      } else {
+        // Collaborator doesn't exist, add them to the array
+        projectCollaboratorDoc.collaborators.push(newCollaboratorData);
+      }
+      await projectCollaboratorDoc.save();
+    } else {
+      // No document for this project, create a new one
+      await ProjectCollaborator.create({
+        created_user_id: userId,
+        project_id: projectId,
+        collaborators: [newCollaboratorData],
       });
     }
 
-    const newCollaboratorInfo = await addCollaboratorResponse.json();
-
-    const collaborator = {
-      username: githubUsername,
-      githubId: newCollaboratorInfo.id.toString(),
-    };
-
-    await ProjectCollaborator.findOneAndUpdate(
-      { project_id: projectId },
-      {
-        $setOnInsert: { created_user_id: userId, project_id: projectId },
-        $addToSet: { collaborators: collaborator },
-      },
-      { upsert: true, new: true }
-    );
-
-    res
-      .status(200)
-      .json({ success: true, message: "Collaborator added successfully." });
+    res.status(200).json({
+      success: true,
+      message: "Collaborator added/updated successfully.",
+    });
   } catch (error) {
     console.error("Error adding collaborator:", error);
     res.status(500).json({ success: false, message: "Internal server error." });
@@ -446,14 +517,321 @@ const getCollaboratorsByProjectId = async (req, res) => {
   }
 };
 
+/**
+ * @desc Delete a collaborator from a project and GitHub repository.
+ * @route DELETE /api/github/collaborators/:projectId/:githubUsername
+ * @access Private
+ */
+const deleteCollaborator = async (req, res) => {
+  const { projectId, githubUsername } = req.params;
+  const userId = req.user.id; // Get userId from authentication middleware
+
+  try {
+    // 1. Validate project existence and user authorization
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found." });
+    }
+    // Ensure the requesting user is the owner of the project
+    if (project.userId.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized." });
+    }
+
+    // 2. Fetch GitHub PAT for the project owner
+    const githubData = await GitHubData.findOne({ userId });
+    if (!githubData || !githubData.githubPAT) {
+      return res.status(400).json({
+        success: false,
+        message: "GitHub PAT not found for the project owner.",
+      });
+    }
+
+    const repoFullName = new URL(project.githubRepoLink).pathname.substring(1);
+
+    // 3. Remove collaborator from GitHub repository
+    const removeCollaboratorResponse = await fetch(
+      `https://api.github.com/repos/${repoFullName}/collaborators/${githubUsername}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `token ${githubData.githubPAT}`,
+          "User-Agent": "Your-App-Name",
+        },
+      }
+    );
+
+    if (!removeCollaboratorResponse.ok) {
+      const errorData = await removeCollaboratorResponse.json();
+      console.error("GitHub API error removing collaborator:", errorData);
+      // If the collaborator is not found on GitHub (e.g., already removed),
+      // we can still proceed to remove them from our database.
+      if (removeCollaboratorResponse.status !== 404) {
+        return res.status(removeCollaboratorResponse.status).json({
+          success: false,
+          message: `Failed to remove collaborator from GitHub: ${errorData.message}`,
+        });
+      }
+      console.log(
+        `Collaborator ${githubUsername} not found on GitHub, proceeding with DB removal.`
+      );
+    }
+
+    // 4. Remove collaborator from ProjectCollaborator in MongoDB
+    const projectCollaboratorDoc = await ProjectCollaborator.findOne({
+      project_id: projectId,
+    });
+
+    if (projectCollaboratorDoc) {
+      projectCollaboratorDoc.collaborators =
+        projectCollaboratorDoc.collaborators.filter(
+          (collab) => collab.username !== githubUsername
+        );
+      await projectCollaboratorDoc.save();
+    }
+
+    res
+      .status(200)
+      .json({ success: true, message: "Collaborator removed successfully." });
+  } catch (error) {
+    console.error("Error deleting collaborator:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+};
+
+/**
+ * @desc Update a collaborator's permissions for a project.
+ * @route PUT /api/github/collaborators/:projectId/:githubUsername/permissions
+ * @access Private
+ */
+const updateCollaboratorPermissions = async (req, res) => {
+  const { projectId, githubUsername } = req.params;
+  const { permissions } = req.body;
+  const userId = req.user.id; // Get userId from authentication middleware
+
+  try {
+    // 1. Validate project existence and user authorization
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found." });
+    }
+    // Ensure the requesting user is the owner of the project
+    if (project.userId.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized." });
+    }
+
+    if (!Array.isArray(permissions)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Permissions must be an array." });
+    }
+
+    // 2. Find and update collaborator's permissions in MongoDB
+    const projectCollaboratorDoc = await ProjectCollaborator.findOne({
+      project_id: projectId,
+    });
+
+    if (!projectCollaboratorDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Project collaborator data not found.",
+      });
+    }
+
+    const collaboratorIndex = projectCollaboratorDoc.collaborators.findIndex(
+      (collab) => collab.username === githubUsername
+    );
+
+    if (collaboratorIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Collaborator not found for this project.",
+      });
+    }
+
+    projectCollaboratorDoc.collaborators[collaboratorIndex].permissions =
+      permissions;
+    await projectCollaboratorDoc.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Collaborator permissions updated successfully.",
+    });
+  } catch (error) {
+    console.error("Error updating collaborator permissions:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+};
+
+const updateCollaboratorStatusInDb = async (projectId, githubId, newStatus) => {
+  try {
+    const projectCollaboratorDoc = await ProjectCollaborator.findOne({
+      project_id: projectId,
+    });
+
+    if (!projectCollaboratorDoc) {
+      console.warn(
+        `ProjectCollaborator document not found for project_id: ${projectId}`
+      );
+      return false;
+    }
+
+    const collaboratorIndex = projectCollaboratorDoc.collaborators.findIndex(
+      (collab) => collab.githubId === githubId
+    );
+
+    if (collaboratorIndex === -1) {
+      console.warn(
+        `Collaborator with githubId ${githubId} not found for project ${projectId}`
+      );
+      return false;
+    }
+
+    // Only update if the status is changing to accepted from pending
+    if (
+      projectCollaboratorDoc.collaborators[collaboratorIndex].status !==
+      newStatus
+    ) {
+      projectCollaboratorDoc.collaborators[collaboratorIndex].status =
+        newStatus;
+      await projectCollaboratorDoc.save();
+      console.log(
+        `Collaborator ${githubId} status updated to '${newStatus}' for project ${projectId}`
+      );
+      return true;
+    }
+    console.log(
+      `Collaborator ${githubId} status already '${newStatus}' or no change needed.`
+    );
+    return false;
+  } catch (error) {
+    console.error("Error updating collaborator status in DB:", error);
+    return false;
+  }
+};
+
+const handleGitHubWebhook = async (req, res) => {
+  const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET; // Define this in your .env
+  const signature = req.headers["x-hub-signature-256"];
+  const event = req.headers["x-github-event"];
+  const payload = JSON.stringify(req.body); // GitHub sends JSON, but verify with raw body
+
+  // 1. Verify webhook signature for security
+  if (!signature || !GITHUB_WEBHOOK_SECRET) {
+    console.warn("Webhook secret not configured or signature missing.");
+    return res
+      .status(400)
+      .send("Webhook secret not configured or signature missing.");
+  }
+
+  const hmac = crypto.createHmac("sha256", GITHUB_WEBHOOK_SECRET);
+  const digest = "sha256=" + hmac.update(payload).digest("hex");
+
+  if (digest !== signature) {
+    console.warn("Webhook signature mismatch!");
+    return res.status(401).send("Webhook signature mismatch.");
+  }
+
+  try {
+    console.log(`Received GitHub webhook event: ${event}`);
+
+    // Handle 'member' event for collaborator status changes
+    if (event === "member") {
+      const { action, member, repository } = req.body;
+
+      if (action === "added" && member && repository) {
+        // This indicates a collaborator has been added to the repository
+        const githubUsername = member.login;
+        const githubId = member.id.toString();
+        const repoFullName = repository.full_name; // e.g., 'owner/repo-name'
+
+        console.log(
+          `Member '${githubUsername}' (ID: ${githubId}) was added to repository '${repoFullName}'`
+        );
+
+        // Find the project associated with this repository
+        // You need to ensure your Project model stores the full GitHub repository link
+        const project = await Project.findOne({
+          githubRepoLink: { $regex: new RegExp(repoFullName, "i") }, // Case-insensitive match
+        });
+
+        if (project) {
+          console.log(
+            `Found project ${project._id} for repository ${repoFullName}`
+          );
+          // Update the collaborator's status to 'accepted'
+          const updated = await updateCollaboratorStatusInDb(
+            project._id,
+            githubId,
+            "accepted"
+          );
+          if (updated) {
+            console.log(
+              `Collaborator ${githubUsername} status updated to 'accepted' for project ${project._id}`
+            );
+          }
+        } else {
+          console.warn(
+            `No project found matching GitHub repository: ${repoFullName}`
+          );
+        }
+      } else if (action === "removed" && member && repository) {
+        // Optionally handle collaborator removal
+        const githubUsername = member.login;
+        const githubId = member.id.toString();
+        const repoFullName = repository.full_name;
+
+        console.log(
+          `Member '${githubUsername}' (ID: ${githubId}) was removed from repository '${repoFullName}'`
+        );
+
+        const project = await Project.findOne({
+          githubRepoLink: { $regex: new RegExp(repoFullName, "i") },
+        });
+
+        if (project) {
+          const updated = await updateCollaboratorStatusInDb(
+            project._id,
+            githubId,
+            "rejected" // Or a custom 'removed' status if you add it to your enum
+          );
+          if (updated) {
+            console.log(
+              `Collaborator ${githubUsername} status updated to 'rejected' for project ${project._id}`
+            );
+          }
+        }
+      }
+      // You might also want to handle 'member_invited' action if you want to track invitations more granularly
+      // or other webhook events relevant to your application.
+    }
+
+    res.status(200).send("Webhook received and processed.");
+  } catch (error) {
+    console.error("Error processing GitHub webhook:", error);
+    res.status(500).send("Error processing webhook.");
+  }
+};
+
 module.exports = {
   authenticateGitHub,
-  getGitHubStatus, // New unified function
-  disconnectGitHub, // New logout function
-  getGitHubData, // Keep for backward compatibility
-  checkGitHubAuthStatus, // Keep for backward compatibility
-  getUserGithubRepos, // New function for fetching user's GitHub repositories
+  getGitHubStatus,
+  disconnectGitHub,
+  getGitHubData,
+  checkGitHubAuthStatus,
+  getUserGithubRepos,
   searchGithubUsers,
   addCollaborator,
   getCollaboratorsByProjectId,
+  deleteCollaborator, // Export the new function
+  updateCollaboratorPermissions,
+  // Export the new function
+  handleGitHubWebhook,
 };
