@@ -42,6 +42,20 @@ export const projectApiSlice = createApi({
       query: () => "/github/status", // Endpoint path for GitHub authentication status
       providesTags: ["GitHubStatus"], // Tag this query's data
     }),
+    getProjectById: builder.query({
+      // New endpoint
+      query: (projectId) => `projects/${projectId}`,
+      providesTags: (result, error, projectId) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+    getCollaborators: builder.query({
+      // New endpoint
+      query: (projectId) => `projects/${projectId}/collaborators`,
+      providesTags: (result, error, projectId) => [
+        { type: "ProjectCollaborators", id: projectId },
+      ],
+    }),
   }),
 });
 
@@ -51,4 +65,6 @@ export const {
   useCreateProjectMutation,
   useGetUserGithubReposQuery,
   useGetGitHubAuthStatusQuery,
+  useGetProjectByIdQuery,
+  useGetCollaboratorsQuery,
 } = projectApiSlice;

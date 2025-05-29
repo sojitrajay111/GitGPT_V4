@@ -1,6 +1,8 @@
 // controllers/githubController.js
 const GitHubData = require("../models/GithubData"); // Ensure this path is correct
 const User = require("../models/User"); // Required for updating user auth status
+const Project = require("../models/Project"); // Required for collaborator logic
+const ProjectCollaborator = require("../models/ProjectCollaborator");
 
 // Authenticate and store GitHub data (existing function)
 const authenticateGitHub = async (req, res) => {
@@ -304,6 +306,146 @@ const getUserGithubRepos = async (req, res) => {
   }
 };
 
+/**
+ * @desc Search for GitHub users by username.
+ * @route GET /api/github/search/users?q=
+ * @access Private
+ */
+const searchGithubUsers = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Search query is required." });
+    }
+
+    const githubResponse = await fetch(
+      `https://api.github.com/search/users?q=${q}`,
+      {
+        headers: {
+          "User-Agent": "Your-App-Name",
+        },
+      }
+    );
+
+    if (!githubResponse.ok) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to search GitHub users." });
+    }
+
+    const data = await githubResponse.json();
+    res.status(200).json({ success: true, users: data.items });
+  } catch (error) {
+    console.error("Error searching GitHub users:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+};
+
+/**
+ * @desc Add a collaborator to a project and GitHub repository.
+ * @route POST /api/github/collaborators
+ * @access Private
+ */
+const addCollaborator = async (req, res) => {
+  const { projectId, githubUsername } = req.body;
+  const userId = req.user.id; // from auth middleware
+
+  try {
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found." });
+    }
+    if (project.userId.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized." });
+    }
+
+    const githubData = await GitHubData.findOne({ userId });
+    if (!githubData || !githubData.githubPAT) {
+      return res
+        .status(400)
+        .json({ success: false, message: "GitHub PAT not found." });
+    }
+
+    const repoFullName = new URL(project.githubRepoLink).pathname.substring(1);
+
+    const addCollaboratorResponse = await fetch(
+      `https://api.github.com/repos/${repoFullName}/collaborators/${githubUsername}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `token ${githubData.githubPAT}`,
+          "User-Agent": "Your-App-Name",
+        },
+      }
+    );
+
+    if (!addCollaboratorResponse.ok) {
+      const errorData = await addCollaboratorResponse.json();
+      return res.status(addCollaboratorResponse.status).json({
+        success: false,
+        message: `Failed to add collaborator: ${errorData.message}`,
+      });
+    }
+
+    const newCollaboratorInfo = await addCollaboratorResponse.json();
+
+    const collaborator = {
+      username: githubUsername,
+      githubId: newCollaboratorInfo.id.toString(),
+    };
+
+    await ProjectCollaborator.findOneAndUpdate(
+      { project_id: projectId },
+      {
+        $setOnInsert: { created_user_id: userId, project_id: projectId },
+        $addToSet: { collaborators: collaborator },
+      },
+      { upsert: true, new: true }
+    );
+
+    res
+      .status(200)
+      .json({ success: true, message: "Collaborator added successfully." });
+  } catch (error) {
+    console.error("Error adding collaborator:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+};
+
+/**
+ * @desc Get all collaborators for a project.
+ * @route GET /api/projects/:projectId/collaborators
+ * @access Private
+ */
+const getCollaboratorsByProjectId = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const collaboratorsDoc = await ProjectCollaborator.findOne({
+      project_id: projectId,
+    });
+
+    if (!collaboratorsDoc) {
+      return res.status(200).json({ success: true, collaborators: [] });
+    }
+
+    res
+      .status(200)
+      .json({ success: true, collaborators: collaboratorsDoc.collaborators });
+  } catch (error) {
+    console.error("Error fetching collaborators:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while fetching collaborators.",
+    });
+  }
+};
+
 module.exports = {
   authenticateGitHub,
   getGitHubStatus, // New unified function
@@ -311,4 +453,7 @@ module.exports = {
   getGitHubData, // Keep for backward compatibility
   checkGitHubAuthStatus, // Keep for backward compatibility
   getUserGithubRepos, // New function for fetching user's GitHub repositories
+  searchGithubUsers,
+  addCollaborator,
+  getCollaboratorsByProjectId,
 };

@@ -8,6 +8,8 @@ const {
   getGitHubData,
   checkGitHubAuthStatus,
   getUserGithubRepos, // <--- Make sure this is imported
+  searchGithubUsers,
+  addCollaborator,
 } = require("../controllers/githubController");
 
 // Middleware to authenticate user (replace with your auth middleware)
@@ -24,6 +26,8 @@ router.delete("/disconnect", authenticateUser, disconnectGitHub);
 
 // Route to get user's private GitHub repositories
 router.get("/repos", authenticateUser, getUserGithubRepos); // <--- Added this route
+router.get("/search/users", authenticateUser, searchGithubUsers); // New: Search GitHub users
+router.post("/collaborators", authenticateUser, addCollaborator);
 
 // Legacy routes (keep for backward compatibility)
 router.get("/auth-status", authenticateUser, checkGitHubAuthStatus);

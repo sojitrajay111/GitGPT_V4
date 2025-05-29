@@ -13,7 +13,7 @@ export const githubApiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ["GitHubData"],
+  tagTypes: ["GitHubData", "GitHubStatus"],
   endpoints: (builder) => ({
     getGitHubStatus: builder.query({
       query: () => "/status",
@@ -49,6 +49,22 @@ export const githubApiSlice = createApi({
       query: () => "/data",
       providesTags: ["GitHubData"],
     }),
+    searchGithubUsers: builder.query({
+      // New endpoint
+      query: (searchTerm) => `/search/users?q=${searchTerm}`,
+      providesTags: (result, error, searchTerm) => [
+        { type: "GitHubUsers", id: searchTerm },
+      ],
+    }),
+    addCollaborator: builder.mutation({
+      // New endpoint
+      query: ({ projectId, githubUsername }) => ({
+        url: "/collaborators",
+        method: "POST",
+        body: { projectId, githubUsername },
+      }),
+      invalidatesTags: ["ProjectCollaborators"], // Invalidate collaborators for the specific project
+    }),
   }),
 });
 
@@ -58,4 +74,6 @@ export const {
   useDisconnectGitHubMutation,
   useCheckGitHubAuthStatusQuery, // Legacy
   useGetGitHubDataQuery,
+  useSearchGithubUsersQuery,
+  useAddCollaboratorMutation,
 } = githubApiSlice;
