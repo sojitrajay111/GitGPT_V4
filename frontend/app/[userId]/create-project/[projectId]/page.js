@@ -22,10 +22,13 @@ import {
   ListItemText,
   Avatar,
   ListItemAvatar,
-  Checkbox, // Import Checkbox for permissions
-  FormControlLabel, // Import FormControlLabel to wrap checkbox and label
-  FormGroup, // Import FormGroup to group checkboxes
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  IconButton, // Import IconButton for delete/edit icons
 } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete"; // Import Delete icon
+import EditIcon from "@mui/icons-material/Edit"; // Import Edit icon
 import { styled } from "@mui/system";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import {
@@ -35,7 +38,9 @@ import {
 import {
   useAddCollaboratorMutation,
   useSearchGithubUsersQuery,
-} from "@/features/githubApiSlice";
+  useDeleteCollaboratorMutation, // Import the new mutation
+  useUpdateCollaboratorPermissionsMutation, // Import the new mutation
+} from "@/features/githubApiSlice"; // Assuming these are in githubApiSlice
 
 const defaultTheme = createTheme();
 
@@ -48,12 +53,17 @@ const StyledButton = styled(Button)(({ theme }) => ({
 
 const ProjectDetailPage = () => {
   const params = useParams();
-  const projectId = params.projectId; // Correctly accessing the route parameter
+  const projectId = params.projectId;
 
-  const [openDialog, setOpenDialog] = useState(false);
+  const [openAddDialog, setOpenAddDialog] = useState(false); // Renamed for clarity
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false); // New state for delete dialog
+  const [openEditDialog, setOpenEditDialog] = useState(false); // New state for edit dialog
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedUser, setSelectedUser] = useState(null); // Stores the entire selected user object
-  const [selectedPermissions, setSelectedPermissions] = useState([]); // New state for managing selected permissions
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedPermissions, setSelectedPermissions] = useState([]);
+  const [selectedCollaborator, setSelectedCollaborator] = useState(null); // New state for current collaborator to edit/delete
+  const [permissionsToEdit, setPermissionsToEdit] = useState([]); // New state for managing permissions in edit dialog
 
   // Define the available permissions
   const availablePermissions = [
@@ -71,27 +81,25 @@ const ProjectDetailPage = () => {
     isLoading: projectLoading,
     isError: projectIsError,
     error: projectError,
-    refetch: refetchProjectDetails, // Added refetch for project details if needed
   } = useGetProjectByIdQuery(projectId, { skip: !projectId });
 
   // Fetch collaborators for the project
   const {
     data: collaboratorsData,
     isLoading: collaboratorsLoading,
-    isError: collaboratorsIsError, // Added error handling for collaborators
-    error: collaboratorsError, // Added error handling for collaborators
+    isError: collaboratorsIsError,
+    error: collaboratorsError,
     refetch: refetchCollaborators,
   } = useGetCollaboratorsQuery(projectId, { skip: !projectId });
 
   // Search for GitHub users
-  // The hook will automatically refetch when searchTerm changes (if not skipped)
   const {
     data: searchResults,
     isLoading: searchLoading,
-    isError: searchIsError, // Added error handling for search
-    error: searchError, // Added error handling for search
+    isError: searchIsError,
+    error: searchError,
   } = useSearchGithubUsersQuery(searchTerm, {
-    skip: searchTerm.length < 3, // Only search if term is 3+ chars
+    skip: searchTerm.length < 3,
   });
 
   // Mutation to add a collaborator
@@ -102,19 +110,43 @@ const ProjectDetailPage = () => {
       isSuccess: addCollaboratorSuccess,
       isError: addCollaboratorIsError,
       error: addCollaboratorError,
-      reset: resetAddCollaboratorMutation, // To reset mutation state
+      reset: resetAddCollaboratorMutation,
     },
   ] = useAddCollaboratorMutation();
+
+  // New: Mutation to delete a collaborator
+  const [
+    deleteCollaborator,
+    {
+      isLoading: deleteCollaboratorLoading,
+      isSuccess: deleteCollaboratorSuccess,
+      isError: deleteCollaboratorIsError,
+      error: deleteCollaboratorError,
+      reset: resetDeleteCollaboratorMutation,
+    },
+  ] = useDeleteCollaboratorMutation();
+
+  // New: Mutation to update collaborator permissions
+  const [
+    updateCollaboratorPermissions,
+    {
+      isLoading: updatePermissionsLoading,
+      isSuccess: updatePermissionsSuccess,
+      isError: updatePermissionsIsError,
+      error: updatePermissionsError,
+      reset: resetUpdatePermissionsMutation,
+    },
+  ] = useUpdateCollaboratorPermissionsMutation();
 
   // Effect to handle successful collaborator addition
   useEffect(() => {
     if (addCollaboratorSuccess) {
-      setOpenDialog(false);
+      setOpenAddDialog(false);
       setSearchTerm("");
       setSelectedUser(null);
-      setSelectedPermissions([]); // Reset permissions after successful addition
-      refetchCollaborators(); // Refetch collaborators list to show the newly added one
-      resetAddCollaboratorMutation(); // Reset the mutation state
+      setSelectedPermissions([]);
+      refetchCollaborators();
+      resetAddCollaboratorMutation();
     }
   }, [
     addCollaboratorSuccess,
@@ -122,45 +154,132 @@ const ProjectDetailPage = () => {
     resetAddCollaboratorMutation,
   ]);
 
-  const handleOpenDialog = () => {
-    setSearchTerm("");
-    setSelectedUser(null);
-    setSelectedPermissions([]); // Reset permissions when opening the dialog
-    resetAddCollaboratorMutation(); // Reset mutation state when opening dialog
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setSearchTerm("");
-    setSelectedUser(null);
-    setSelectedPermissions([]); // Reset permissions when closing the dialog
-  };
-
-  // Handler for permission checkbox changes
-  const handlePermissionChange = (event) => {
-    const { name, checked } = event.target;
-    if (checked) {
-      // Add permission if checked
-      setSelectedPermissions((prev) => [...prev, name]);
-    } else {
-      // Remove permission if unchecked
-      setSelectedPermissions((prev) => prev.filter((p) => p !== name));
+  // Effect to handle successful collaborator deletion
+  useEffect(() => {
+    if (deleteCollaboratorSuccess) {
+      setOpenDeleteDialog(false);
+      setSelectedCollaborator(null);
+      refetchCollaborators();
+      resetDeleteCollaboratorMutation();
     }
+  }, [
+    deleteCollaboratorSuccess,
+    refetchCollaborators,
+    resetDeleteCollaboratorMutation,
+  ]);
+
+  // Effect to handle successful permission update
+  useEffect(() => {
+    if (updatePermissionsSuccess) {
+      setOpenEditDialog(false);
+      setSelectedCollaborator(null);
+      setPermissionsToEdit([]);
+      refetchCollaborators();
+      resetUpdatePermissionsMutation();
+    }
+  }, [
+    updatePermissionsSuccess,
+    refetchCollaborators,
+    resetUpdatePermissionsMutation,
+  ]);
+
+  // Handlers for Add Collaborator Dialog
+  const handleOpenAddDialog = () => {
+    setSearchTerm("");
+    setSelectedUser(null);
+    setSelectedPermissions([]);
+    resetAddCollaboratorMutation();
+    setOpenAddDialog(true);
+  };
+
+  const handleCloseAddDialog = () => {
+    setOpenAddDialog(false);
+    setSearchTerm("");
+    setSelectedUser(null);
+    setSelectedPermissions([]);
   };
 
   const handleAddCollaborator = async () => {
     if (selectedUser && projectId) {
       try {
-        // Call the mutation with projectId, githubUsername, and selectedPermissions
         await addCollaborator({
           projectId,
-          githubUsername: selectedUser.login, // 'login' is typically the GitHub username field
-          permissions: selectedPermissions, // Pass the array of selected permissions
+          githubUsername: selectedUser.login,
+          permissions: selectedPermissions,
         }).unwrap();
       } catch (err) {
         console.error("Failed to add collaborator:", err);
-        // Error is already handled by addCollaboratorIsError and addCollaboratorError
+      }
+    }
+  };
+
+  // Handler for permission checkbox changes (Add dialog)
+  const handlePermissionChange = (event) => {
+    const { name, checked } = event.target;
+    if (checked) {
+      setSelectedPermissions((prev) => [...prev, name]);
+    } else {
+      setSelectedPermissions((prev) => prev.filter((p) => p !== name));
+    }
+  };
+
+  // NEW: Handlers for Delete Collaborator Dialog
+  const handleOpenDeleteDialog = (collaborator) => {
+    setSelectedCollaborator(collaborator);
+    setOpenDeleteDialog(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setOpenDeleteDialog(false);
+    setSelectedCollaborator(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (selectedCollaborator && projectId) {
+      try {
+        await deleteCollaborator({
+          projectId,
+          githubUsername: selectedCollaborator.username,
+        }).unwrap();
+      } catch (err) {
+        console.error("Failed to delete collaborator:", err);
+      }
+    }
+  };
+
+  // NEW: Handlers for Edit Collaborator Permissions Dialog
+  const handleOpenEditDialog = (collaborator) => {
+    setSelectedCollaborator(collaborator);
+    // Initialize permissionsToEdit with existing permissions of the collaborator
+    setPermissionsToEdit(collaborator.permissions || []);
+    setOpenEditDialog(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setOpenEditDialog(false);
+    setSelectedCollaborator(null);
+    setPermissionsToEdit([]);
+  };
+
+  const handleEditPermissionChange = (event) => {
+    const { name, checked } = event.target;
+    if (checked) {
+      setPermissionsToEdit((prev) => [...prev, name]);
+    } else {
+      setPermissionsToEdit((prev) => prev.filter((p) => p !== name));
+    }
+  };
+
+  const handleSavePermissions = async () => {
+    if (selectedCollaborator && projectId) {
+      try {
+        await updateCollaboratorPermissions({
+          projectId,
+          githubUsername: selectedCollaborator.username,
+          permissions: permissionsToEdit,
+        }).unwrap();
+      } catch (err) {
+        console.error("Failed to update permissions:", err);
       }
     }
   };
@@ -168,7 +287,6 @@ const ProjectDetailPage = () => {
   const project = projectData?.project;
   const collaborators = collaboratorsData?.collaborators || [];
 
-  // Main page loading state
   if (projectLoading) {
     return (
       <Box
@@ -182,7 +300,6 @@ const ProjectDetailPage = () => {
     );
   }
 
-  // Main page error state
   if (projectIsError) {
     return (
       <Box p={4}>
@@ -241,7 +358,6 @@ const ProjectDetailPage = () => {
           </CardContent>
         </Card>
 
-        {/* Existing action buttons for the project */}
         <Box
           sx={{
             display: "flex",
@@ -284,7 +400,7 @@ const ProjectDetailPage = () => {
               <StyledButton
                 variant="outlined"
                 color="primary"
-                onClick={handleOpenDialog}
+                onClick={handleOpenAddDialog}
                 size="small"
               >
                 Add Participants
@@ -301,17 +417,35 @@ const ProjectDetailPage = () => {
               <List dense>
                 {collaborators.map((collab) => (
                   <ListItem
-                    key={collab.githubId || collab.username} // Use githubId as key if available
+                    key={collab.githubId || collab.username}
                     disablePadding
+                    secondaryAction={
+                      <Box>
+                        <IconButton
+                          edge="end"
+                          aria-label="edit"
+                          onClick={() => handleOpenEditDialog(collab)}
+                          sx={{ mr: 1 }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          edge="end"
+                          aria-label="delete"
+                          onClick={() => handleOpenDeleteDialog(collab)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    }
                   >
                     <ListItemAvatar>
-                      {/* Display collaborator's avatar */}
                       <Avatar src={collab.avatarUrl} alt={collab.username} />
                     </ListItemAvatar>
                     <ListItemText
                       primary={
                         <>
-                          {collab.username} {/* Display collaboration status */}
+                          {collab.username}
                           <Typography
                             component="span"
                             variant="body2"
@@ -329,7 +463,6 @@ const ProjectDetailPage = () => {
                         </>
                       }
                       secondary={
-                        // Display permissions if available
                         collab.permissions && collab.permissions.length > 0
                           ? `Permissions: ${collab.permissions.join(", ")}`
                           : "No specific permissions assigned"
@@ -348,8 +481,8 @@ const ProjectDetailPage = () => {
 
         {/* Add New Collaborator Dialog */}
         <Dialog
-          open={openDialog}
-          onClose={handleCloseDialog}
+          open={openAddDialog}
+          onClose={handleCloseAddDialog}
           fullWidth
           maxWidth="sm"
         >
@@ -417,7 +550,6 @@ const ProjectDetailPage = () => {
               </List>
             )}
 
-            {/* Permissions selection section - visible only when a user is selected */}
             {selectedUser && (
               <Box
                 sx={{
@@ -458,7 +590,7 @@ const ProjectDetailPage = () => {
             )}
           </DialogContent>
           <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseDialog} color="inherit">
+            <Button onClick={handleCloseAddDialog} color="inherit">
               Cancel
             </Button>
             <Button
@@ -470,6 +602,114 @@ const ProjectDetailPage = () => {
                 <CircularProgress size={24} color="inherit" />
               ) : (
                 "Add Collaborator"
+              )}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* NEW: Delete Collaborator Confirmation Dialog */}
+        <Dialog
+          open={openDeleteDialog}
+          onClose={handleCloseDeleteDialog}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>Confirm Deletion</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to remove{" "}
+              <Typography component="span" fontWeight="bold">
+                {selectedCollaborator?.username}
+              </Typography>{" "}
+              as a collaborator from this project and its GitHub repository?
+            </Typography>
+            {deleteCollaboratorIsError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                Failed to delete collaborator:{" "}
+                {deleteCollaboratorError.data?.message ||
+                  "An unknown error occurred"}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: "16px 24px" }}>
+            <Button onClick={handleCloseDeleteDialog} color="inherit">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDelete}
+              color="error"
+              variant="contained"
+              disabled={deleteCollaboratorLoading}
+            >
+              {deleteCollaboratorLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* NEW: Edit Collaborator Permissions Dialog */}
+        <Dialog
+          open={openEditDialog}
+          onClose={handleCloseEditDialog}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>
+            Edit Permissions for {selectedCollaborator?.username}
+          </DialogTitle>
+          <DialogContent>
+            <Box
+              sx={{
+                mt: 1,
+                mb: 2,
+                p: 2,
+                border: "1px solid #eee",
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                Permissions
+              </Typography>
+              <FormGroup>
+                {availablePermissions.map((permission) => (
+                  <FormControlLabel
+                    key={permission}
+                    control={
+                      <Checkbox
+                        name={permission}
+                        checked={permissionsToEdit.includes(permission)}
+                        onChange={handleEditPermissionChange}
+                      />
+                    }
+                    label={permission}
+                  />
+                ))}
+              </FormGroup>
+            </Box>
+            {updatePermissionsIsError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                Failed to update permissions:{" "}
+                {updatePermissionsError.data?.message ||
+                  "An unknown error occurred"}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: "16px 24px" }}>
+            <Button onClick={handleCloseEditDialog} color="inherit">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSavePermissions}
+              variant="contained"
+              disabled={updatePermissionsLoading}
+            >
+              {updatePermissionsLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "Save Changes"
               )}
             </Button>
           </DialogActions>

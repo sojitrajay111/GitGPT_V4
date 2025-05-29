@@ -75,6 +75,20 @@ export const githubApiSlice = createApi({
         { type: "ProjectCollaborators", id: projectId },
       ],
     }),
+    deleteCollaborator: builder.mutation({
+      query: ({ projectId, githubUsername }) => ({
+        url: `collaborators/${projectId}/${githubUsername}`,
+        method: "DELETE",
+      }),
+    }),
+
+    updateCollaboratorPermissions: builder.mutation({
+      query: ({ projectId, githubUsername, permissions }) => ({
+        url: `collaborators/${projectId}/${githubUsername}/permissions`,
+        method: "PUT",
+        body: { permissions },
+      }),
+    }),
   }),
 });
 
@@ -87,4 +101,6 @@ export const {
   useSearchGithubUsersQuery,
   useAddCollaboratorMutation,
   useGetCollaboratorsQuery, // Export the new hook
+  useDeleteCollaboratorMutation,
+  useUpdateCollaboratorPermissionsMutation,
 } = githubApiSlice;
