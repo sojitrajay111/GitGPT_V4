@@ -28,6 +28,12 @@ export const authApiSlice = createApi({
         method: "POST",
       }),
     }),
+    // logout: builder.mutation({
+    //   query: () => ({
+    //     url: "auth/logout",
+    //     method: "POST",
+    //   }),
+    // }),
   }),
 });
 

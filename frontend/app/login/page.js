@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { useLoginMutation } from "@/features/authApiSlice"; // Adjust the import path as needed
+import { useLoginMutation } from "@/features/authApiSlice";
 import {
   Snackbar,
   Alert,
@@ -28,11 +28,20 @@ const Login = () => {
   const onSubmit = async (data) => {
     try {
       const response = await login(data).unwrap();
+
+      // Store token in localStorage
       localStorage.setItem("token", response.token);
+
       setMessage("Login successful");
       setSeverity("success");
       setOpen(true);
-      router.push("/dashboard");
+
+      // Redirect to dashboard
+      // Dashboard will automatically check GitHub authentication status
+      // and show the dialog if user is not authenticated to GitHub
+      setTimeout(() => {
+        router.push(`/${response?.user?.id}/dashboard`);
+      }, 1000);
     } catch (error) {
       setMessage(error.data?.message || "An error occurred");
       setSeverity("error");
@@ -76,6 +85,7 @@ const Login = () => {
           variant="contained"
           color="primary"
           disabled={isLoading}
+          fullWidth
         >
           {isLoading ? "Logging In..." : "Login"}
         </Button>
