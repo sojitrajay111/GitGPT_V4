@@ -13,7 +13,7 @@ export const githubApiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ["GitHubData"],
+   tagTypes: ["GitHubData", "GitHubStatus"],
   endpoints: (builder) => ({
     getGitHubStatus: builder.query({
       query: () => "/status",
