@@ -13,7 +13,12 @@ export const githubApiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ["GitHubData", "GitHubStatus", "ProjectCollaborators"], // Added ProjectCollaborators tagType
+  tagTypes: [
+    "GitHubData",
+    "GitHubStatus",
+    "ProjectCollaborators",
+    "GitHubBranches",
+  ], // Added ProjectCollaborators tagType
   endpoints: (builder) => ({
     getGitHubStatus: builder.query({
       query: () => "/status",
@@ -89,6 +94,23 @@ export const githubApiSlice = createApi({
         body: { permissions },
       }),
     }),
+    createGitHubBranch: builder.mutation({
+      query: ({ owner, repo, newBranchName, baseBranch }) => ({
+        url: `/repos/${owner}/${repo}/branches`,
+        method: "POST",
+        body: { newBranchName, baseBranch },
+      }),
+      invalidatesTags: (result, error, { owner, repo }) => [
+        { type: "GitHubBranches", id: `${owner}/${repo}` }, // Invalidate branches for this repo
+      ],
+    }),
+    // New endpoint for fetching repository branches
+    getGitHubRepoBranches: builder.query({
+      query: ({ owner, repo }) => `/repos/${owner}/${repo}/branches`,
+      providesTags: (result, error, { owner, repo }) => [
+        { type: "GitHubBranches", id: `${owner}/${repo}` },
+      ],
+    }),
   }),
 });
 
@@ -103,4 +125,6 @@ export const {
   useGetCollaboratorsQuery, // Export the new hook
   useDeleteCollaboratorMutation,
   useUpdateCollaboratorPermissionsMutation,
+  useCreateGitHubBranchMutation,
+  useGetGitHubRepoBranchesQuery,
 } = githubApiSlice;
