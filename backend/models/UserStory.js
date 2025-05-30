@@ -50,6 +50,12 @@ const userStorySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    // New field for AI-enhanced user story content
+    aiEnhancedUserStory: {
+      type: String,
+      trim: true, // Good to trim whitespace
+      default: "", // Default to an empty string
+    },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt timestamps

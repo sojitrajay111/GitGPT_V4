@@ -4,6 +4,7 @@ const authenticateUser = require("../middleware/authMiddleware"); // Assuming th
 const {
   createUserStory,
   getUserStoriesByProjectId,
+  generateAiStoryContent,
 } = require("../controllers/userStoryController"); // Import the specific functions from your userStoryController
 
 /**
@@ -19,5 +20,7 @@ router.post("/", authenticateUser, createUserStory);
  * @access Private (requires authentication)
  */
 router.get("/:projectId", authenticateUser, getUserStoriesByProjectId);
+
+router.post("/generate-ai-story", authenticateUser, generateAiStoryContent);
 
 module.exports = router;

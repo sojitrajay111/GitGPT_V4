@@ -44,8 +44,20 @@ export const userStoryApiSlice = createApi({
       }),
       invalidatesTags: [{ type: "UserStory", id: "LIST" }],
     }),
+    generateAiStory: builder.mutation({
+      query: (data) => ({
+        url: "/user-stories/generate-ai-story",
+        method: "POST",
+        body: data, // { userStoryTitle, description, acceptanceCriteria, testingScenarios }
+      }),
+      // No invalidation needed here as it doesn't change existing user stories directly,
+      // it just provides content to be used in the create/update flow.
+    }),
   }),
 });
 
-export const { useGetUserStoriesQuery, useCreateUserStoryMutation } =
-  userStoryApiSlice;
+export const {
+  useGetUserStoriesQuery,
+  useCreateUserStoryMutation,
+  useGenerateAiStoryMutation,
+} = userStoryApiSlice;

@@ -23,16 +23,18 @@ import {
   FormGroup,
   Avatar,
   ListItemAvatar,
-  Chip, // For displaying selected collaborators
-  Stack, // For spacing chips
+  Chip,
+  Stack,
+  Snackbar, // For better notifications
 } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { styled } from "@mui/system";
-import { useGetCollaboratorsQuery } from "@/features/projectApiSlice"; // To get project collaborators
+import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
 import {
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
-} from "@/features/userStoryApiSlice"; // New API slice for user stories
+  useGenerateAiStoryMutation, // Import the new mutation hook
+} from "@/features/userStoryApiSlice";
 
 const defaultTheme = createTheme();
 
@@ -55,10 +57,14 @@ const UserStoryPage = () => {
   const [testingScenarios, setTestingScenarios] = useState("");
   const [selectedCollaboratorGithubIds, setSelectedCollaboratorGithubIds] =
     useState([]);
-  const [generatedStoryContent, setGeneratedStoryContent] = useState("");
+  const [generatedStoryContent, setGeneratedStoryContent] = useState(""); // This will store the AI enhanced text
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
 
-  // Fetch existing user stories for this project
+  // Snackbar state for notifications
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success"); // 'success', 'error', 'warning', 'info'
+
   const {
     data: userStoriesData,
     isLoading: userStoriesLoading,
@@ -67,7 +73,6 @@ const UserStoryPage = () => {
     refetch: refetchUserStories,
   } = useGetUserStoriesQuery(projectId, { skip: !projectId });
 
-  // Fetch collaborators for the project
   const {
     data: collaboratorsData,
     isLoading: collaboratorsLoading,
@@ -75,7 +80,6 @@ const UserStoryPage = () => {
     error: collaboratorsError,
   } = useGetCollaboratorsQuery(projectId, { skip: !projectId });
 
-  // Mutation to create a new user story
   const [
     createUserStory,
     {
@@ -87,35 +91,67 @@ const UserStoryPage = () => {
     },
   ] = useCreateUserStoryMutation();
 
-  // Effect to handle successful user story creation
+  // Mutation for generating AI story
+  const [
+    generateAiStory,
+    {
+      isLoading: generateAiStoryLoading, // Separate loading state for AI generation
+      isError: generateAiStoryIsError,
+      error: generateAiStoryError,
+    },
+  ] = useGenerateAiStoryMutation();
+
+  const handleShowSnackbar = (message, severity = "success") => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  };
+
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
+
   useEffect(() => {
     if (createUserStorySuccess) {
+      handleShowSnackbar("User story created successfully!", "success");
       setOpenCreateDialog(false);
-      // Reset form fields
       setUserStoryTitle("");
       setDescription("");
       setAcceptanceCriteria("");
       setTestingScenarios("");
       setSelectedCollaboratorGithubIds([]);
-      setGeneratedStoryContent("");
+      setGeneratedStoryContent(""); // Clear AI content after successful save
       resetCreateUserStoryMutation();
-      refetchUserStories(); // Refetch to show the new story
+      refetchUserStories();
+    }
+    if (createUserStoryIsError) {
+      handleShowSnackbar(
+        `Failed to create user story: ${
+          createUserStoryError?.data?.message || "Unknown error"
+        }`,
+        "error"
+      );
     }
   }, [
     createUserStorySuccess,
+    createUserStoryIsError,
+    createUserStoryError,
     refetchUserStories,
     resetCreateUserStoryMutation,
   ]);
 
   const handleOpenCreateDialog = () => {
     setOpenCreateDialog(true);
-    // Reset form fields when opening the dialog
     setUserStoryTitle("");
     setDescription("");
     setAcceptanceCriteria("");
     setTestingScenarios("");
     setSelectedCollaboratorGithubIds([]);
-    setGeneratedStoryContent("");
+    setGeneratedStoryContent(""); // Clear AI content when opening dialog
+    if (createUserStoryIsError) resetCreateUserStoryMutation(); // Reset error state if any
   };
 
   const handleCloseCreateDialog = () => {
@@ -124,58 +160,57 @@ const UserStoryPage = () => {
 
   const handleCollaboratorChange = (event) => {
     const { value, checked } = event.target;
-    if (checked) {
-      setSelectedCollaboratorGithubIds((prev) => [...prev, value]);
-    } else {
-      setSelectedCollaboratorGithubIds((prev) =>
-        prev.filter((id) => id !== value)
-      );
-    }
+    setSelectedCollaboratorGithubIds((prev) =>
+      checked ? [...prev, value] : prev.filter((id) => id !== value)
+    );
   };
 
   const handleGenerateStory = async () => {
-    setIsGeneratingStory(true);
-    setGeneratedStoryContent(""); // Clear previous content
-
-    const prompt = `Generate a detailed user story based on the following information:
-    Title: ${userStoryTitle}
-    Description: ${description}
-    Acceptance Criteria: ${acceptanceCriteria}
-    Testing Scenarios: ${testingScenarios}
-
-    Please provide the output in a clear, concise format, suitable for a user story document.`;
+    if (
+      !userStoryTitle ||
+      !description ||
+      !acceptanceCriteria ||
+      !testingScenarios
+    ) {
+      handleShowSnackbar(
+        "Please fill in Title, Description, Acceptance Criteria, and Testing Scenarios before generating AI content.",
+        "warning"
+      );
+      return;
+    }
+    setIsGeneratingStory(true); // Use this for button's loading state
+    setGeneratedStoryContent("");
 
     try {
-      const payload = {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-      };
-      const apiKey = ""; // Leave as empty string, Canvas will provide
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const result = await generateAiStory({
+        userStoryTitle,
+        description,
+        acceptanceCriteria,
+        testingScenarios,
+      }).unwrap(); // unwrap() to get the actual response or throw an error
 
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-
-      if (
-        result.candidates &&
-        result.candidates.length > 0 &&
-        result.candidates[0].content &&
-        result.candidates[0].content.parts &&
-        result.candidates[0].content.parts.length > 0
-      ) {
-        const text = result.candidates[0].content.parts[0].text;
-        setGeneratedStoryContent(text);
+      if (result.success && result.aiEnhancedText) {
+        setGeneratedStoryContent(result.aiEnhancedText);
+        handleShowSnackbar(
+          "AI story content generated successfully!",
+          "success"
+        );
       } else {
-        setGeneratedStoryContent("Failed to generate story. Please try again.");
-        console.error("Unexpected API response structure:", result);
+        throw new Error(
+          result.message || "Failed to get AI content from server."
+        );
       }
-    } catch (error) {
-      console.error("Error calling Gemini API:", error);
-      setGeneratedStoryContent("Error generating story. Please check console.");
+    } catch (err) {
+      console.error("Error calling generateAiStory mutation:", err);
+      setGeneratedStoryContent(
+        "Error generating story. Please check console or try again."
+      );
+      handleShowSnackbar(
+        `Error generating AI story: ${
+          err.data?.message || err.message || "Unknown error"
+        }`,
+        "error"
+      );
     } finally {
       setIsGeneratingStory(false);
     }
@@ -189,9 +224,7 @@ const UserStoryPage = () => {
       !testingScenarios ||
       !projectId
     ) {
-      // Basic client-side validation
-      // Using alert for simplicity, replace with MUI Snackbar/Dialog for better UX
-      alert("Please fill all required fields.");
+      handleShowSnackbar("Please fill all required fields.", "warning");
       return;
     }
 
@@ -203,9 +236,15 @@ const UserStoryPage = () => {
         acceptanceCriteria,
         testingScenarios,
         collaboratorGithubIds: selectedCollaboratorGithubIds,
+        aiEnhancedUserStory: generatedStoryContent, // Include the AI generated content
       }).unwrap();
+      // Success is handled by the useEffect hook
     } catch (err) {
-      console.error("Failed to create user story:", err);
+      // Error is handled by the useEffect hook, but log for debugging
+      console.error(
+        "Failed to create user story (handleSubmitUserStory):",
+        err
+      );
     }
   };
 
@@ -229,7 +268,7 @@ const UserStoryPage = () => {
             gutterBottom
             sx={{ fontWeight: "bold" }}
           >
-            User Stories for Project
+            User Stories
           </Typography>
           <StyledButton
             variant="contained"
@@ -263,7 +302,10 @@ const UserStoryPage = () => {
         ) : (
           <List>
             {userStories.map((story) => (
-              <Card key={story._id} sx={{ mb: 3, boxShadow: 3 }}>
+              <Card
+                key={story._id}
+                sx={{ mb: 3, boxShadow: 3, borderRadius: 2 }}
+              >
                 <CardContent>
                   <Typography variant="h6" component="h3" gutterBottom>
                     {story.userStoryTitle}
@@ -271,24 +313,51 @@ const UserStoryPage = () => {
                   <Typography
                     variant="body2"
                     color="text.secondary"
-                    sx={{ mb: 1 }}
+                    sx={{ mb: 1, whiteSpace: "pre-wrap" }}
                   >
-                    Description: {story.description}
+                    <strong>Description:</strong> {story.description}
                   </Typography>
                   <Typography
                     variant="body2"
                     color="text.secondary"
-                    sx={{ mb: 1 }}
+                    sx={{ mb: 1, whiteSpace: "pre-wrap" }}
                   >
-                    Acceptance Criteria: {story.acceptanceCriteria}
+                    <strong>Acceptance Criteria:</strong>{" "}
+                    {story.acceptanceCriteria}
                   </Typography>
                   <Typography
                     variant="body2"
                     color="text.secondary"
-                    sx={{ mb: 1 }}
+                    sx={{ mb: 1, whiteSpace: "pre-wrap" }}
                   >
-                    Testing Scenarios: {story.testingScenarios}
+                    <strong>Testing Scenarios:</strong> {story.testingScenarios}
                   </Typography>
+                  {story.aiEnhancedUserStory && (
+                    <Box
+                      sx={{
+                        mt: 2,
+                        p: 2,
+                        border: "1px dashed #ccc",
+                        borderRadius: 1,
+                        backgroundColor: "#f0f8ff",
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        gutterBottom
+                        sx={{ fontWeight: "bold", color: "primary.main" }}
+                      >
+                        AI Enhanced Content:
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ whiteSpace: "pre-wrap" }}
+                      >
+                        {story.aiEnhancedUserStory}
+                      </Typography>
+                    </Box>
+                  )}
                   {story.collaborators && story.collaborators.length > 0 && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="subtitle2" gutterBottom>
@@ -298,16 +367,27 @@ const UserStoryPage = () => {
                         {story.collaborators.map((collab) => (
                           <Chip
                             key={collab.githubId}
-                            avatar={<Avatar src={collab.avatarUrl} />}
+                            avatar={
+                              <Avatar
+                                src={collab.avatarUrl}
+                                alt={collab.username}
+                              />
+                            }
                             label={collab.username}
                             variant="outlined"
+                            size="small"
                           />
                         ))}
                       </Stack>
                     </Box>
                   )}
-                  <Typography variant="caption" display="block" sx={{ mt: 2 }}>
-                    Created at: {new Date(story.createdAt).toLocaleString()}
+                  <Typography
+                    variant="caption"
+                    display="block"
+                    sx={{ mt: 2, color: "text.disabled" }}
+                  >
+                    Created: {new Date(story.createdAt).toLocaleString()} |
+                    Updated: {new Date(story.updatedAt).toLocaleString()}
                   </Typography>
                 </CardContent>
               </Card>
@@ -315,7 +395,6 @@ const UserStoryPage = () => {
           </List>
         )}
 
-        {/* Create User Story Dialog */}
         <Dialog
           open={openCreateDialog}
           onClose={handleCloseCreateDialog}
@@ -352,7 +431,7 @@ const UserStoryPage = () => {
             <TextField
               margin="dense"
               id="acceptance-criteria"
-              label="Acceptance Criteria"
+              label="Acceptance Criteria (one per line)"
               type="text"
               fullWidth
               multiline
@@ -365,7 +444,7 @@ const UserStoryPage = () => {
             <TextField
               margin="dense"
               id="testing-scenarios"
-              label="Testing Scenarios"
+              label="Testing Scenarios (one per line)"
               type="text"
               fullWidth
               multiline
@@ -425,9 +504,10 @@ const UserStoryPage = () => {
               <Button
                 variant="outlined"
                 onClick={handleGenerateStory}
-                disabled={isGeneratingStory}
+                disabled={isGeneratingStory || generateAiStoryLoading} // Disable if either generation is in progress
+                sx={{ mr: 1 }} // Add some margin
               >
-                {isGeneratingStory ? (
+                {isGeneratingStory || generateAiStoryLoading ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : (
                   "Generate Story Content (AI)"
@@ -443,21 +523,26 @@ const UserStoryPage = () => {
                   border: "1px solid #ddd",
                   borderRadius: 1,
                   backgroundColor: "#f9f9f9",
-                  whiteSpace: "pre-wrap", // Preserve whitespace and line breaks
+                  whiteSpace: "pre-wrap",
                 }}
               >
-                <Typography variant="subtitle1" gutterBottom>
-                  Generated Story:
+                <Typography
+                  variant="subtitle1"
+                  gutterBottom
+                  sx={{ fontWeight: "bold" }}
+                >
+                  AI Enhanced Suggestions:
                 </Typography>
                 <Typography variant="body2">{generatedStoryContent}</Typography>
               </Box>
             )}
-
-            {createUserStoryIsError && (
+            {/* Display AI generation error if any */}
+            {generateAiStoryIsError && (
               <Alert severity="error" sx={{ mt: 2 }}>
-                Failed to create user story:{" "}
-                {createUserStoryError?.data?.message ||
-                  "An unknown error occurred"}
+                Failed to generate AI content:{" "}
+                {generateAiStoryError?.data?.message ||
+                  generateAiStoryError?.message ||
+                  "Unknown error"}
               </Alert>
             )}
           </DialogContent>
@@ -468,7 +553,11 @@ const UserStoryPage = () => {
             <Button
               onClick={handleSubmitUserStory}
               variant="contained"
-              disabled={createUserStoryLoading}
+              disabled={
+                createUserStoryLoading ||
+                isGeneratingStory ||
+                generateAiStoryLoading
+              } // Also disable if AI is generating
             >
               {createUserStoryLoading ? (
                 <CircularProgress size={24} color="inherit" />
@@ -478,6 +567,22 @@ const UserStoryPage = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={snackbarSeverity}
+            sx={{ width: "100%" }}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
       </Box>
     </ThemeProvider>
   );
