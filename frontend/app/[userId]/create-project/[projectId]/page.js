@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   Button,
   Dialog,
@@ -53,7 +53,9 @@ const StyledButton = styled(Button)(({ theme }) => ({
 
 const ProjectDetailPage = () => {
   const params = useParams();
+  const userId = params.userId;
   const projectId = params.projectId;
+  const router = useRouter();
 
   const [openAddDialog, setOpenAddDialog] = useState(false); // Renamed for clarity
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false); // New state for delete dialog
@@ -197,6 +199,26 @@ const ProjectDetailPage = () => {
     setSearchTerm("");
     setSelectedUser(null);
     setSelectedPermissions([]);
+  };
+
+  const handleButtonClick = (button) => {
+    // Handle button clicks for user story creation, code analysis, and documentation
+    switch (button) {
+      case "userStory":
+        console.log("User Story Creation clicked");
+        router.push(`/${userId}/create-project/${projectId}/user-story`);
+        break;
+      case "codeAnalysis":
+        console.log("Code Analysis clicked");
+        router.push(`/${userId}/create-project/${projectId}/code-analysis`);
+        break;
+      case "documentation":
+        console.log("Documentation clicked");
+        router.push(`/${userId}/create-project/${projectId}/documentation`);
+        break;
+      default:
+        console.error("Unknown button clicked:", button);
+    }
   };
 
   const handleAddCollaborator = async () => {
@@ -366,10 +388,18 @@ const ProjectDetailPage = () => {
             mb: 4,
           }}
         >
-          <StyledButton variant="contained" color="primary">
+          <StyledButton
+            variant="contained"
+            color="primary"
+            onClick={() => handleButtonClick("userStory")}
+          >
             User Story Creation
           </StyledButton>
-          <StyledButton variant="contained" color="secondary">
+          <StyledButton
+            variant="contained"
+            color="secondary"
+            onClick={() => handleButtonClick("codeAnalysis")}
+          >
             Code Analysis
           </StyledButton>
           <StyledButton
@@ -378,6 +408,7 @@ const ProjectDetailPage = () => {
               backgroundColor: "success.main",
               "&:hover": { backgroundColor: "success.dark" },
             }}
+            onClick={() => handleButtonClick("documentation")}
           >
             Documentation
           </StyledButton>
