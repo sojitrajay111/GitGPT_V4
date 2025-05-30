@@ -13,7 +13,9 @@ export const githubApiSlice = createApi({
       return headers;
     },
   }),
+
   tagTypes: ["GitHubData", "GitHubStatus", "ProjectCollaborators"], // Added ProjectCollaborators tagType
+
   endpoints: (builder) => ({
     getGitHubStatus: builder.query({
       query: () => "/status",
