@@ -820,6 +820,154 @@ const handleGitHubWebhook = async (req, res) => {
   }
 };
 
+const createBranch = async (req, res) => {
+  const { owner, repo } = req.params;
+  const { newBranchName, baseBranch } = req.body;
+  const userId = req.user.id;
+
+  try {
+    if (!newBranchName || !baseBranch) {
+      return res.status(400).json({
+        success: false,
+        message: "New branch name and base branch are required.",
+      });
+    }
+
+    const githubData = await GitHubData.findOne({ userId });
+    if (!githubData || !githubData.githubPAT) {
+      return res.status(400).json({
+        success: false,
+        message: "GitHub PAT not found for the user.",
+      });
+    }
+
+    const githubPAT = githubData.githubPAT;
+    const githubUsername = githubData.githubUsername;
+
+    // 1. Get the SHA of the base branch
+    const getRefResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${baseBranch}`,
+      {
+        headers: {
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
+        },
+      }
+    );
+
+    if (!getRefResponse.ok) {
+      const errorData = await getRefResponse.json();
+      console.error("GitHub API error getting base branch ref:", errorData);
+      return res.status(getRefResponse.status).json({
+        success: false,
+        message: `Failed to get base branch ref: ${
+          errorData.message || "Unknown error"
+        }`,
+      });
+    }
+    const refData = await getRefResponse.json();
+    const sha = refData.object.sha;
+
+    // 2. Create the new branch
+    const createBranchResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/refs`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ref: `refs/heads/${newBranchName}`,
+          sha: sha,
+        }),
+      }
+    );
+
+    if (!createBranchResponse.ok) {
+      const errorData = await createBranchResponse.json();
+      console.error("GitHub API error creating branch:", errorData);
+      return res.status(createBranchResponse.status).json({
+        success: false,
+        message: `Failed to create new branch: ${
+          errorData.message || "Unknown error"
+        }`,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Branch '${newBranchName}' created successfully from '${baseBranch}'.`,
+      branchName: newBranchName,
+    });
+  } catch (error) {
+    console.error("Error creating GitHub branch:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while creating GitHub branch.",
+    });
+  }
+};
+
+/**
+ * @desc Get all branches for a given GitHub repository.
+ * @route GET /api/github/repos/:owner/:repo/branches
+ * @access Private
+ */
+const getRepoBranches = async (req, res) => {
+  const { owner, repo } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const githubData = await GitHubData.findOne({ userId });
+    if (!githubData || !githubData.githubPAT) {
+      return res.status(400).json({
+        success: false,
+        message: "GitHub PAT not found for the user.",
+      });
+    }
+
+    const githubPAT = githubData.githubPAT;
+    const githubUsername = githubData.githubUsername;
+
+    const branchesResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/branches`,
+      {
+        headers: {
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
+        },
+      }
+    );
+
+    if (!branchesResponse.ok) {
+      const errorData = await branchesResponse.json();
+      console.error("GitHub API error fetching branches:", errorData);
+      return res.status(branchesResponse.status).json({
+        success: false,
+        message: `Failed to fetch branches: ${
+          errorData.message || "Unknown error"
+        }`,
+      });
+    }
+
+    const branchesData = await branchesResponse.json();
+    const branchNames = branchesData.map((branch) => branch.name);
+
+    res.status(200).json({
+      success: true,
+      branches: branchNames,
+    });
+  } catch (error) {
+    console.error("Error fetching GitHub branches:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while fetching GitHub branches.",
+    });
+  }
+};
+
 module.exports = {
   authenticateGitHub,
   getGitHubStatus,
@@ -834,4 +982,6 @@ module.exports = {
   updateCollaboratorPermissions,
   // Export the new function
   handleGitHubWebhook,
+  createBranch,
+  getRepoBranches,
 };
