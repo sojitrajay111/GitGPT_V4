@@ -1,5 +1,7 @@
 // features/githubApiSlice.js
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+// Import from githubApiSlice, NOT userStoryApiSlice
+
 
 export const githubApiSlice = createApi({
   reducerPath: "githubApi",
@@ -14,8 +16,12 @@ export const githubApiSlice = createApi({
     },
   }),
 
-  tagTypes: ["GitHubData", "GitHubStatus", "ProjectCollaborators"], // Added ProjectCollaborators tagType
-
+  tagTypes: [
+  "GitHubData",
+  "GitHubStatus",
+  "ProjectCollaborators",
+],
+ // Added ProjectCollaborators tagType
   endpoints: (builder) => ({
     getGitHubStatus: builder.query({
       query: () => "/status",

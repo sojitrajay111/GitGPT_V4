@@ -25,26 +25,162 @@ import {
   ListItemAvatar,
   Chip,
   Stack,
-  Snackbar, // For better notifications
+  Snackbar,
+  IconButton,
+  Divider,
 } from "@mui/material";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { styled } from "@mui/system";
-import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
-import {
+import { ThemeProvider, createTheme, styled } from "@mui/material/styles";
+import AddIcon from '@mui/icons-material/Add';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import DescriptionIcon from '@mui/icons-material/Description';
+import { 
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
-  useGenerateAiStoryMutation, // Import the new mutation hook
+  useGenerateAiStoryMutation,
 } from "@/features/userStoryApiSlice";
+import { useGetCollaboratorsQuery } from "@/features/githubApiSlice";
 
-const defaultTheme = createTheme();
+// Custom light theme with professional palette
+const freshTheme = createTheme({
+  palette: {
+    primary: {
+      main: '#5e72e4', // Soft indigo
+      contrastText: '#ffffff',
+    },
+    secondary: {
+      main: '#11cdef', // Cyan
+    },
+    success: {
+      main: '#2dce89', // Mint green
+    },
+    background: {
+      default: '#f8f9fe', // Very light purple
+      paper: '#ffffff',
+    },
+    text: {
+      primary: '#32325d', // Dark blue-gray
+      secondary: '#525f7f', // Medium blue-gray
+    },
+  },
+  typography: {
+    fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
+    h4: {
+      fontWeight: 700,
+      fontSize: '1.8rem',
+      letterSpacing: '-0.5px',
+    },
+    h6: {
+      fontWeight: 600,
+      fontSize: '1.1rem',
+    },
+    body1: {
+      fontSize: '0.95rem',
+    },
+    body2: {
+      fontSize: '0.85rem',
+      color: '#525f7f',
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: '12px',
+          padding: '8px 20px',
+          fontWeight: 600,
+          textTransform: 'none',
+          boxShadow: 'none',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            transform: 'translateY(-2px)',
+            boxShadow: '0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08)',
+          },
+        },
+        contained: {
+          boxShadow: 'none',
+        }
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: '16px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
+          border: '1px solid #e9ecef',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            transform: 'translateY(-3px)',
+            boxShadow: '0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08)',
+          },
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: '12px',
+            '& fieldset': {
+              borderColor: '#e9ecef',
+            },
+            '&:hover fieldset': {
+              borderColor: '#5e72e4',
+            },
+          },
+        },
+      },
+    },
+  },
+});
 
-const StyledButton = styled(Button)(({ theme }) => ({
-  borderRadius: theme.shape.borderRadius,
-  textTransform: "none",
-  fontWeight: "bold",
-  margin: theme.spacing(1),
+// Custom styled components
+const HeaderCard = styled(Card)(({ theme }) => ({
+  background: 'linear-gradient(87deg, #5e72e4 0, #825ee4 100%)',
+  color: 'white',
+  borderRadius: '16px',
+  padding: theme.spacing(3),
+  marginBottom: theme.spacing(4),
+  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
 }));
 
+const StoryCard = styled(Card)(({ theme }) => ({
+  borderLeft: '4px solid #5e72e4',
+  marginBottom: theme.spacing(3),
+  '&:hover': {
+    borderLeftColor: '#11cdef',
+  },
+}));
+
+const AIContentBox = styled(Box)(({ theme }) => ({
+  background: 'linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)',
+  border: '1px solid #e0e7ff',
+  borderRadius: '12px',
+  padding: theme.spacing(2),
+  marginTop: theme.spacing(2),
+  position: 'relative',
+  '&:before': {
+    content: '"✨"',
+    position: 'absolute',
+    top: '-12px',
+    left: '20px',
+    fontSize: '1.5rem',
+  },
+}));
+
+const CollaboratorChip = styled(Chip)(({ theme }) => ({
+  backgroundColor: '#f0f5ff',
+  color: '#5e72e4',
+  fontWeight: 500,
+  marginRight: theme.spacing(0.5),
+  marginBottom: theme.spacing(0.5),
+  '& .MuiAvatar-root': {
+    width: 24,
+    height: 24,
+    fontSize: '0.75rem',
+  },
+}));
 const UserStoryPage = () => {
   const params = useParams();
   const projectId = params.projectId;
@@ -251,211 +387,229 @@ const UserStoryPage = () => {
   const userStories = userStoriesData?.userStories || [];
   const availableCollaborators = collaboratorsData?.collaborators || [];
 
+  
   return (
-    <ThemeProvider theme={defaultTheme}>
-      <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1000, margin: "auto" }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 4,
-          }}
-        >
-          <Typography
-            variant="h4"
-            component="h1"
-            gutterBottom
-            sx={{ fontWeight: "bold" }}
-          >
-            User Stories
-          </Typography>
-          <StyledButton
-            variant="contained"
-            color="primary"
-            onClick={handleOpenCreateDialog}
-          >
-            Create User Story
-          </StyledButton>
-        </Box>
+    <ThemeProvider theme={freshTheme}>
+      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1100, margin: '0 auto' }}>
+        {/* Header with gradient */}
+        <HeaderCard>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box>
+              <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 1 }}>
+                User Stories
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9, maxWidth: '600px' }}>
+                Create and manage user stories to define project requirements and features
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              onClick={handleOpenCreateDialog}
+              startIcon={<AddIcon />}
+              sx={{
+                backgroundColor: 'white',
+                color: '#5e72e4',
+                '&:hover': {
+                  backgroundColor: '#f8f9fe',
+                }
+              }}
+            >
+              Create User Story
+            </Button>
+          </Box>
+        </HeaderCard>
 
+        {/* User Stories List */}
         {userStoriesLoading ? (
-          <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            minHeight="200px"
-          >
-            <CircularProgress />
+          <Box display="flex" justifyContent="center" py={6}>
+            <CircularProgress size={50} thickness={4} />
           </Box>
         ) : userStoriesIsError ? (
-          <Alert severity="error">
-            Failed to load user stories:{" "}
-            {userStoriesError?.data?.message ||
-              userStoriesError?.status ||
-              "Unknown error"}
+          <Alert severity="error" sx={{ borderRadius: '12px' }}>
+            {userStoriesError?.data?.message || "Failed to load user stories"}
           </Alert>
         ) : userStories.length === 0 ? (
-          <Alert severity="info">
-            No user stories created yet for this project.
-          </Alert>
+          <Box textAlign="center" py={4} sx={{ backgroundColor: '#f8f9fe', borderRadius: '16px' }}>
+            <DescriptionIcon sx={{ fontSize: 60, color: '#cad0e0', mb: 2 }} />
+            <Typography variant="h6" color="textSecondary" gutterBottom>
+              No user stories created yet
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+              Start by creating your first user story
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleOpenCreateDialog}
+              startIcon={<AddIcon />}
+            >
+              Create First Story
+            </Button>
+          </Box>
         ) : (
-          <List>
+          <List disablePadding>
             {userStories.map((story) => (
-              <Card
-                key={story._id}
-                sx={{ mb: 3, boxShadow: 3, borderRadius: 2 }}
-              >
+              <StoryCard key={story._id}>
                 <CardContent>
-                  <Typography variant="h6" component="h3" gutterBottom>
-                    {story.userStoryTitle}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 1, whiteSpace: "pre-wrap" }}
-                  >
-                    <strong>Description:</strong> {story.description}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 1, whiteSpace: "pre-wrap" }}
-                  >
-                    <strong>Acceptance Criteria:</strong>{" "}
-                    {story.acceptanceCriteria}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 1, whiteSpace: "pre-wrap" }}
-                  >
-                    <strong>Testing Scenarios:</strong> {story.testingScenarios}
-                  </Typography>
-                  {story.aiEnhancedUserStory && (
-                    <Box
-                      sx={{
-                        mt: 2,
-                        p: 2,
-                        border: "1px dashed #ccc",
-                        borderRadius: 1,
-                        backgroundColor: "#f0f8ff",
-                      }}
-                    >
-                      <Typography
-                        variant="subtitle2"
-                        gutterBottom
-                        sx={{ fontWeight: "bold", color: "primary.main" }}
-                      >
-                        AI Enhanced Content:
+                  <Box display="flex" alignItems="flex-start">
+                    <CheckCircleOutlineIcon 
+                      sx={{ 
+                        color: '#2dce89', 
+                        mr: 2, 
+                        mt: 0.5,
+                        fontSize: '1.8rem' 
+                      }} 
+                    />
+                    <Box flexGrow={1}>
+                      <Typography variant="h6" component="h3" gutterBottom>
+                        {story.userStoryTitle}
                       </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ whiteSpace: "pre-wrap" }}
-                      >
-                        {story.aiEnhancedUserStory}
-                      </Typography>
-                    </Box>
-                  )}
-                  {story.collaborators && story.collaborators.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Assigned Collaborators:
-                      </Typography>
-                      <Stack direction="row" flexWrap="wrap" spacing={1}>
-                        {story.collaborators.map((collab) => (
-                          <Chip
-                            key={collab.githubId}
-                            avatar={
-                              <Avatar
-                                src={collab.avatarUrl}
-                                alt={collab.username}
+                      
+                      <Box mb={1.5}>
+                        <Typography variant="body2" color="text.primary" fontWeight={500}>
+                          Description
+                        </Typography>
+                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                          {story.description}
+                        </Typography>
+                      </Box>
+                      
+                      <Box display="flex" flexWrap="wrap" gap={2} mb={1.5}>
+                        <Box flex="1" minWidth="200px">
+                          <Typography variant="body2" color="text.primary" fontWeight={500}>
+                            Acceptance Criteria
+                          </Typography>
+                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                            {story.acceptanceCriteria}
+                          </Typography>
+                        </Box>
+                        
+                        <Box flex="1" minWidth="200px">
+                          <Typography variant="body2" color="text.primary" fontWeight={500}>
+                            Testing Scenarios
+                          </Typography>
+                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                            {story.testingScenarios}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      
+                      {story.aiEnhancedUserStory && (
+                        <AIContentBox>
+                          <Typography variant="subtitle2" color="primary" fontWeight={600} gutterBottom>
+                            AI ENHANCED SUGGESTIONS
+                          </Typography>
+                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                            {story.aiEnhancedUserStory}
+                          </Typography>
+                        </AIContentBox>
+                      )}
+                      
+                      {story.collaborators && story.collaborators.length > 0 && (
+                        <Box mt={2}>
+                          <Box display="flex" alignItems="center" mb={1}>
+                            <PeopleAltIcon sx={{ color: '#5e72e4', mr: 1, fontSize: '1.2rem' }} />
+                            <Typography variant="body2" fontWeight={500}>
+                              Assigned Collaborators
+                            </Typography>
+                          </Box>
+                          <Stack direction="row" flexWrap="wrap">
+                            {story.collaborators.map((collab) => (
+                              <CollaboratorChip
+                                key={collab.githubId}
+                                avatar={<Avatar src={collab.avatarUrl} alt={collab.username} />}
+                                label={collab.username}
                               />
-                            }
-                            label={collab.username}
-                            variant="outlined"
-                            size="small"
-                          />
-                        ))}
-                      </Stack>
+                            ))}
+                          </Stack>
+                        </Box>
+                      )}
+                      
+                      <Divider sx={{ my: 2 }} />
+                      
+                      <Typography variant="caption" color="textSecondary">
+                        Created: {new Date(story.createdAt).toLocaleDateString()} • 
+                        Updated: {new Date(story.updatedAt).toLocaleDateString()}
+                      </Typography>
                     </Box>
-                  )}
-                  <Typography
-                    variant="caption"
-                    display="block"
-                    sx={{ mt: 2, color: "text.disabled" }}
-                  >
-                    Created: {new Date(story.createdAt).toLocaleString()} |
-                    Updated: {new Date(story.updatedAt).toLocaleString()}
-                  </Typography>
+                  </Box>
                 </CardContent>
-              </Card>
+              </StoryCard>
             ))}
           </List>
         )}
 
+        {/* Create User Story Dialog */}
         <Dialog
           open={openCreateDialog}
           onClose={handleCloseCreateDialog}
           fullWidth
           maxWidth="md"
+          PaperProps={{ sx: { borderRadius: '16px' } }}
         >
-          <DialogTitle>Create New User Story</DialogTitle>
-          <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              id="user-story-title"
-              label="User Story Title"
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={userStoryTitle}
-              onChange={(e) => setUserStoryTitle(e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              margin="dense"
-              id="description"
-              label="Description"
-              type="text"
-              fullWidth
-              multiline
-              rows={4}
-              variant="outlined"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              margin="dense"
-              id="acceptance-criteria"
-              label="Acceptance Criteria (one per line)"
-              type="text"
-              fullWidth
-              multiline
-              rows={3}
-              variant="outlined"
-              value={acceptanceCriteria}
-              onChange={(e) => setAcceptanceCriteria(e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              margin="dense"
-              id="testing-scenarios"
-              label="Testing Scenarios (one per line)"
-              type="text"
-              fullWidth
-              multiline
-              rows={3}
-              variant="outlined"
-              value={testingScenarios}
-              onChange={(e) => setTestingScenarios(e.target.value)}
-              sx={{ mb: 2 }}
-            />
+          <DialogTitle sx={{ 
+            backgroundColor: '#f8f9fe', 
+            borderBottom: '1px solid #e9ecef',
+            fontWeight: 600,
+            color: '#5e72e4'
+          }}>
+            <Box display="flex" alignItems="center">
+              <AddIcon sx={{ mr: 1.5 }} />
+              Create New User Story
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ py: 3 }}>
+            <Box display="grid" gridTemplateColumns={{ sm: '1fr', md: '1fr 1fr' }} gap={3}>
+              <Box>
+                <TextField
+                  autoFocus
+                  fullWidth
+                  label="User Story Title"
+                  variant="outlined"
+                  value={userStoryTitle}
+                  onChange={(e) => setUserStoryTitle(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Description"
+                  multiline
+                  rows={4}
+                  variant="outlined"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+              </Box>
+              
+              <Box>
+                <TextField
+                  fullWidth
+                  label="Acceptance Criteria (one per line)"
+                  multiline
+                  rows={3}
+                  variant="outlined"
+                  value={acceptanceCriteria}
+                  onChange={(e) => setAcceptanceCriteria(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Testing Scenarios (one per line)"
+                  multiline
+                  rows={3}
+                  variant="outlined"
+                  value={testingScenarios}
+                  onChange={(e) => setTestingScenarios(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+              </Box>
+            </Box>
 
-            <Box sx={{ mt: 3, mb: 2 }}>
+            {/* Collaborator Section */}
+        <Box sx={{ mt: 3, mb: 2 }}>
               <Typography variant="h6" gutterBottom>
                 Assign Collaborators
               </Typography>
@@ -500,64 +654,66 @@ const UserStoryPage = () => {
               )}
             </Box>
 
-            <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
+            {/* AI Generation Section */}
+            <Box display="flex" justifyContent="flex-end" mb={2}>
               <Button
                 variant="outlined"
                 onClick={handleGenerateStory}
-                disabled={isGeneratingStory || generateAiStoryLoading} // Disable if either generation is in progress
-                sx={{ mr: 1 }} // Add some margin
+                disabled={isGeneratingStory || generateAiStoryLoading}
+                startIcon={<AutoFixHighIcon />}
+                sx={{ 
+                  borderWidth: '2px',
+                  '&:hover': {
+                    borderWidth: '2px',
+                  }
+                }}
               >
                 {isGeneratingStory || generateAiStoryLoading ? (
-                  <CircularProgress size={24} color="inherit" />
+                  <>Generating AI Content...</>
                 ) : (
-                  "Generate Story Content (AI)"
+                  "Enhance with AI"
                 )}
               </Button>
             </Box>
 
             {generatedStoryContent && (
-              <Box
-                sx={{
-                  mt: 3,
-                  p: 2,
-                  border: "1px solid #ddd",
-                  borderRadius: 1,
-                  backgroundColor: "#f9f9f9",
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                <Typography
-                  variant="subtitle1"
-                  gutterBottom
-                  sx={{ fontWeight: "bold" }}
-                >
-                  AI Enhanced Suggestions:
+              <AIContentBox>
+                <Typography variant="subtitle2" color="primary" fontWeight={600} gutterBottom>
+                  AI ENHANCED SUGGESTIONS
                 </Typography>
                 <Typography variant="body2">{generatedStoryContent}</Typography>
-              </Box>
+              </AIContentBox>
             )}
-            {/* Display AI generation error if any */}
+            
             {generateAiStoryIsError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                Failed to generate AI content:{" "}
-                {generateAiStoryError?.data?.message ||
-                  generateAiStoryError?.message ||
-                  "Unknown error"}
+              <Alert severity="error" sx={{ mt: 2, borderRadius: '8px' }}>
+                {generateAiStoryError?.data?.message || "AI generation failed"}
               </Alert>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseCreateDialog} color="inherit">
+          <DialogActions sx={{ p: '16px 24px', borderTop: '1px solid #e9ecef' }}>
+            <Button 
+              onClick={handleCloseCreateDialog} 
+              variant="outlined"
+              sx={{ 
+                borderColor: '#e9ecef',
+                '&:hover': {
+                  borderColor: '#5e72e4',
+                }
+              }}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleSubmitUserStory}
               variant="contained"
-              disabled={
-                createUserStoryLoading ||
-                isGeneratingStory ||
-                generateAiStoryLoading
-              } // Also disable if AI is generating
+              disabled={createUserStoryLoading}
+              sx={{ 
+                backgroundColor: '#5e72e4',
+                '&:hover': {
+                  backgroundColor: '#4a5bd9',
+                }
+              }}
             >
               {createUserStoryLoading ? (
                 <CircularProgress size={24} color="inherit" />
@@ -578,7 +734,15 @@ const UserStoryPage = () => {
           <Alert
             onClose={handleCloseSnackbar}
             severity={snackbarSeverity}
-            sx={{ width: "100%" }}
+            sx={{ 
+              width: "100%",
+              borderRadius: '12px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+              alignItems: 'center',
+            }}
+            iconMapping={{
+              success: <CheckCircleOutlineIcon fontSize="inherit" />,
+            }}
           >
             {snackbarMessage}
           </Alert>
