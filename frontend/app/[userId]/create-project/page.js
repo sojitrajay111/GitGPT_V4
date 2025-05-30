@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   Button,
   Dialog,
@@ -54,6 +54,7 @@ const StyledButton = styled(Button)(({ theme }) => ({
 
 const ProjectPage = () => {
   const { userId } = useParams();
+  const router = useRouter();
 
   const [openDialog, setOpenDialog] = useState(false);
   const [newProject, setNewProject] = useState({
@@ -145,6 +146,10 @@ const ProjectPage = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewProject((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleProjectClick = (id) => {
+    router.push(`/${userId}/create-project/${id}`);
   };
 
   const handleRepoSelectChange = (e) => {
@@ -265,9 +270,11 @@ const ProjectPage = () => {
                   variant="h5"
                   component="div"
                   sx={{ fontWeight: "bold", color: "#555" }}
+                  onClick={() => handleProjectClick(project._id)}
                 >
                   {project.projectName}
                 </Typography>
+
                 <Typography
                   variant="body2"
                   color="text.secondary"

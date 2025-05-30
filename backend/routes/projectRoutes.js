@@ -3,7 +3,11 @@ const router = express.Router(); // Create an Express router
 const {
   createProject,
   getProjectsByUserId,
+  getProjectById,
 } = require("../controllers/projectController"); // Import project controller functions
+const {
+  getCollaboratorsByProjectId,
+} = require("../controllers/githubController");
 const authMiddleware = require("../middleware/authMiddleware"); // Assuming you have an authentication middleware
 
 // --- Project Routes ---
@@ -23,5 +27,14 @@ router.post("/", authMiddleware, createProject);
  * @access Private
  */
 router.get("/user/:userId", authMiddleware, getProjectsByUserId);
+router.get("/:projectId", authMiddleware, getProjectById); // New: Get a specific project by its ID
+
+// --- Project Collaborators ---
+// Moved getCollaboratorsByProjectId to be under the project context, as it relates to a specific project
+router.get(
+  "/:projectId/collaborators",
+  authMiddleware,
+  getCollaboratorsByProjectId
+); // New: Get collaborators for a project
 
 module.exports = router; // Export the router
