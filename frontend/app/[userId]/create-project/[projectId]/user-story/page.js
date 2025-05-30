@@ -210,10 +210,7 @@ const UserStoryPage = () => {
   };
 
   const userStories = userStoriesData?.userStories || [];
-  const availableCollaborators =
-    collaboratorsData?.collaborators?.filter(
-      (collab) => collab.status === "accepted"
-    ) || [];
+  const availableCollaborators = collaboratorsData?.collaborators || [];
 
   return (
     <ThemeProvider theme={defaultTheme}>
@@ -232,7 +229,7 @@ const UserStoryPage = () => {
             gutterBottom
             sx={{ fontWeight: "bold" }}
           >
-            User Stories for Project {projectId}
+            User Stories for Project
           </Typography>
           <StyledButton
             variant="contained"
