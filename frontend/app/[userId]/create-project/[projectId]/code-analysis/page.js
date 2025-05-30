@@ -21,6 +21,7 @@ import { useGetProjectByIdQuery } from "@/features/projectApiSlice";
 import {
   useCreateGitHubBranchMutation,
   useGetGitHubRepoBranchesQuery,
+  useGetGitHubStatusQuery,
 } from "@/features/githubApiSlice";
 import {
   useGetCodeAnalysisMessagesQuery,
@@ -29,20 +30,37 @@ import {
   useSendCodeAnalysisMessageMutation,
   useStartCodeAnalysisSessionMutation,
 } from "@/features/codeAnalysisApiSlice";
-
-// Import Redux Toolkit Query hooks
-
-// Mock user ID and Project ID for demonstration. In a real app, these would come from auth context or router.
-const MOCK_USER_ID = "683704365472a67600163678"; // Replace with a valid MongoDB ObjectId for testing
-const MOCK_PROJECT_ID = "68380bcf206b1a77dce7a991"; // Replace with a valid MongoDB ObjectId for testing
-const MOCK_GITHUB_REPO_OWNER = "raj-patel-149"; // Replace with your GitHub username
-const MOCK_GITHUB_REPO_NAME = "Code_pilot"; // Replace with a repo name you own for testing
+import { useParams } from "next/navigation";
 
 const App = () => {
-  const [currentUserId, setCurrentUserId] = useState(MOCK_USER_ID);
+  const params = useParams();
+  const userId = params.userId;
+  const projectId = params.projectId;
+  const [githubData, setGithubData] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const {
+    data: statusResponse,
+    isLoading: statusLoading,
+    error: statusError,
+    refetch: refetchStatus,
+  } = useGetGitHubStatusQuery(userId);
+
+  useEffect(() => {
+    if (statusResponse?.success) {
+      setIsAuthenticated(statusResponse.isAuthenticated);
+
+      if (statusResponse.isAuthenticated && statusResponse.data) {
+        setGithubData(statusResponse.data);
+      } else {
+        setGithubData(null);
+      }
+    }
+  }, [statusResponse]);
+
+  const [currentUserId, setCurrentUserId] = useState(userId);
   const [project, setProject] = useState(null);
   const [selectedBranch, setSelectedBranch] = useState("");
-  // Define branches state
   const [branches, setBranches] = useState([]);
 
   const [messages, setMessages] = useState([]);
@@ -65,15 +83,28 @@ const App = () => {
     data: projectData,
     isLoading: isLoadingProject,
     error: projectError,
-  } = useGetProjectByIdQuery(MOCK_PROJECT_ID);
+  } = useGetProjectByIdQuery(projectId);
+
+  const repolink = projectData?.project?.githubRepoLink;
+
+  let repoName = "";
+
+  if (repolink && repolink.startsWith("http")) {
+    const url = new URL(repolink);
+    const pathParts = url.pathname.split("/");
+    repoName = pathParts[2]; // Repo name
+  }
 
   const {
     data: branchesData,
     isLoading: isLoadingBranches,
     error: branchesError,
   } = useGetGitHubRepoBranchesQuery(
-    { owner: MOCK_GITHUB_REPO_OWNER, repo: MOCK_GITHUB_REPO_NAME },
-    { skip: !projectData?.project?.githubRepoLink }
+    { owner: githubData?.githubUsername, repo: repoName },
+    {
+      skip:
+        !projectData?.project?.githubRepoLink || !githubData?.githubUsername,
+    }
   );
 
   const [
@@ -90,7 +121,7 @@ const App = () => {
     data: sessionsData,
     isLoading: isLoadingHistory,
     error: sessionsError,
-  } = useGetCodeAnalysisSessionsQuery(MOCK_PROJECT_ID);
+  } = useGetCodeAnalysisSessionsQuery(projectId);
 
   const {
     data: messagesData,
@@ -124,7 +155,7 @@ const App = () => {
   useEffect(() => {
     if (branchesData?.branches) {
       const sortedBranches = [...branchesData.branches].sort();
-      setBranches(sortedBranches); // This line now correctly uses the defined setBranches
+      setBranches(sortedBranches);
       if (sortedBranches.length > 0 && !selectedBranch) {
         const defaultBranch = sortedBranches.includes("main")
           ? "main"
@@ -136,7 +167,7 @@ const App = () => {
     if (branchesError) {
       console.error("Error fetching branches:", branchesError);
     }
-  }, [branchesData, branchesError, selectedBranch]); // Added branches to dependency array
+  }, [branchesData, branchesError, selectedBranch]);
 
   // Effect to set messages once loaded
   useEffect(() => {
@@ -170,9 +201,8 @@ const App = () => {
         }
         try {
           const result = await startCodeAnalysisSession({
-            projectId: MOCK_PROJECT_ID,
-            githubRepoName:
-              MOCK_GITHUB_REPO_OWNER + "/" + MOCK_GITHUB_REPO_NAME,
+            projectId: projectId,
+            githubRepoName: githubData?.githubUsername + "/" + repoName,
             selectedBranch,
           }).unwrap();
           setCurrentChatSessionId(result.session._id);
@@ -183,7 +213,14 @@ const App = () => {
         }
       }
     },
-    [project, selectedBranch, startCodeAnalysisSession]
+    [
+      project,
+      selectedBranch,
+      startCodeAnalysisSession,
+      githubData,
+      projectId,
+      repoName,
+    ]
   );
 
   // Automatically start a new session if no session is selected and project/branch are ready
@@ -194,12 +231,15 @@ const App = () => {
       selectedBranch &&
       !isLoadingProject &&
       !isLoadingBranches &&
-      !isStartingSession
+      !isStartingSession &&
+      sessionsData?.sessions && // Ensure sessionsData is available
+      githubData?.githubUsername // Ensure githubData is available
     ) {
-      const existingSession = sessionsData?.sessions?.find(
+      const existingSession = sessionsData.sessions.find(
         (session) =>
-          session.projectId === MOCK_PROJECT_ID &&
-          session.selectedBranch === selectedBranch
+          session.projectId === projectId &&
+          session.selectedBranch === selectedBranch &&
+          session.githubRepoName === `${githubData.githubUsername}/${repoName}`
       );
 
       if (existingSession) {
@@ -217,6 +257,9 @@ const App = () => {
     isStartingSession,
     sessionsData,
     handleSessionChange,
+    projectId,
+    githubData,
+    repoName,
   ]);
 
   const handleSendMessage = async () => {
@@ -227,7 +270,9 @@ const App = () => {
     setLastAiResponseForCodePush(null);
 
     try {
-      const currentBranchCodeContext = `// Code context from branch: ${selectedBranch} (simulated for now)`;
+      // In a real scenario, currentBranchCodeContext would be fetched dynamically
+      // For now, it's a placeholder to indicate where the actual code context would go.
+      const currentBranchCodeContext = `// Code context from branch: ${selectedBranch} (This is a placeholder. Actual code fetching needs to be implemented on the backend.)`;
 
       const result = await sendCodeAnalysisMessage({
         sessionId: currentChatSessionId,
@@ -249,8 +294,8 @@ const App = () => {
 
     try {
       const result = await createGitHubBranch({
-        owner: MOCK_GITHUB_REPO_OWNER,
-        repo: MOCK_GITHUB_REPO_NAME,
+        owner: githubData?.githubUsername,
+        repo: repoName,
         newBranchName,
         baseBranch,
       }).unwrap();
@@ -262,14 +307,10 @@ const App = () => {
       const systemMessage = {
         text: `Successfully created and switched to new branch: ${result.branchName} (from ${baseBranch})`,
         sender: "system",
+        createdAt: new Date().toISOString(), // Add timestamp for system messages
       };
-      if (currentChatSessionId) {
-        await sendCodeAnalysisMessage({
-          sessionId: currentChatSessionId,
-          text: systemMessage.text,
-          sender: "system",
-        });
-      }
+      // We don't need to send system messages to the AI via sendCodeAnalysisMessage
+      // as they are purely UI notifications.
       setMessages((prev) => [...prev, systemMessage]);
     } catch (err) {
       console.error("Failed to create branch:", err);
@@ -287,9 +328,14 @@ const App = () => {
       return;
     }
 
+    // Use the last user prompt as part of the commit message for context
+    const lastUserMessage = messages.findLast((msg) => msg.sender === "user");
     const commitMessage = `AI-generated changes based on analysis\n\nPrompt: ${
-      messages[messages.length - 2]?.text || "User prompt"
-    }\nResponse: ${lastAiResponseForCodePush.substring(0, 100)}...`;
+      lastUserMessage?.text || "User prompt"
+    }\nResponse: ${lastAiResponseForCodePush.substring(
+      0,
+      Math.min(lastAiResponseForCodePush.length, 100)
+    )}...`;
 
     const aiBranchName = `ai-generated-${selectedBranch}-${Date.now()
       .toString()
@@ -297,33 +343,35 @@ const App = () => {
 
     try {
       const result = await pushCodeAndCreatePR({
-        projectId: MOCK_PROJECT_ID,
+        projectId: projectId,
         selectedBranch,
         aiBranchName,
-        generatedCode: lastAiResponseForCodePush,
+        generatedCode: lastAiResponseForCodePush, // This is the code the AI generated
         commitMessage,
       }).unwrap();
 
       const systemMessage = {
-        text: `Successfully generated code, pushed to new branch '${aiBranchName}', and created PR: ${result.prUrl}`,
+        text: `Successfully generated code, pushed to new branch '${aiBranchName}', and created PR.`,
         sender: "system",
         prUrl: result.prUrl,
         generatedCode: lastAiResponseForCodePush,
+        createdAt: new Date().toISOString(),
       };
-      if (currentChatSessionId) {
-        await sendCodeAnalysisMessage({
-          sessionId: currentChatSessionId,
-          text: systemMessage.text,
-          sender: "system",
-          generatedCode: systemMessage.generatedCode,
-          prUrl: systemMessage.prUrl,
-        });
-      }
+      // Again, no need to send this system message to the AI
       setMessages((prev) => [...prev, systemMessage]);
 
-      setLastAiResponseForCodePush(null);
+      setLastAiResponseForCodePush(null); // Clear the AI response after pushing
     } catch (err) {
       console.error("Failed to push code and create PR:", err);
+      const errorMessage = {
+        text: `Failed to generate and push code: ${
+          err.data?.message || err.message
+        }`,
+        sender: "system",
+        isError: true,
+        createdAt: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     }
   };
 
@@ -335,55 +383,64 @@ const App = () => {
     return (
       <div className={`flex mb-4 ${isUser ? "justify-end" : "justify-start"}`}>
         <div
-          className={`p-3 rounded-lg max-w-xl shadow ${
-            isUser
-              ? "bg-blue-500 text-white rounded-br-none"
-              : isAI
-              ? "bg-gray-700 text-gray-100 rounded-bl-none"
-              : "bg-yellow-400 text-gray-800 rounded-none w-full text-sm"
-          }`}
+          className={`p-4 rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-[1.01]
+            ${
+              isUser
+                ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-br-none"
+                : isAI
+                ? "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-800 rounded-bl-none"
+                : "bg-gradient-to-br from-yellow-300 to-orange-400 text-gray-900 rounded-lg w-full text-sm font-medium"
+            }
+            ${
+              isSystem && msg.isError
+                ? "from-red-500 to-red-700 text-white"
+                : ""
+            }
+          `}
         >
-          <div className="flex items-center mb-1">
-            {isUser && <User size={18} className="mr-2" />}
-            {isAI && <Bot size={18} className="mr-2" />}
-            {isSystem && <Github size={18} className="mr-2" />}
-            <span className="font-semibold text-sm">
+          <div className="flex items-center mb-2">
+            {isUser && <User size={20} className="mr-2 text-blue-100" />}
+            {isAI && <Bot size={20} className="mr-2 text-gray-600" />}
+            {isSystem && <Github size={20} className="mr-2 text-gray-700" />}
+            <span className="font-bold text-base">
               {isUser ? "You" : isAI ? "AI Analyst" : "System Notification"}
             </span>
           </div>
-          <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">
+            {msg.text}
+          </p>
           {isSystem && msg.prUrl && (
             <a
               href={msg.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-block text-blue-600 hover:text-blue-800 underline"
+              className="mt-3 inline-flex items-center text-blue-700 hover:text-blue-900 underline font-semibold transition-colors duration-200"
             >
               View Pull Request{" "}
               <GitPullRequest size={16} className="inline ml-1" />
             </a>
           )}
           {isSystem && msg.generatedCode && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-800">
-                Show Generated Code
+            <details className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-inner">
+              <summary className="cursor-pointer text-xs font-semibold text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center">
+                <UploadCloud size={14} className="mr-1" /> Show Generated Code
               </summary>
-              <pre className="mt-1 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">
+              <pre className="mt-2 p-3 bg-gray-800 text-green-400 rounded-md text-xs overflow-x-auto font-mono leading-normal shadow-md">
                 <code>{msg.generatedCode}</code>
               </pre>
             </details>
           )}
           {msg.createdAt && (
             <p
-              className={`text-xs mt-2 ${
+              className={`text-xs mt-2 opacity-75 text-right ${
                 isUser
-                  ? "text-blue-200"
+                  ? "text-blue-100"
                   : isAI
-                  ? "text-gray-400"
-                  : "text-gray-600"
-              } text-right`}
+                  ? "text-gray-500"
+                  : "text-gray-700"
+              }`}
             >
-              {new Date(msg.createdAt).toLocaleTimeString()}
+              {new Date(msg.createdAt).toLocaleString()}
             </p>
           )}
         </div>
@@ -398,14 +455,16 @@ const App = () => {
   // Check for critical errors
   if (projectError) {
     return (
-      <div className="flex items-center justify-center h-screen bg-red-900 text-white p-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Project Load Error</h1>
-          <p>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-red-700 to-red-900 text-white p-8">
+        <div className="text-center bg-white bg-opacity-10 backdrop-blur-sm p-8 rounded-xl shadow-2xl border border-red-400">
+          <h1 className="text-3xl font-extrabold mb-4 text-red-200">
+            Project Load Error
+          </h1>
+          <p className="text-lg text-red-100">
             Failed to load project details. Please check your backend API and
             network connection.
           </p>
-          <p className="mt-2 text-sm">
+          <p className="mt-4 text-sm font-mono text-red-300">
             Error: {projectError.message || JSON.stringify(projectError)}
           </p>
         </div>
@@ -414,71 +473,90 @@ const App = () => {
   }
 
   return (
-    <div className="flex h-screen font-sans bg-gray-900 text-gray-100">
+    <div className="flex h-screen font-sans bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-900">
       {/* Sidebar for Chat History */}
       <div
-        className={`bg-gray-800 transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? "w-72 p-4" : "w-0 p-0"
-        } overflow-y-auto overflow-x-hidden relative md:block ${
-          isSidebarOpen ? "" : "hidden"
-        }`}
+        className={`bg-white bg-opacity-90 backdrop-blur-md shadow-xl transition-all duration-300 ease-in-out
+          ${isSidebarOpen ? "w-72 p-4" : "w-0 p-0"}
+          overflow-y-auto overflow-x-hidden relative md:block ${
+            isSidebarOpen ? "" : "hidden"
+          } border-r border-gray-200`}
       >
         {isSidebarOpen && (
           <>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Chat History</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Chat History</h2>
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="md:hidden p-1 rounded hover:bg-gray-700"
+                className="md:hidden p-2 rounded-full hover:bg-gray-200 transition-colors duration-200"
               >
-                <X size={20} />
+                <X size={20} className="text-gray-600" />
               </button>
             </div>
             {isLoadingHistory ? (
               <div className="flex items-center justify-center h-full">
-                <Loader2 className="animate-spin h-6 w-6 text-gray-400" />
+                <Loader2 className="animate-spin h-8 w-8 text-blue-400" />
               </div>
             ) : sessionsData?.sessions?.length > 0 ? (
               sessionsData.sessions.map((session) => (
                 <div
                   key={session._id}
                   onClick={() => loadChatSession(session._id)}
-                  className={`p-2 mb-2 rounded cursor-pointer hover:bg-gray-700 ${
-                    currentChatSessionId === session._id
-                      ? "bg-blue-600"
-                      : "bg-gray-700/50"
-                  }`}
+                  className={`p-3 mb-3 rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-[1.02] hover:shadow-md
+                    ${
+                      currentChatSessionId === session._id
+                        ? "bg-blue-500 text-white shadow-lg"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
                 >
-                  <p className="font-medium text-sm truncate">
+                  <p
+                    className={`font-semibold text-sm truncate ${
+                      currentChatSessionId === session._id
+                        ? "text-white"
+                        : "text-gray-800"
+                    }`}
+                  >
                     {session.title ||
                       `Session: ${session._id.substring(
                         session._id.length - 6
                       )}`}
                   </p>
-                  <p className="text-xs text-gray-400 truncate">
+                  <p
+                    className={`text-xs mt-1 ${
+                      currentChatSessionId === session._id
+                        ? "text-blue-100"
+                        : "text-gray-500"
+                    } truncate`}
+                  >
                     Branch: {session.selectedBranch || "N/A"}
                   </p>
                   {session.lastActivity && (
-                    <p className="text-xs text-gray-500">
+                    <p
+                      className={`text-xs mt-1 ${
+                        currentChatSessionId === session._id
+                          ? "text-blue-200"
+                          : "text-gray-400"
+                      }`}
+                    >
                       Last: {new Date(session.lastActivity).toLocaleString()}
                     </p>
                   )}
                 </div>
               ))
             ) : (
-              <p className="text-sm text-gray-400">
-                No chat history found for this project. Start a new session!
+              <p className="text-base text-gray-500 text-center py-4">
+                No chat history found. Start a new session!
               </p>
             )}
             <button
               onClick={() => handleSessionChange(null)}
-              className="mt-4 w-full flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded text-sm"
+              className="mt-6 w-full flex items-center justify-center p-3 bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white rounded-xl text-base font-semibold shadow-lg transform hover:scale-[1.01] transition-all duration-200"
               disabled={isStartingSession}
             >
               {isStartingSession ? (
-                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                <Loader2 className="animate-spin h-5 w-5 mr-2" />
               ) : (
-                <Plus size={16} className="mr-2" />
+                <Plus size={18} className="mr-2" />
               )}
               {isStartingSession ? "Starting..." : "New Chat Session"}
             </button>
@@ -487,51 +565,55 @@ const App = () => {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 flex flex-col relative bg-white bg-opacity-70 backdrop-blur-sm">
         {/* Header for project info and branch selection */}
-        <header className="bg-gray-800 p-3 shadow-md z-10">
+        <header className="bg-white bg-opacity-90 backdrop-blur-md p-4 shadow-lg z-10 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 rounded hover:bg-gray-700 mr-3"
+                className="p-2 rounded-full hover:bg-gray-200 mr-3 transition-colors duration-200"
               >
-                {isSidebarOpen ? <ArrowLeft size={20} /> : <Menu size={20} />}
+                {isSidebarOpen ? (
+                  <ArrowLeft size={20} className="text-gray-600" />
+                ) : (
+                  <Menu size={20} className="text-gray-600" />
+                )}
               </button>
               {isLoadingProject ? (
-                <Loader2 className="animate-spin h-5 w-5" />
+                <Loader2 className="animate-spin h-6 w-6 text-blue-500" />
               ) : project ? (
                 <>
-                  <Github size={20} className="mr-2 text-blue-400" />
+                  <Github size={22} className="mr-3 text-purple-600" />
                   <h1
-                    className="text-lg font-semibold truncate"
+                    className="text-xl font-extrabold text-gray-800 truncate"
                     title={project.githubRepoLink}
                   >
                     {project.projectName || "Loading Project..."}
                   </h1>
                 </>
               ) : (
-                <h1 className="text-lg font-semibold text-red-400">
+                <h1 className="text-xl font-extrabold text-red-500">
                   Project Not Found
                 </h1>
               )}
             </div>
 
             {!isLoadingProject && project && (
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 {isLoadingBranches ? (
-                  <Loader2 className="animate-spin h-5 w-5" />
+                  <Loader2 className="animate-spin h-6 w-6 text-blue-500" />
                 ) : (
                   <select
                     value={selectedBranch}
                     onChange={(e) => setSelectedBranch(e.target.value)}
-                    className="bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="bg-gray-100 border border-gray-300 rounded-lg px-4 py-2 text-base text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-200 shadow-sm"
                     disabled={branchesData?.branches?.length === 0}
                   >
                     {branchesData?.branches?.length === 0 ? (
                       <option>No branches</option>
                     ) : (
-                      branchesData.branches.map((branch) => (
+                      branchesData?.branches?.map((branch) => (
                         <option key={branch} value={branch}>
                           {branch}
                         </option>
@@ -549,12 +631,12 @@ const App = () => {
                     );
                     setIsNewBranchModalOpen(true);
                   }}
-                  className="flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm"
+                  className="flex items-center bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white px-4 py-2 rounded-lg text-base font-semibold shadow-md transform hover:scale-[1.01] transition-all duration-200"
                   disabled={
                     isLoadingBranches || branchesData?.branches?.length === 0
                   }
                 >
-                  <Plus size={16} className="mr-1" /> New Branch
+                  <Plus size={18} className="mr-2" /> New Branch
                 </button>
               </div>
             )}
@@ -562,22 +644,20 @@ const App = () => {
         </header>
 
         {/* Messages Area */}
-        <main className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-850">
-          {" "}
-          {/* Custom bg color */}
+        <main className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-br from-blue-50 to-indigo-100">
           {messages.map((msg, index) => (
             <MessageDisplay key={msg._id || `msg-${index}`} msg={msg} />
           ))}
           <div ref={messagesEndRef} />
           {(isLoadingMessages || isSendingMessage) && (
             <div className="flex justify-start mb-4">
-              <div className="p-3 rounded-lg max-w-md bg-gray-700 text-gray-100 rounded-bl-none shadow">
+              <div className="p-4 rounded-xl max-w-md bg-gradient-to-br from-gray-100 to-gray-200 text-gray-800 rounded-bl-none shadow-lg">
                 <div className="flex items-center">
-                  <Bot size={18} className="mr-2" />
-                  <span className="font-semibold text-sm">
+                  <Bot size={20} className="mr-2 text-gray-600" />
+                  <span className="font-semibold text-base">
                     AI Analyst is typing...
                   </span>
-                  <Loader2 className="animate-spin h-4 w-4 ml-2" />
+                  <Loader2 className="animate-spin h-5 w-5 ml-2 text-blue-500" />
                 </div>
               </div>
             </div>
@@ -585,26 +665,26 @@ const App = () => {
         </main>
 
         {/* Input Area */}
-        <footer className="bg-gray-800 p-4 shadow-up z-10">
+        <footer className="bg-white bg-opacity-90 backdrop-blur-md p-5 shadow-up z-10 border-t border-gray-200">
           {lastAiResponseForCodePush && !isPushingCode && (
-            <div className="mb-3 flex justify-end">
+            <div className="mb-4 flex justify-end">
               <button
                 onClick={handleGenerateAndPushCode}
-                className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm"
+                className="flex items-center bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white px-5 py-2.5 rounded-lg text-base font-semibold shadow-lg transform hover:scale-[1.01] transition-all duration-200"
                 disabled={!currentChatSessionId}
               >
-                <UploadCloud size={16} className="mr-2" /> Generate & Push Code
+                <UploadCloud size={18} className="mr-2" /> Generate & Push Code
                 to GitHub
               </button>
             </div>
           )}
           {isPushingCode && (
-            <div className="mb-3 flex justify-end items-center text-sm text-purple-300">
-              <Loader2 className="animate-spin h-5 w-5 mr-2" />
+            <div className="mb-4 flex justify-end items-center text-base text-purple-600 font-medium">
+              <Loader2 className="animate-spin h-6 w-6 mr-3" />
               Generating code and interacting with GitHub...
             </div>
           )}
-          <div className="flex items-center bg-gray-700 rounded-lg p-1">
+          <div className="flex items-center bg-gray-100 rounded-xl p-2 shadow-inner border border-gray-200">
             <input
               type="text"
               value={inputMessage}
@@ -613,7 +693,7 @@ const App = () => {
                 e.key === "Enter" && !isSendingMessage && handleSendMessage()
               }
               placeholder="Type your prompt here... (e.g., 'Analyze this function for potential bugs')"
-              className="flex-1 bg-transparent p-3 text-sm text-gray-100 focus:outline-none placeholder-gray-400"
+              className="flex-1 bg-transparent p-3 text-base text-gray-800 focus:outline-none placeholder-gray-400"
               disabled={
                 isSendingMessage ||
                 !project ||
@@ -630,45 +710,45 @@ const App = () => {
                 !selectedBranch ||
                 !currentChatSessionId
               }
-              className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white p-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-md transform hover:scale-[1.05] transition-all duration-200"
             >
               {isSendingMessage ? (
-                <Loader2 className="animate-spin h-5 w-5" />
+                <Loader2 className="animate-spin h-6 w-6" />
               ) : (
-                <Send size={20} />
+                <Send size={22} />
               )}
             </button>
           </div>
           {!project && !isLoadingProject && (
-            <p className="text-xs text-red-400 mt-1">
+            <p className="text-xs text-red-500 mt-2 font-medium">
               Project details not loaded. Cannot send messages.
             </p>
           )}
           {project && !selectedBranch && !isLoadingBranches && (
-            <p className="text-xs text-yellow-400 mt-1">
+            <p className="text-xs text-orange-500 mt-2 font-medium">
               Please select or create a branch to start analysis.
             </p>
           )}
           {startSessionError && (
-            <p className="text-xs text-red-400 mt-1">
+            <p className="text-xs text-red-500 mt-2 font-medium">
               Error starting session:{" "}
               {startSessionError.data?.message || startSessionError.message}
             </p>
           )}
           {sendMessageError && (
-            <p className="text-xs text-red-400 mt-1">
+            <p className="text-xs text-red-500 mt-2 font-medium">
               Error sending message:{" "}
               {sendMessageError.data?.message || sendMessageError.message}
             </p>
           )}
           {createBranchError && (
-            <p className="text-xs text-red-400 mt-1">
+            <p className="text-xs text-red-500 mt-2 font-medium">
               Error creating branch:{" "}
               {createBranchError.data?.message || createBranchError.message}
             </p>
           )}
           {pushCodeError && (
-            <p className="text-xs text-red-400 mt-1">
+            <p className="text-xs text-red-500 mt-2 font-medium">
               Error pushing code:{" "}
               {pushCodeError.data?.message || pushCodeError.message}
             </p>
@@ -678,14 +758,16 @@ const App = () => {
 
       {/* New Branch Modal */}
       {isNewBranchModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Create New Branch</h3>
-            <div className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border border-blue-200 transform scale-105 animate-fade-in-up">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+              Create New Branch
+            </h3>
+            <div className="space-y-5">
               <div>
                 <label
                   htmlFor="baseBranch"
-                  className="block text-sm font-medium text-gray-300 mb-1"
+                  className="block text-sm font-medium text-gray-600 mb-2"
                 >
                   Base Branch:
                 </label>
@@ -693,7 +775,7 @@ const App = () => {
                   id="baseBranch"
                   value={baseBranch}
                   onChange={(e) => setBaseBranch(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-base text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-200 shadow-sm"
                 >
                   {branchesData?.branches?.map((b) => (
                     <option key={b} value={b}>
@@ -705,7 +787,7 @@ const App = () => {
               <div>
                 <label
                   htmlFor="newBranchName"
-                  className="block text-sm font-medium text-gray-300 mb-1"
+                  className="block text-sm font-medium text-gray-600 mb-2"
                 >
                   New Branch Name:
                 </label>
@@ -717,21 +799,21 @@ const App = () => {
                     setNewBranchName(e.target.value.replace(/\s+/g, "-"))
                   }
                   placeholder="e.g., feature/new-login-flow"
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
+                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-base text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 transition-all duration-200 shadow-sm"
                 />
               </div>
             </div>
-            <div className="mt-6 flex justify-end space-x-3">
+            <div className="mt-8 flex justify-end space-x-4">
               <button
                 onClick={() => setIsNewBranchModalOpen(false)}
-                className="px-4 py-2 text-sm rounded bg-gray-600 hover:bg-gray-500"
+                className="px-5 py-2.5 text-base rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold transition-colors duration-200 shadow-md"
                 disabled={isCreatingBranch}
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateNewBranch}
-                className="px-4 py-2 text-sm rounded bg-green-600 hover:bg-green-700 flex items-center"
+                className="px-5 py-2.5 text-base rounded-lg bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-semibold flex items-center shadow-md transform hover:scale-[1.01] transition-all duration-200"
                 disabled={
                   isCreatingBranch ||
                   !newBranchName.trim() ||
@@ -739,9 +821,9 @@ const App = () => {
                 }
               >
                 {isCreatingBranch ? (
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
                 ) : (
-                  <GitFork size={16} className="mr-2" />
+                  <GitFork size={18} className="mr-2" />
                 )}
                 {isCreatingBranch ? "Creating..." : "Create Branch"}
               </button>
