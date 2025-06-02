@@ -46,7 +46,7 @@ export default function Layout({ children }) {
           activeUrl={activeUrl}
           handleBreadcrumbClick={handleBreadcrumbClick}
         />
-        <div className="flex-1 p-6 overflow-y-auto">{children}</div>
+        <div className="flex-1 p-4 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

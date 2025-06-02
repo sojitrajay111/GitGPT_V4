@@ -30,89 +30,91 @@ import {
   Divider,
 } from "@mui/material";
 import { ThemeProvider, createTheme, styled } from "@mui/material/styles";
-import AddIcon from '@mui/icons-material/Add';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
-import DescriptionIcon from '@mui/icons-material/Description';
-import { 
+import AddIcon from "@mui/icons-material/Add";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import DescriptionIcon from "@mui/icons-material/Description";
+import {
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
   useGenerateAiStoryMutation,
 } from "@/features/userStoryApiSlice";
-import { useGetCollaboratorsQuery } from "@/features/githubApiSlice";
+import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
 
 // Custom light theme with professional palette
 const freshTheme = createTheme({
   palette: {
     primary: {
-      main: '#5e72e4', // Soft indigo
-      contrastText: '#ffffff',
+      main: "#5e72e4", // Soft indigo
+      contrastText: "#ffffff",
     },
     secondary: {
-      main: '#11cdef', // Cyan
+      main: "#11cdef", // Cyan
     },
     success: {
-      main: '#2dce89', // Mint green
+      main: "#2dce89", // Mint green
     },
     background: {
-      default: '#f8f9fe', // Very light purple
-      paper: '#ffffff',
+      default: "#f8f9fe", // Very light purple
+      paper: "#ffffff",
     },
     text: {
-      primary: '#32325d', // Dark blue-gray
-      secondary: '#525f7f', // Medium blue-gray
+      primary: "#32325d", // Dark blue-gray
+      secondary: "#525f7f", // Medium blue-gray
     },
   },
   typography: {
     fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
     h4: {
       fontWeight: 700,
-      fontSize: '1.8rem',
-      letterSpacing: '-0.5px',
+      fontSize: "1.8rem",
+      letterSpacing: "-0.5px",
     },
     h6: {
       fontWeight: 600,
-      fontSize: '1.1rem',
+      fontSize: "1.1rem",
     },
     body1: {
-      fontSize: '0.95rem',
+      fontSize: "0.95rem",
     },
     body2: {
-      fontSize: '0.85rem',
-      color: '#525f7f',
+      fontSize: "0.85rem",
+      color: "#525f7f",
     },
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: '12px',
-          padding: '8px 20px',
+          borderRadius: "12px",
+          padding: "8px 20px",
           fontWeight: 600,
-          textTransform: 'none',
-          boxShadow: 'none',
-          transition: 'all 0.2s ease',
-          '&:hover': {
-            transform: 'translateY(-2px)',
-            boxShadow: '0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08)',
+          textTransform: "none",
+          boxShadow: "none",
+          transition: "all 0.2s ease",
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow:
+              "0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08)",
           },
         },
         contained: {
-          boxShadow: 'none',
-        }
+          boxShadow: "none",
+        },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: '16px',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
-          border: '1px solid #e9ecef',
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            transform: 'translateY(-3px)',
-            boxShadow: '0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08)',
+          borderRadius: "16px",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
+          border: "1px solid #e9ecef",
+          transition: "all 0.3s ease",
+          "&:hover": {
+            transform: "translateY(-3px)",
+            boxShadow:
+              "0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08)",
           },
         },
       },
@@ -120,13 +122,13 @@ const freshTheme = createTheme({
     MuiTextField: {
       styleOverrides: {
         root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: '12px',
-            '& fieldset': {
-              borderColor: '#e9ecef',
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "12px",
+            "& fieldset": {
+              borderColor: "#e9ecef",
             },
-            '&:hover fieldset': {
-              borderColor: '#5e72e4',
+            "&:hover fieldset": {
+              borderColor: "#5e72e4",
             },
           },
         },
@@ -137,48 +139,48 @@ const freshTheme = createTheme({
 
 // Custom styled components
 const HeaderCard = styled(Card)(({ theme }) => ({
-  background: 'linear-gradient(87deg, #5e72e4 0, #825ee4 100%)',
-  color: 'white',
-  borderRadius: '16px',
+  background: "linear-gradient(87deg, #5e72e4 0, #825ee4 100%)",
+  color: "white",
+  borderRadius: "16px",
   padding: theme.spacing(3),
   marginBottom: theme.spacing(4),
-  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
 }));
 
 const StoryCard = styled(Card)(({ theme }) => ({
-  borderLeft: '4px solid #5e72e4',
+  borderLeft: "4px solid #5e72e4",
   marginBottom: theme.spacing(3),
-  '&:hover': {
-    borderLeftColor: '#11cdef',
+  "&:hover": {
+    borderLeftColor: "#11cdef",
   },
 }));
 
 const AIContentBox = styled(Box)(({ theme }) => ({
-  background: 'linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)',
-  border: '1px solid #e0e7ff',
-  borderRadius: '12px',
+  background: "linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)",
+  border: "1px solid #e0e7ff",
+  borderRadius: "12px",
   padding: theme.spacing(2),
   marginTop: theme.spacing(2),
-  position: 'relative',
-  '&:before': {
+  position: "relative",
+  "&:before": {
     content: '"✨"',
-    position: 'absolute',
-    top: '-12px',
-    left: '20px',
-    fontSize: '1.5rem',
+    position: "absolute",
+    top: "-12px",
+    left: "20px",
+    fontSize: "1.5rem",
   },
 }));
 
 const CollaboratorChip = styled(Chip)(({ theme }) => ({
-  backgroundColor: '#f0f5ff',
-  color: '#5e72e4',
+  backgroundColor: "#f0f5ff",
+  color: "#5e72e4",
   fontWeight: 500,
   marginRight: theme.spacing(0.5),
   marginBottom: theme.spacing(0.5),
-  '& .MuiAvatar-root': {
+  "& .MuiAvatar-root": {
     width: 24,
     height: 24,
-    fontSize: '0.75rem',
+    fontSize: "0.75rem",
   },
 }));
 const UserStoryPage = () => {
@@ -387,19 +389,30 @@ const UserStoryPage = () => {
   const userStories = userStoriesData?.userStories || [];
   const availableCollaborators = collaboratorsData?.collaborators || [];
 
-  
   return (
     <ThemeProvider theme={freshTheme}>
-      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1100, margin: '0 auto' }}>
+      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1100, margin: "0 auto" }}>
         {/* Header with gradient */}
         <HeaderCard>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+          >
             <Box>
-              <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 1 }}>
+              <Typography
+                variant="h4"
+                component="h1"
+                sx={{ fontWeight: 700, mb: 1 }}
+              >
                 User Stories
               </Typography>
-              <Typography variant="body1" sx={{ opacity: 0.9, maxWidth: '600px' }}>
-                Create and manage user stories to define project requirements and features
+              <Typography
+                variant="body1"
+                sx={{ opacity: 0.9, maxWidth: "600px" }}
+              >
+                Create and manage user stories to define project requirements
+                and features
               </Typography>
             </Box>
             <Button
@@ -407,11 +420,11 @@ const UserStoryPage = () => {
               onClick={handleOpenCreateDialog}
               startIcon={<AddIcon />}
               sx={{
-                backgroundColor: 'white',
-                color: '#5e72e4',
-                '&:hover': {
-                  backgroundColor: '#f8f9fe',
-                }
+                backgroundColor: "white",
+                color: "#5e72e4",
+                "&:hover": {
+                  backgroundColor: "#f8f9fe",
+                },
               }}
             >
               Create User Story
@@ -425,12 +438,16 @@ const UserStoryPage = () => {
             <CircularProgress size={50} thickness={4} />
           </Box>
         ) : userStoriesIsError ? (
-          <Alert severity="error" sx={{ borderRadius: '12px' }}>
+          <Alert severity="error" sx={{ borderRadius: "12px" }}>
             {userStoriesError?.data?.message || "Failed to load user stories"}
           </Alert>
         ) : userStories.length === 0 ? (
-          <Box textAlign="center" py={4} sx={{ backgroundColor: '#f8f9fe', borderRadius: '16px' }}>
-            <DescriptionIcon sx={{ fontSize: 60, color: '#cad0e0', mb: 2 }} />
+          <Box
+            textAlign="center"
+            py={4}
+            sx={{ backgroundColor: "#f8f9fe", borderRadius: "16px" }}
+          >
+            <DescriptionIcon sx={{ fontSize: 60, color: "#cad0e0", mb: 2 }} />
             <Typography variant="h6" color="textSecondary" gutterBottom>
               No user stories created yet
             </Typography>
@@ -452,84 +469,127 @@ const UserStoryPage = () => {
               <StoryCard key={story._id}>
                 <CardContent>
                   <Box display="flex" alignItems="flex-start">
-                    <CheckCircleOutlineIcon 
-                      sx={{ 
-                        color: '#2dce89', 
-                        mr: 2, 
+                    <CheckCircleOutlineIcon
+                      sx={{
+                        color: "#2dce89",
+                        mr: 2,
                         mt: 0.5,
-                        fontSize: '1.8rem' 
-                      }} 
+                        fontSize: "1.8rem",
+                      }}
                     />
                     <Box flexGrow={1}>
                       <Typography variant="h6" component="h3" gutterBottom>
                         {story.userStoryTitle}
                       </Typography>
-                      
+
                       <Box mb={1.5}>
-                        <Typography variant="body2" color="text.primary" fontWeight={500}>
+                        <Typography
+                          variant="body2"
+                          color="text.primary"
+                          fontWeight={500}
+                        >
                           Description
                         </Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ whiteSpace: "pre-wrap" }}
+                        >
                           {story.description}
                         </Typography>
                       </Box>
-                      
+
                       <Box display="flex" flexWrap="wrap" gap={2} mb={1.5}>
                         <Box flex="1" minWidth="200px">
-                          <Typography variant="body2" color="text.primary" fontWeight={500}>
+                          <Typography
+                            variant="body2"
+                            color="text.primary"
+                            fontWeight={500}
+                          >
                             Acceptance Criteria
                           </Typography>
-                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ whiteSpace: "pre-wrap" }}
+                          >
                             {story.acceptanceCriteria}
                           </Typography>
                         </Box>
-                        
+
                         <Box flex="1" minWidth="200px">
-                          <Typography variant="body2" color="text.primary" fontWeight={500}>
+                          <Typography
+                            variant="body2"
+                            color="text.primary"
+                            fontWeight={500}
+                          >
                             Testing Scenarios
                           </Typography>
-                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ whiteSpace: "pre-wrap" }}
+                          >
                             {story.testingScenarios}
                           </Typography>
                         </Box>
                       </Box>
-                      
+
                       {story.aiEnhancedUserStory && (
                         <AIContentBox>
-                          <Typography variant="subtitle2" color="primary" fontWeight={600} gutterBottom>
+                          <Typography
+                            variant="subtitle2"
+                            color="primary"
+                            fontWeight={600}
+                            gutterBottom
+                          >
                             AI ENHANCED SUGGESTIONS
                           </Typography>
-                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ whiteSpace: "pre-wrap" }}
+                          >
                             {story.aiEnhancedUserStory}
                           </Typography>
                         </AIContentBox>
                       )}
-                      
-                      {story.collaborators && story.collaborators.length > 0 && (
-                        <Box mt={2}>
-                          <Box display="flex" alignItems="center" mb={1}>
-                            <PeopleAltIcon sx={{ color: '#5e72e4', mr: 1, fontSize: '1.2rem' }} />
-                            <Typography variant="body2" fontWeight={500}>
-                              Assigned Collaborators
-                            </Typography>
-                          </Box>
-                          <Stack direction="row" flexWrap="wrap">
-                            {story.collaborators.map((collab) => (
-                              <CollaboratorChip
-                                key={collab.githubId}
-                                avatar={<Avatar src={collab.avatarUrl} alt={collab.username} />}
-                                label={collab.username}
+
+                      {story.collaborators &&
+                        story.collaborators.length > 0 && (
+                          <Box mt={2}>
+                            <Box display="flex" alignItems="center" mb={1}>
+                              <PeopleAltIcon
+                                sx={{
+                                  color: "#5e72e4",
+                                  mr: 1,
+                                  fontSize: "1.2rem",
+                                }}
                               />
-                            ))}
-                          </Stack>
-                        </Box>
-                      )}
-                      
+                              <Typography variant="body2" fontWeight={500}>
+                                Assigned Collaborators
+                              </Typography>
+                            </Box>
+                            <Stack direction="row" flexWrap="wrap">
+                              {story.collaborators.map((collab) => (
+                                <CollaboratorChip
+                                  key={collab.githubId}
+                                  avatar={
+                                    <Avatar
+                                      src={collab.avatarUrl}
+                                      alt={collab.username}
+                                    />
+                                  }
+                                  label={collab.username}
+                                />
+                              ))}
+                            </Stack>
+                          </Box>
+                        )}
+
                       <Divider sx={{ my: 2 }} />
-                      
+
                       <Typography variant="caption" color="textSecondary">
-                        Created: {new Date(story.createdAt).toLocaleDateString()} • 
-                        Updated: {new Date(story.updatedAt).toLocaleDateString()}
+                        Created:{" "}
+                        {new Date(story.createdAt).toLocaleDateString()} •
+                        Updated:{" "}
+                        {new Date(story.updatedAt).toLocaleDateString()}
                       </Typography>
                     </Box>
                   </Box>
@@ -545,21 +605,28 @@ const UserStoryPage = () => {
           onClose={handleCloseCreateDialog}
           fullWidth
           maxWidth="md"
-          PaperProps={{ sx: { borderRadius: '16px' } }}
+          PaperProps={{ sx: { borderRadius: "16px" } }}
         >
-          <DialogTitle sx={{ 
-            backgroundColor: '#f8f9fe', 
-            borderBottom: '1px solid #e9ecef',
-            fontWeight: 600,
-            color: '#5e72e4'
-          }}>
+          <DialogTitle
+            sx={{
+              backgroundColor: "#f8f9fe",
+              borderBottom: "1px solid #e9ecef",
+              fontWeight: 600,
+              color: "#5e72e4",
+            }}
+          >
             <Box display="flex" alignItems="center">
               <AddIcon sx={{ mr: 1.5 }} />
               Create New User Story
             </Box>
           </DialogTitle>
           <DialogContent sx={{ py: 3 }}>
-            <Box display="grid" gridTemplateColumns={{ sm: '1fr', md: '1fr 1fr' }} gap={3}>
+            <Box
+              display="grid"
+              gridTemplateColumns={{ sm: "1fr", md: "1fr 1fr" }}
+              gap={3}
+              sx={{ paddingTop: 5 }}
+            >
               <Box>
                 <TextField
                   autoFocus
@@ -570,7 +637,7 @@ const UserStoryPage = () => {
                   onChange={(e) => setUserStoryTitle(e.target.value)}
                   sx={{ mb: 2 }}
                 />
-                
+
                 <TextField
                   fullWidth
                   label="Description"
@@ -582,7 +649,7 @@ const UserStoryPage = () => {
                   sx={{ mb: 2 }}
                 />
               </Box>
-              
+
               <Box>
                 <TextField
                   fullWidth
@@ -594,7 +661,7 @@ const UserStoryPage = () => {
                   onChange={(e) => setAcceptanceCriteria(e.target.value)}
                   sx={{ mb: 2 }}
                 />
-                
+
                 <TextField
                   fullWidth
                   label="Testing Scenarios (one per line)"
@@ -609,7 +676,7 @@ const UserStoryPage = () => {
             </Box>
 
             {/* Collaborator Section */}
-        <Box sx={{ mt: 3, mb: 2 }}>
+            <Box sx={{ mt: 3, mb: 2 }}>
               <Typography variant="h6" gutterBottom>
                 Assign Collaborators
               </Typography>
@@ -661,11 +728,11 @@ const UserStoryPage = () => {
                 onClick={handleGenerateStory}
                 disabled={isGeneratingStory || generateAiStoryLoading}
                 startIcon={<AutoFixHighIcon />}
-                sx={{ 
-                  borderWidth: '2px',
-                  '&:hover': {
-                    borderWidth: '2px',
-                  }
+                sx={{
+                  borderWidth: "2px",
+                  "&:hover": {
+                    borderWidth: "2px",
+                  },
                 }}
               >
                 {isGeneratingStory || generateAiStoryLoading ? (
@@ -678,28 +745,35 @@ const UserStoryPage = () => {
 
             {generatedStoryContent && (
               <AIContentBox>
-                <Typography variant="subtitle2" color="primary" fontWeight={600} gutterBottom>
+                <Typography
+                  variant="subtitle2"
+                  color="primary"
+                  fontWeight={600}
+                  gutterBottom
+                >
                   AI ENHANCED SUGGESTIONS
                 </Typography>
                 <Typography variant="body2">{generatedStoryContent}</Typography>
               </AIContentBox>
             )}
-            
+
             {generateAiStoryIsError && (
-              <Alert severity="error" sx={{ mt: 2, borderRadius: '8px' }}>
+              <Alert severity="error" sx={{ mt: 2, borderRadius: "8px" }}>
                 {generateAiStoryError?.data?.message || "AI generation failed"}
               </Alert>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: '16px 24px', borderTop: '1px solid #e9ecef' }}>
-            <Button 
-              onClick={handleCloseCreateDialog} 
+          <DialogActions
+            sx={{ p: "16px 24px", borderTop: "1px solid #e9ecef" }}
+          >
+            <Button
+              onClick={handleCloseCreateDialog}
               variant="outlined"
-              sx={{ 
-                borderColor: '#e9ecef',
-                '&:hover': {
-                  borderColor: '#5e72e4',
-                }
+              sx={{
+                borderColor: "#e9ecef",
+                "&:hover": {
+                  borderColor: "#5e72e4",
+                },
               }}
             >
               Cancel
@@ -708,11 +782,11 @@ const UserStoryPage = () => {
               onClick={handleSubmitUserStory}
               variant="contained"
               disabled={createUserStoryLoading}
-              sx={{ 
-                backgroundColor: '#5e72e4',
-                '&:hover': {
-                  backgroundColor: '#4a5bd9',
-                }
+              sx={{
+                backgroundColor: "#5e72e4",
+                "&:hover": {
+                  backgroundColor: "#4a5bd9",
+                },
               }}
             >
               {createUserStoryLoading ? (
@@ -734,11 +808,11 @@ const UserStoryPage = () => {
           <Alert
             onClose={handleCloseSnackbar}
             severity={snackbarSeverity}
-            sx={{ 
+            sx={{
               width: "100%",
-              borderRadius: '12px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-              alignItems: 'center',
+              borderRadius: "12px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+              alignItems: "center",
             }}
             iconMapping={{
               success: <CheckCircleOutlineIcon fontSize="inherit" />,
