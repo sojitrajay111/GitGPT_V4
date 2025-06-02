@@ -5,6 +5,7 @@ import { githubApiSlice } from "./features/githubApiSlice";
 import { projectApiSlice } from "./features/projectApiSlice";
 import { userStoryApiSlice } from "./features/userStoryApiSlice";
 import { codeAnalysisApiSlice } from "./features/codeAnalysisApiSlice";
+import { documentApi } from "./features/documentApiSlice";
 import serviceReducer from "./features/serviceSlice"; // ✅ Import serviceReducer
 
 import storage from "redux-persist/lib/storage";
@@ -27,6 +28,7 @@ export const store = configureStore({
     [projectApiSlice.reducerPath]: projectApiSlice.reducer,
     [userStoryApiSlice.reducerPath]: userStoryApiSlice.reducer,
     [codeAnalysisApiSlice.reducerPath]: codeAnalysisApiSlice.reducer,
+    [documentApi.reducerPath]: documentApi.reducer, // Add documentApi
     service: persistedServiceReducer, // ✅ Add persisted service reducer
     auth: authReducer,
   },
@@ -36,7 +38,8 @@ export const store = configureStore({
       githubApiSlice.middleware,
       projectApiSlice.middleware,
       userStoryApiSlice.middleware,
-      codeAnalysisApiSlice.middleware
+      codeAnalysisApiSlice.middleware,
+      documentApi.middleware // Add documentApi middleware
     ),
 });
 
