@@ -11,7 +11,7 @@ const Header = ({ activeTab, user }) => {
   };
 
   return (
-    <div className="sticky top-0 z-10 flex justify-between items-center min-h-[70px] px-8 bg-gradient-to-r from-gray-50 to-white shadow-sm border-b border-gray-200">
+    <div className="sticky top-0 z-10 flex justify-between items-center min-h-[50px] px-8 bg-gradient-to-r from-gray-50 to-white shadow-sm border-b border-gray-200">
       <div className="flex items-center">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
           {tabTitles[activeTab] || "GitGPT Control Center"}
