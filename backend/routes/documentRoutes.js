@@ -4,22 +4,35 @@ const {
   uploadDocument,
   getDocumentsByProjectId,
   saveGeneratedDocument,
+  updateDocument, // Added
+  deleteDocument, // Added
 } = require("../controllers/documentController");
-const authenticateUser = require("../middleware/authMiddleware"); // Assuming you have an authentication middleware
-const multer = require("multer"); // For handling file uploads
+const authenticateUser = require("../middleware/authMiddleware");
+const multer = require("multer");
 
-// Configure multer for file storage
-// For production, consider using 'multer-storage-cloudinary' or similar
-// For local temporary storage:
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/"); // Make sure 'uploads/' directory exists
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
+// Configure multer for memory storage
+// This stores the file in memory as req.file.buffer
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // Optional: Limit file size (e.g., 10MB)
+  fileFilter: function (req, file, cb) {
+    // Optional: Filter file types (e.g., only PDFs)
+    if (
+      file.mimetype === "application/pdf" ||
+      file.mimetype ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.mimetype === "text/plain"
+    ) {
+      cb(null, true);
+    } else {
+      cb(
+        new Error("Invalid file type. Only PDF, DOCX, and TXT are allowed."),
+        false
+      );
+    }
   },
 });
-const upload = multer({ storage: storage });
 
 // @route POST /api/documents/upload
 // @desc Upload a new document (with file)
@@ -27,7 +40,7 @@ const upload = multer({ storage: storage });
 router.post(
   "/upload",
   authenticateUser,
-  upload.single("documentFile"),
+  upload.single("documentFile"), // 'documentFile' should match the FormData key from frontend
   uploadDocument
 );
 
@@ -40,5 +53,20 @@ router.post("/generate", authenticateUser, saveGeneratedDocument);
 // @desc Get all documents for a specific project
 // @access Private
 router.get("/project/:projectId", authenticateUser, getDocumentsByProjectId);
+
+// @route PUT /api/documents/:documentId
+// @desc Update an existing document (metadata and/or file)
+// @access Private
+router.put(
+  "/:documentId",
+  authenticateUser,
+  upload.single("documentFile"), // For optional new file upload
+  updateDocument
+);
+
+// @route DELETE /api/documents/:documentId
+// @desc Delete a document
+// @access Private
+router.delete("/:documentId", authenticateUser, deleteDocument);
 
 module.exports = router;

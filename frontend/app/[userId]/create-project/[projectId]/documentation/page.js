@@ -14,38 +14,36 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Input,
+  Input, // Keep for file input styling if needed directly
   Link,
   CircularProgress,
   Snackbar,
+  IconButton, // For icons
+  Tooltip, // For icon hints
 } from "@mui/material";
 import { styled } from "@mui/system";
 import MuiAlert from "@mui/material/Alert";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import FileOpenIcon from "@mui/icons-material/FileOpen"; // For view document
+
 import {
   useGetProjectDocumentsQuery,
-  useSaveGeneratedDocumentMutation,
   useUploadDocumentMutation,
-} from "@/features/documentApiSlice";
+  useSaveGeneratedDocumentMutation,
+  useUpdateDocumentMutation, // Import new hook
+  useDeleteDocumentMutation, // Import new hook
+} from "@/features/documentApiSlice"; // Adjust path as needed
 
-// Adjust path based on your project structure
+// Placeholder values - REPLACE WITH ACTUAL DYNAMIC VALUES from props, context, or router
+const PLACEHOLDER_PROJECT_ID = "68380bcf206b1a77dce7a991";
+// const PLACEHOLDER_USER_ID = "683704365472a67600163678"; // Not directly used in this component if backend handles user auth
+// const PLACEHOLDER_USERNAME = "Raj";
 
-// Assuming you have a way to get project and user data, e.g., from URL params or Redux
-// For demonstration, we'll use placeholders. In a real app, you'd get these dynamically.
-// Example for Next.js:
-// import { useRouter } from 'next/router';
-// const router = useRouter();
-// const { userId: currentUserId, projectId: currentProjectId } = router.query;
-
-// Placeholder values for demonstration. REPLACE THESE WITH ACTUAL DYNAMIC VALUES.
-const PLACEHOLDER_PROJECT_ID = "68380bcf206b1a77dce7a991"; // Example project ID
-const PLACEHOLDER_USER_ID = "683704365472a67600163678"; // Example user ID
-const PLACEHOLDER_USERNAME = "Raj"; // Example username
-
-// Styled components for better aesthetics
 const PageContainer = styled(Box)(({ theme }) => ({
   fontFamily: "Inter, sans-serif",
-  padding: theme.spacing(4),
-  backgroundColor: "#f0f2f5",
+  padding: theme.spacing(3), // Adjusted padding
+  backgroundColor: "#f4f6f8", // Slightly lighter background
   minHeight: "100vh",
 }));
 
@@ -53,71 +51,83 @@ const Header = styled(Box)(({ theme }) => ({
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  marginBottom: theme.spacing(4),
+  marginBottom: theme.spacing(3),
   paddingBottom: theme.spacing(2),
-  borderBottom: "1px solid #e0e0e0",
+  borderBottom: `1px solid ${theme.palette.divider}`,
 }));
 
 const DocumentCard = styled(Card)(({ theme }) => ({
-  borderRadius: theme.shape.borderRadius * 2,
-  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
-  transition: "transform 0.2s ease-in-out",
+  borderRadius: theme.shape.borderRadius * 2, // 16px if default is 8px
+  boxShadow: "0 8px 16px rgba(0,0,0,0.05)", // Softer shadow
+  transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
   "&:hover": {
-    transform: "translateY(-5px)",
+    transform: "translateY(-4px)",
+    boxShadow: "0 12px 24px rgba(0,0,0,0.1)",
   },
   display: "flex",
   flexDirection: "column",
-  justifyContent: "space-between",
+  height: "100%", // Ensure cards in a row have same height potential
 }));
 
+const CardContentStyled = styled(CardContent)({
+  flexGrow: 1, // Allows content to expand
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-between",
+});
+
 const StyledButton = styled(Button)(({ theme }) => ({
-  borderRadius: theme.shape.borderRadius * 1.5,
+  borderRadius: "20px", // Pill shape
   textTransform: "none",
   fontWeight: 600,
-  padding: theme.spacing(1, 3),
-  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+  padding: theme.spacing(1, 2.5), // Adjusted padding
+  boxShadow: "none",
+  transition: "background-color 0.2s ease, transform 0.1s ease",
   "&:hover": {
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+    transform: "scale(1.03)",
   },
 }));
 
 const DialogContentStyled = styled(DialogContent)(({ theme }) => ({
-  padding: theme.spacing(3),
+  padding: theme.spacing(2, 3), // Standard padding
 }));
 
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
-const DocumentationPage = ({ projectId, userId, username }) => {
-  // In a real application, you would get projectId and userId from your routing/auth context.
-  // For example, if using Next.js with dynamic routes:
-  // const router = useRouter();
-  // const { projectId: currentProjectId, userId: currentUserId } = router.query;
-  // Or from a Redux state for userId/username:
-  // const currentUserId = useSelector(state => state.auth.userInfo._id);
-  // const currentUserUsername = useSelector(state => state.auth.userInfo.username);
+// Main Component
+const DocumentationPage = ({ projectIdFromProps, projectData }) => {
+  // Use projectId from props or fallback to placeholder
+  const currentProjectId = projectIdFromProps || PLACEHOLDER_PROJECT_ID;
 
-  // Using placeholder values for demonstration
-  const currentProjectId = projectId || PLACEHOLDER_PROJECT_ID;
-  const currentUserId = userId || PLACEHOLDER_USER_ID;
-  const currentUserUsername = username || PLACEHOLDER_USERNAME;
-
-  // RTK Query hooks
   const {
-    data: documents,
+    data: documentsResponse, // Renamed to avoid conflict
     isLoading,
     isError,
     error,
     refetch,
-  } = useGetProjectDocumentsQuery(currentProjectId);
+  } = useGetProjectDocumentsQuery(currentProjectId, {
+    skip: !currentProjectId, // Skip query if no projectId
+  });
+  const documents = documentsResponse?.documents;
+
   const [uploadDocument, { isLoading: isUploading }] =
     useUploadDocumentMutation();
   const [saveGeneratedDocument, { isLoading: isGenerating }] =
     useSaveGeneratedDocumentMutation();
+  const [updateDocument, { isLoading: isUpdating }] =
+    useUpdateDocumentMutation();
+  const [deleteDocument, { isLoading: isDeleting }] =
+    useDeleteDocumentMutation();
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const [currentDocument, setCurrentDocument] = useState(null); // For edit/delete
+
   const [uploadForm, setUploadForm] = useState({
     documentTitle: "",
     documentShortDescription: "",
@@ -128,10 +138,24 @@ const DocumentationPage = ({ projectId, userId, username }) => {
     documentShortDescription: "",
     documentFullDescription: "",
   });
+  const [editForm, setEditForm] = useState({
+    id: "",
+    documentTitle: "",
+    documentShortDescription: "",
+    documentFile: null,
+  });
+
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
 
+  const showSnackbar = (message, severity = "success") => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  };
+
+  // Handlers for Upload Dialog
   const handleUploadDialogClose = () => {
     setUploadDialogOpen(false);
     setUploadForm({
@@ -140,7 +164,38 @@ const DocumentationPage = ({ projectId, userId, username }) => {
       documentFile: null,
     });
   };
+  const handleUploadChange = (e) =>
+    setUploadForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleUploadFileChange = (e) =>
+    setUploadForm((prev) => ({ ...prev, documentFile: e.target.files[0] }));
+  const handleUploadSubmit = async () => {
+    if (
+      !uploadForm.documentTitle ||
+      !uploadForm.documentShortDescription ||
+      !uploadForm.documentFile
+    ) {
+      showSnackbar("Please fill all fields and select a file.", "warning");
+      return;
+    }
+    try {
+      await uploadDocument({
+        ...uploadForm,
+        projectId: currentProjectId,
+      }).unwrap();
+      showSnackbar("Document uploaded successfully!");
+      handleUploadDialogClose();
+      refetch();
+    } catch (err) {
+      showSnackbar(
+        `Upload failed: ${
+          err.data?.message || err.error || err.message || "Unknown error"
+        }`,
+        "error"
+      );
+    }
+  };
 
+  // Handlers for Generate Dialog (similar structure)
   const handleGenerateDialogClose = () => {
     setGenerateDialogOpen(false);
     setGenerateForm({
@@ -149,104 +204,147 @@ const DocumentationPage = ({ projectId, userId, username }) => {
       documentFullDescription: "",
     });
   };
-
-  const handleUploadChange = (e) => {
-    const { name, value } = e.target;
-    setUploadForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleFileChange = (e) => {
-    setUploadForm((prev) => ({ ...prev, documentFile: e.target.files[0] }));
-  };
-
-  const handleGenerateChange = (e) => {
-    const { name, value } = e.target;
-    setGenerateForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleUploadSubmit = async () => {
-    if (
-      !uploadForm.documentTitle ||
-      !uploadForm.documentShortDescription ||
-      !uploadForm.documentFile
-    ) {
-      setSnackbarMessage("Please fill all fields and select a file.");
-      setSnackbarSeverity("warning");
-      setSnackbarOpen(true);
-      return;
-    }
-
-    try {
-      await uploadDocument({
-        documentTitle: uploadForm.documentTitle,
-        documentShortDescription: uploadForm.documentShortDescription,
-        projectId: currentProjectId,
-        documentFile: uploadForm.documentFile,
-        // creatorId and createdUser are handled by backend middleware based on auth token
-      }).unwrap(); // .unwrap() throws an error if the mutation fails
-      setSnackbarMessage("Document uploaded successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
-      handleUploadDialogClose();
-      refetch(); // Re-fetch documents to update the list
-    } catch (err) {
-      console.error("Failed to upload document:", err);
-      setSnackbarMessage(
-        `Failed to upload document: ${err.data?.message || err.message}`
-      );
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-    }
-  };
-
+  const handleGenerateChange = (e) =>
+    setGenerateForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   const handleGenerateSubmit = async () => {
-    if (
-      !generateForm.documentTitle ||
-      !generateForm.documentShortDescription ||
-      !generateForm.documentFullDescription
-    ) {
-      setSnackbarMessage("Please fill all fields for document generation.");
-      setSnackbarSeverity("warning");
-      setSnackbarOpen(true);
+    if (!generateForm.documentTitle || !generateForm.documentShortDescription) {
+      // Full description might be optional
+      showSnackbar(
+        "Please fill at least title and short description.",
+        "warning"
+      );
       return;
     }
-
     try {
       await saveGeneratedDocument({
-        documentTitle: generateForm.documentTitle,
-        documentShortDescription: generateForm.documentShortDescription,
-        documentFullDescription: generateForm.documentFullDescription,
+        ...generateForm,
         projectId: currentProjectId,
-        // creatorId and createdUser are handled by backend middleware based on auth token
       }).unwrap();
-      setSnackbarMessage("Generated document saved successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
+      showSnackbar("Generated document metadata saved!");
       handleGenerateDialogClose();
-      refetch(); // Re-fetch documents to update the list
+      refetch();
     } catch (err) {
-      console.error("Failed to save generated document:", err);
-      setSnackbarMessage(
-        `Failed to save generated document: ${err.data?.message || err.message}`
+      showSnackbar(
+        `Save failed: ${
+          err.data?.message || err.error || err.message || "Unknown error"
+        }`,
+        "error"
       );
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+    }
+  };
+
+  // Handlers for Edit Dialog
+  const handleEditDialogOpen = (doc) => {
+    setCurrentDocument(doc);
+    setEditForm({
+      id: doc._id,
+      documentTitle: doc.documentTitle,
+      documentShortDescription: doc.documentShortDescription,
+      documentFile: null, // Reset file input
+    });
+    setEditDialogOpen(true);
+  };
+  const handleEditDialogClose = () => {
+    setEditDialogOpen(false);
+    setCurrentDocument(null);
+    setEditForm({
+      id: "",
+      documentTitle: "",
+      documentShortDescription: "",
+      documentFile: null,
+    });
+  };
+  const handleEditChange = (e) =>
+    setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleEditFileChange = (e) =>
+    setEditForm((prev) => ({ ...prev, documentFile: e.target.files[0] }));
+  const handleEditSubmit = async () => {
+    if (
+      !editForm.documentTitle &&
+      !editForm.documentShortDescription &&
+      !editForm.documentFile
+    ) {
+      showSnackbar("No changes to submit.", "info");
+      return;
+    }
+    if (!editForm.documentTitle || !editForm.documentShortDescription) {
+      showSnackbar("Title and short description cannot be empty.", "warning");
+      return;
+    }
+    try {
+      await updateDocument({
+        documentId: editForm.id,
+        documentTitle: editForm.documentTitle,
+        documentShortDescription: editForm.documentShortDescription,
+        documentFile: editForm.documentFile, // Will be null if no new file selected
+      }).unwrap();
+      showSnackbar("Document updated successfully!");
+      handleEditDialogClose();
+      refetch();
+    } catch (err) {
+      showSnackbar(
+        `Update failed: ${
+          err.data?.message || err.error || err.message || "Unknown error"
+        }`,
+        "error"
+      );
+    }
+  };
+
+  // Handlers for Delete Confirm Dialog
+  const handleDeleteDialogOpen = (doc) => {
+    setCurrentDocument(doc);
+    setDeleteConfirmOpen(true);
+  };
+  const handleDeleteDialogClose = () => {
+    setDeleteConfirmOpen(false);
+    setCurrentDocument(null);
+  };
+  const handleDeleteConfirm = async () => {
+    if (!currentDocument) return;
+    try {
+      await deleteDocument(currentDocument._id).unwrap();
+      showSnackbar("Document deleted successfully!");
+      handleDeleteDialogClose();
+      refetch();
+    } catch (err) {
+      showSnackbar(
+        `Delete failed: ${
+          err.data?.message || err.error || err.message || "Unknown error"
+        }`,
+        "error"
+      );
     }
   };
 
   const handleSnackbarClose = (event, reason) => {
-    if (reason === "clickaway") {
-      return;
-    }
+    if (reason === "clickaway") return;
     setSnackbarOpen(false);
   };
 
-  if (isLoading) {
+  if (!currentProjectId) {
     return (
       <PageContainer
         sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
       >
-        <CircularProgress />
+        <Typography variant="h6" color="error">
+          Project ID is missing.
+        </Typography>
+      </PageContainer>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <PageContainer
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "80vh",
+        }}
+      >
+        <CircularProgress size={60} />
         <Typography variant="h6" sx={{ marginLeft: 2 }}>
           Loading documents...
         </Typography>
@@ -261,12 +359,25 @@ const DocumentationPage = ({ projectId, userId, username }) => {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          color: "red",
+          flexDirection: "column",
         }}
       >
-        <Typography variant="h6">
-          Error: {error?.data?.message || "Failed to load documents."}
+        <Typography variant="h5" color="error" gutterBottom>
+          Failed to load documents.
         </Typography>
+        <Typography variant="body1" color="error.light">
+          {error?.data?.message ||
+            error?.error ||
+            "An unexpected error occurred."}
+        </Typography>
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={refetch}
+          sx={{ mt: 2 }}
+        >
+          Try Again
+        </Button>
       </PageContainer>
     );
   }
@@ -279,13 +390,12 @@ const DocumentationPage = ({ projectId, userId, username }) => {
             variant="h4"
             component="h1"
             gutterBottom
-            sx={{ fontWeight: "bold", color: "#333" }}
+            sx={{ fontWeight: "bold", color: "text.primary" }}
           >
-            Documentation for "
-            {
-              /* Replace with actual project name from projectData prop if available */ "Your Project"
-            }
-            "
+            Project Documents:{" "}
+            <Typography component="span" variant="h4" color="primary.main">
+              {projectData?.name || "Selected Project"}
+            </Typography>
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Manage all project-related documents here.
@@ -296,11 +406,7 @@ const DocumentationPage = ({ projectId, userId, username }) => {
             variant="contained"
             color="primary"
             onClick={() => setUploadDialogOpen(true)}
-            sx={{
-              mr: 2,
-              backgroundColor: "#4CAF50",
-              "&:hover": { backgroundColor: "#45a049" },
-            }}
+            sx={{ mr: 1.5 }}
           >
             Upload Document
           </StyledButton>
@@ -308,55 +414,75 @@ const DocumentationPage = ({ projectId, userId, username }) => {
             variant="contained"
             color="secondary"
             onClick={() => setGenerateDialogOpen(true)}
-            sx={{
-              backgroundColor: "#2196F3",
-              "&:hover": { backgroundColor: "#1976D2" },
-            }}
           >
             Generate Document
           </StyledButton>
         </Box>
       </Header>
 
-      <Grid container spacing={4}>
-        {documents?.documents?.length === 0 ? (
+      <Grid container spacing={3}>
+        {!documents || documents.length === 0 ? (
           <Grid item xs={12}>
             <Typography
               variant="h6"
               color="text.secondary"
               align="center"
-              sx={{ mt: 4 }}
+              sx={{
+                mt: 5,
+                p: 3,
+                background: (theme) => theme.palette.background.paper,
+                borderRadius: 2,
+              }}
             >
               No documents found for this project. Start by uploading or
               generating one!
             </Typography>
           </Grid>
         ) : (
-          documents?.documents?.map((doc) => (
+          documents.map((doc) => (
             <Grid item xs={12} sm={6} md={4} key={doc._id}>
               <DocumentCard>
-                <CardContent>
+                <CardContentStyled>
+                  <Box>
+                    <Typography
+                      variant="h6"
+                      component="div"
+                      sx={{ fontWeight: "bold", mb: 1, color: "text.primary" }}
+                    >
+                      {doc.documentTitle}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 2, minHeight: "40px" /* Ensure some space */ }}
+                    >
+                      {doc.documentShortDescription}
+                    </Typography>
+                  </Box>
                   <Typography
-                    variant="h6"
-                    component="div"
-                    sx={{ fontWeight: "bold", mb: 1 }}
+                    variant="caption"
+                    color="text.disabled"
+                    sx={{ display: "block", mt: 1 }}
                   >
-                    {doc.documentTitle}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    {doc.documentShortDescription}
-                  </Typography>
-                  <Typography variant="caption" color="text.disabled">
-                    Created by: {doc.createdUser} on{" "}
+                    By: {doc.createdUser} on{" "}
                     {new Date(doc.createdAt).toLocaleDateString()}
+                    {doc.updatedAt &&
+                      new Date(doc.updatedAt).getTime() !==
+                        new Date(doc.createdAt).getTime() &&
+                      ` (Updated: ${new Date(
+                        doc.updatedAt
+                      ).toLocaleDateString()})`}
                   </Typography>
-                </CardContent>
-                <CardActions sx={{ justifyContent: "flex-end", padding: 2 }}>
-                  {doc.cloudinaryLink && (
+                </CardContentStyled>
+                <CardActions
+                  sx={{
+                    justifyContent: "space-between",
+                    padding: "8px 16px",
+                    borderTop: (theme) => `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  {doc.cloudinaryLink &&
+                  doc.cloudinaryLink !== "N/A (Generated Document)" ? (
                     <Link
                       href={doc.cloudinaryLink}
                       target="_blank"
@@ -367,11 +493,41 @@ const DocumentationPage = ({ projectId, userId, username }) => {
                         size="small"
                         variant="outlined"
                         color="primary"
+                        startIcon={<FileOpenIcon />}
                       >
-                        View Document
+                        View
                       </StyledButton>
                     </Link>
+                  ) : (
+                    <StyledButton
+                      size="small"
+                      variant="outlined"
+                      color="inherit"
+                      disabled
+                    >
+                      No File
+                    </StyledButton>
                   )}
+                  <Box>
+                    <Tooltip title="Edit Document">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditDialogOpen(doc)}
+                        color="secondary"
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete Document">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteDialogOpen(doc)}
+                        color="error"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </CardActions>
               </DocumentCard>
             </Grid>
@@ -386,26 +542,26 @@ const DocumentationPage = ({ projectId, userId, username }) => {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle sx={{ backgroundColor: "#4CAF50", color: "white" }}>
+        <DialogTitle sx={{ backgroundColor: "primary.main", color: "white" }}>
           Upload New Document
         </DialogTitle>
-        <DialogContentStyled>
+        <DialogContentStyled dividers>
           <TextField
             autoFocus
             margin="dense"
             name="documentTitle"
-            label="Enter document title"
+            label="Document Title"
             type="text"
             fullWidth
             variant="outlined"
             value={uploadForm.documentTitle}
             onChange={handleUploadChange}
-            sx={{ mb: 2, borderRadius: "8px" }}
+            sx={{ mb: 2 }}
           />
           <TextField
             margin="dense"
             name="documentShortDescription"
-            label="Enter short description of document"
+            label="Short Description"
             type="text"
             fullWidth
             multiline
@@ -413,36 +569,35 @@ const DocumentationPage = ({ projectId, userId, username }) => {
             variant="outlined"
             value={uploadForm.documentShortDescription}
             onChange={handleUploadChange}
-            sx={{ mb: 2, borderRadius: "8px" }}
+            sx={{ mb: 2 }}
           />
           <Button
             variant="outlined"
             component="label"
             fullWidth
-            sx={{
-              mt: 2,
-              mb: 2,
-              height: "56px",
-              borderRadius: "8px",
-              borderStyle: "dashed",
-            }}
+            sx={{ mt: 1, mb: 1, p: 1.5, borderStyle: "dashed" }}
           >
             {uploadForm.documentFile
               ? uploadForm.documentFile.name
-              : "Upload Document File"}
-            <Input type="file" hidden onChange={handleFileChange} />
+              : "Choose Document File (PDF, DOCX, TXT)"}
+            <input
+              type="file"
+              hidden
+              onChange={handleUploadFileChange}
+              accept=".pdf,.doc,.docx,text/plain"
+            />
           </Button>
           {uploadForm.documentFile && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Selected file: {uploadForm.documentFile.name}
+            <Typography variant="caption">
+              Selected: {uploadForm.documentFile.name}
             </Typography>
           )}
         </DialogContentStyled>
-        <DialogActions sx={{ padding: 3, justifyContent: "flex-end" }}>
+        <DialogActions sx={{ padding: "16px 24px" }}>
           <StyledButton
             onClick={handleUploadDialogClose}
-            color="error"
-            variant="outlined"
+            color="inherit"
+            variant="text"
           >
             Cancel
           </StyledButton>
@@ -451,31 +606,27 @@ const DocumentationPage = ({ projectId, userId, username }) => {
             color="primary"
             variant="contained"
             disabled={isUploading}
-            sx={{
-              backgroundColor: "#4CAF50",
-              "&:hover": { backgroundColor: "#45a049" },
-            }}
           >
             {isUploading ? (
-              <CircularProgress size={24} color="inherit" />
+              <CircularProgress size={22} color="inherit" />
             ) : (
-              "Upload Document"
+              "Upload"
             )}
           </StyledButton>
         </DialogActions>
       </Dialog>
 
-      {/* Generate Document Dialog */}
+      {/* Generate Document Dialog (similar styling) */}
       <Dialog
         open={generateDialogOpen}
         onClose={handleGenerateDialogClose}
         fullWidth
-        maxWidth="md"
+        maxWidth="sm"
       >
-        <DialogTitle sx={{ backgroundColor: "#2196F3", color: "white" }}>
-          Generate New Document
+        <DialogTitle sx={{ backgroundColor: "secondary.main", color: "white" }}>
+          Generate Document (Metadata)
         </DialogTitle>
-        <DialogContentStyled>
+        <DialogContentStyled dividers>
           <TextField
             autoFocus
             margin="dense"
@@ -486,85 +637,194 @@ const DocumentationPage = ({ projectId, userId, username }) => {
             variant="outlined"
             value={generateForm.documentTitle}
             onChange={handleGenerateChange}
-            sx={{ mb: 2, borderRadius: "8px" }}
+            sx={{ mb: 2 }}
           />
           <TextField
             margin="dense"
             name="documentShortDescription"
-            label="Document Short Description"
+            label="Short Description"
             type="text"
             fullWidth
             multiline
-            rows={2}
+            rows={3}
             variant="outlined"
             value={generateForm.documentShortDescription}
             onChange={handleGenerateChange}
-            sx={{ mb: 2, borderRadius: "8px" }}
+            sx={{ mb: 2 }}
           />
           <TextField
             margin="dense"
             name="documentFullDescription"
-            label="Document Full Description (for AI generation)"
+            label="Full Description / Content (Optional)"
             type="text"
             fullWidth
             multiline
-            rows={8}
+            rows={5}
             variant="outlined"
             value={generateForm.documentFullDescription}
             onChange={handleGenerateChange}
-            sx={{ mb: 2, borderRadius: "8px" }}
+            sx={{ mb: 2 }}
           />
         </DialogContentStyled>
-        <DialogActions sx={{ padding: 3, justifyContent: "space-between" }}>
+        <DialogActions sx={{ padding: "16px 24px" }}>
           <StyledButton
             onClick={handleGenerateDialogClose}
-            color="error"
-            variant="outlined"
+            color="inherit"
+            variant="text"
           >
             Cancel
           </StyledButton>
-          <Box>
-            <StyledButton
-              onClick={() => {
-                // This button would trigger AI generation
-                // For now, it's just a UI placeholder
-                setSnackbarMessage(
-                  "AI Document Generation feature is not integrated yet. Click Save Document to save metadata."
-                );
-                setSnackbarSeverity("info");
-                setSnackbarOpen(true);
-              }}
-              color="info"
-              variant="outlined"
-              sx={{ mr: 2 }}
-            >
-              Generate Document (AI)
-            </StyledButton>
-            <StyledButton
-              onClick={handleGenerateSubmit}
-              color="primary"
-              variant="contained"
-              disabled={isGenerating}
-              sx={{
-                backgroundColor: "#2196F3",
-                "&:hover": { backgroundColor: "#1976D2" },
-              }}
-            >
-              {isGenerating ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                "Save Document"
-              )}
-            </StyledButton>
-          </Box>
+          <StyledButton
+            onClick={handleGenerateSubmit}
+            color="secondary"
+            variant="contained"
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <CircularProgress size={22} color="inherit" />
+            ) : (
+              "Save Metadata"
+            )}
+          </StyledButton>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for notifications */}
+      {/* Edit Document Dialog */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={handleEditDialogClose}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ backgroundColor: "secondary.dark", color: "white" }}>
+          Edit Document
+        </DialogTitle>
+        <DialogContentStyled dividers>
+          <TextField
+            autoFocus
+            margin="dense"
+            name="documentTitle"
+            label="Document Title"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={editForm.documentTitle}
+            onChange={handleEditChange}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            name="documentShortDescription"
+            label="Short Description"
+            type="text"
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            value={editForm.documentShortDescription}
+            onChange={handleEditChange}
+            sx={{ mb: 2 }}
+          />
+          <Typography
+            variant="body2"
+            color="textSecondary"
+            sx={{ mt: 1, mb: 1 }}
+          >
+            Optionally, upload a new file to replace the existing one:
+          </Typography>
+          <Button
+            variant="outlined"
+            component="label"
+            fullWidth
+            sx={{ mt: 1, mb: 1, p: 1.5, borderStyle: "dashed" }}
+          >
+            {editForm.documentFile
+              ? editForm.documentFile.name
+              : "Choose New File (PDF, DOCX, TXT)"}
+            <input
+              type="file"
+              hidden
+              onChange={handleEditFileChange}
+              accept=".pdf,.doc,.docx,text/plain"
+            />
+          </Button>
+          {editForm.documentFile && (
+            <Typography variant="caption">
+              Selected for replacement: {editForm.documentFile.name}
+            </Typography>
+          )}
+        </DialogContentStyled>
+        <DialogActions sx={{ padding: "16px 24px" }}>
+          <StyledButton
+            onClick={handleEditDialogClose}
+            color="inherit"
+            variant="text"
+          >
+            Cancel
+          </StyledButton>
+          <StyledButton
+            onClick={handleEditSubmit}
+            color="secondary"
+            variant="contained"
+            disabled={isUpdating}
+          >
+            {isUpdating ? (
+              <CircularProgress size={22} color="inherit" />
+            ) : (
+              "Save Changes"
+            )}
+          </StyledButton>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={handleDeleteDialogClose}
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ backgroundColor: "error.main", color: "white" }}>
+          Confirm Deletion
+        </DialogTitle>
+        <DialogContent sx={{ pt: "20px !important" }}>
+          {" "}
+          {/* MUI DialogContent has default top padding we need to override sometimes */}
+          <Typography>
+            Are you sure you want to delete the document titled: <br />
+            <strong>"{currentDocument?.documentTitle}"</strong>?
+          </Typography>
+          <Typography color="textSecondary" variant="body2" sx={{ mt: 1 }}>
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ padding: "16px 24px" }}>
+          <StyledButton
+            onClick={handleDeleteDialogClose}
+            color="inherit"
+            variant="text"
+          >
+            Cancel
+          </StyledButton>
+          <StyledButton
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <CircularProgress size={22} color="inherit" />
+            ) : (
+              "Delete"
+            )}
+          </StyledButton>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
           onClose={handleSnackbarClose}
@@ -579,3 +839,17 @@ const DocumentationPage = ({ projectId, userId, username }) => {
 };
 
 export default DocumentationPage;
+
+// Example of how you might pass props in a Next.js page:
+// export async function getServerSideProps(context) {
+//   const { projectId } = context.params; // Assuming dynamic route like /project/[projectId]/docs
+//   // Fetch projectData if needed
+//   // const projectRes = await fetch(`http://localhost:3001/api/projects/${projectId}`);
+//   // const projectData = await projectRes.json();
+//   return {
+//     props: {
+//       projectIdFromProps: projectId,
+//       // projectData: projectData.project, // if you fetch project details
+//     },
+//   };
+// }

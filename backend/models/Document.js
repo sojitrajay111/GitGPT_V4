@@ -33,6 +33,7 @@ const documentSchema = new mongoose.Schema(
       required: false, // Not required for generated documents initially
       trim: true,
     },
+    cloudinaryPublicId: { type: String, required: true }, // Crucial for Cloudinary operations
     // For generated documents, you might store the full content directly
     // If you plan to generate very large documents, consider storing them
     // as files in Cloudinary or similar, and saving the link here.

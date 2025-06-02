@@ -3,36 +3,33 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const documentApi = createApi({
   reducerPath: "documentApi",
   baseQuery: fetchBaseQuery({
-    // Set the base URL to match your backend API endpoint for documents
-    baseUrl: "http://localhost:3001/api/documents",
-    prepareHeaders: (headers) => {
-      // Retrieve the authentication token from localStorage, similar to githubApiSlice
-      const token = localStorage.getItem("token");
+    baseUrl: "http://localhost:3001/api/documents", // Ensure this matches your backend
+    prepareHeaders: (headers, { getState }) => {
+      // getState can be useful
+      const token = localStorage.getItem("token"); // Or get from Redux state
       if (token) {
         headers.set("authorization", `Bearer ${token}`);
       }
+      // For FormData, 'Content-Type' is set by the browser, so don't set it manually here
+      // unless you are NOT sending FormData and need 'application/json'.
       return headers;
     },
   }),
-  // Define tag types for caching and invalidation
-  tagTypes: ["Document"],
+  tagTypes: ["Document"], // Tag for caching and invalidation
   endpoints: (builder) => ({
-    // Query to get all documents for a specific project
     getProjectDocuments: builder.query({
       query: (projectId) => `/project/${projectId}`,
-      // Provides tags for caching. When documents are added/updated, this query will be re-fetched.
       providesTags: (result, error, projectId) =>
-        result
+        result && result.documents // Check if result and result.documents exist
           ? [
               ...result.documents.map(({ _id }) => ({
                 type: "Document",
                 id: _id,
               })),
-              { type: "Document", id: "LIST" }, // A tag for the list of documents
+              { type: "Document", id: "LIST" }, // General list tag
             ]
-          : [{ type: "Document", id: "LIST" }],
+          : [{ type: "Document", id: "LIST" }], // Fallback if no documents
     }),
-    // Mutation to upload a new document file
     uploadDocument: builder.mutation({
       query: ({
         documentTitle,
@@ -40,40 +37,86 @@ export const documentApi = createApi({
         projectId,
         documentFile,
       }) => {
-        // Create a FormData object to send both text fields and the file
         const formData = new FormData();
         formData.append("documentTitle", documentTitle);
         formData.append("documentShortDescription", documentShortDescription);
         formData.append("projectId", projectId);
-        formData.append("documentFile", documentFile); // Append the actual file
+        formData.append("documentFile", documentFile); // This is the file object
 
         return {
           url: "/upload",
           method: "POST",
           body: formData,
-          // When sending FormData, the 'Content-Type' header is automatically set to 'multipart/form-data'
-          // by the browser, so you don't need to specify it here.
+          // formData: true, // Some RTK Query versions might use this hint, but usually automatic
         };
       },
-      // Invalidate the 'Document' tag to trigger a re-fetch of the document list
       invalidatesTags: [{ type: "Document", id: "LIST" }],
     }),
-    // Mutation to save a newly generated document (without a direct file upload)
     saveGeneratedDocument: builder.mutation({
       query: (documentData) => ({
         url: "/generate",
         method: "POST",
-        body: documentData, // This will be sent as JSON
+        body: documentData, // Sent as JSON
       }),
-      // Invalidate the 'Document' tag to trigger a re-fetch of the document list
       invalidatesTags: [{ type: "Document", id: "LIST" }],
+    }),
+    updateDocument: builder.mutation({
+      query: ({
+        documentId,
+        documentTitle,
+        documentShortDescription,
+        documentFile,
+      }) => {
+        const formData = new FormData();
+        // Append fields only if they are provided, to allow partial updates
+        if (documentTitle) formData.append("documentTitle", documentTitle);
+        if (documentShortDescription)
+          formData.append("documentShortDescription", documentShortDescription);
+        if (documentFile) formData.append("documentFile", documentFile); // New file if provided
+
+        return {
+          url: `/${documentId}`,
+          method: "PUT",
+          body: formData,
+        };
+      },
+      invalidatesTags: (result, error, { documentId }) => [
+        { type: "Document", id: documentId }, // Invalidate specific document
+        { type: "Document", id: "LIST" }, // And the list
+      ],
+    }),
+    deleteDocument: builder.mutation({
+      query: (documentId) => ({
+        url: `/${documentId}`,
+        method: "DELETE",
+      }),
+      // Optimistic update: remove from cache immediately
+      // onQueryStarted: async (documentId, { dispatch, queryFulfilled }) => {
+      //   const patchResult = dispatch(
+      //     documentApi.util.updateQueryData('getProjectDocuments', projectId, (draft) => {
+      //       // Assuming you have projectId available or can pass it
+      //       // This part is tricky without projectId directly here.
+      //       // A simpler invalidation is often sufficient.
+      //     })
+      //   );
+      //   try {
+      //     await queryFulfilled;
+      //   } catch {
+      //     patchResult.undo();
+      //   }
+      // },
+      invalidatesTags: (result, error, documentId) => [
+        { type: "Document", id: documentId },
+        { type: "Document", id: "LIST" },
+      ],
     }),
   }),
 });
 
-// Export the auto-generated hooks for use in your React components
 export const {
   useGetProjectDocumentsQuery,
   useUploadDocumentMutation,
   useSaveGeneratedDocumentMutation,
+  useUpdateDocumentMutation, // Export new hook
+  useDeleteDocumentMutation, // Export new hook
 } = documentApi;
