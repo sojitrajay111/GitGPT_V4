@@ -282,7 +282,7 @@ const getCodeAnalysisMessages = async (req, res) => {
  */
 const sendCodeAnalysisMessage = async (req, res) => {
   const { sessionId } = req.params;
-  const { text } = req.body; // currentBranchCodeContext will now be generated here
+  const { text } = req.body;
   const userId = req.user.id;
 
   try {
@@ -310,12 +310,10 @@ const sendCodeAnalysisMessage = async (req, res) => {
     // Fetch GitHub data for PAT and username
     const githubData = await GitHubData.findOne({ userId });
     if (!githubData || !githubData.githubPAT) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "GitHub PAT not found for the user.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "GitHub PAT not found for the user.",
+      });
     }
     const githubPAT = githubData.githubPAT;
     const githubUsername = githubData.githubUsername;
@@ -328,7 +326,7 @@ const sendCodeAnalysisMessage = async (req, res) => {
       owner,
       repo,
       session.selectedBranch,
-      "",
+      "", // Start from the root of the repository
       githubPAT,
       githubUsername
     );
@@ -361,7 +359,16 @@ const sendCodeAnalysisMessage = async (req, res) => {
 
     // Combine code context with the user's prompt for AI
     // Instruct the AI on how to respond if it generates code
-    const fullPrompt = `Current code context from branch '${session.selectedBranch}':\n\n${currentBranchCodeContext}\n\nUser request: ${text}\n\nBased on the provided code context and the user request, please provide a detailed analysis or generate code changes. If you generate code, provide only the code block, clearly indicating the file path and content within a markdown code block (e.g., \`\`\`javascript\n// path/to/file.js\nconsole.log('hello');\n\`\`\`). If you're providing analysis, explain your findings thoroughly.`;
+    const fullPrompt = `You are an AI assistant specialized in code analysis and generation.
+Current code context from the GitHub repository '${session.githubRepoName}' on branch '${session.selectedBranch}':
+${currentBranchCodeContext}
+
+User request: ${text}
+
+Based on the provided code context and the user's request, please provide a detailed analysis or generate code changes.
+If you are analyzing code, clearly list any errors, bugs, or areas for improvement, and suggest concrete solutions.
+If you are generating or modifying code, provide ONLY the code block(s) within markdown, and for each code block, clearly indicate the file path it belongs to using a comment at the top of the block (e.g., \`\`\`javascript\n// path/to/file.js\nconsole.log('hello');\n\`\`\` or \`\`\`python\n# path/to/script.py\nprint('hello')\n\`\`\` ). If you are providing multiple code blocks for different files, separate them clearly.
+Ensure your response is comprehensive and directly addresses the user's query, considering the full context of the project.`;
 
     // Call Gemini API
     const chat = model.startChat({
@@ -510,46 +517,70 @@ const pushCodeAndCreatePR = async (req, res) => {
     const commitData = await getCommitResponse.json();
     const baseTreeSha = commitData.tree.sha; // SHA of the tree associated with the base commit
 
-    // 3. Create a Blob for the generated code
-    // Assuming the AI generates content for a single new file.
-    // The AI's response might need to be parsed to determine file paths if it generates multiple files.
-    // For simplicity, we'll place it in a new file named 'ai_generated_code/changes_<timestamp>.js'
-    // You might want to enhance the AI's prompt to output a JSON with file paths and content.
-    const generatedFilePath = `ai_generated_code/ai_changes_${Date.now()
-      .toString()
-      .slice(-6)}.js`;
-
-    const createBlobResponse = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/git/blobs`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `token ${githubPAT}`,
-          "User-Agent": githubUsername,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content: generatedCode,
-          encoding: "utf-8",
-        }),
-      }
-    );
-
-    if (!createBlobResponse.ok) {
-      const errorData = await createBlobResponse.json();
-      console.error("GitHub API error creating blob:", errorData);
-      return res.status(createBlobResponse.status).json({
-        success: false,
-        message: `Failed to create blob for generated code: ${
-          errorData.message || "Unknown error"
-        }`,
+    // Parse generatedCode to handle multiple files or specific file updates
+    // The AI is instructed to provide file paths in comments within markdown blocks.
+    const codeBlocks = [];
+    const regex = /```(?:\w+)?\n\/\/ ([^\n]+)\n([\s\S]*?)```/g;
+    let match;
+    while ((match = regex.exec(generatedCode)) !== null) {
+      codeBlocks.push({
+        filePath: match[1].trim(), // e.g., 'path/to/file.js'
+        content: match[2].trim(),
       });
     }
-    const blobData = await createBlobResponse.json();
-    const newBlobSha = blobData.sha;
 
-    // 4. Create a New Tree with the new blob
-    // This creates a new tree that includes the new file and inherits from the base tree.
+    if (codeBlocks.length === 0) {
+      // If no structured code blocks are found, treat the entire generatedCode as a single file
+      // and place it in a generic AI-generated file.
+      codeBlocks.push({
+        filePath: `ai_generated_code/ai_changes_${Date.now()
+          .toString()
+          .slice(-6)}.js`,
+        content: generatedCode,
+      });
+    }
+
+    const treeUpdates = [];
+    for (const block of codeBlocks) {
+      // 3. Create a Blob for each generated code block
+      const createBlobResponse = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/blobs`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `token ${githubPAT}`,
+            "User-Agent": githubUsername,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            content: block.content,
+            encoding: "utf-8",
+          }),
+        }
+      );
+
+      if (!createBlobResponse.ok) {
+        const errorData = await createBlobResponse.json();
+        console.error("GitHub API error creating blob:", errorData);
+        return res.status(createBlobResponse.status).json({
+          success: false,
+          message: `Failed to create blob for generated code: ${
+            errorData.message || "Unknown error"
+          }`,
+        });
+      }
+      const blobData = await createBlobResponse.json();
+      const newBlobSha = blobData.sha;
+
+      treeUpdates.push({
+        path: block.filePath,
+        mode: "100644", // File mode for a regular file
+        type: "blob",
+        sha: newBlobSha,
+      });
+    }
+
+    // 4. Create a New Tree with the new blobs
     const createTreeResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/trees`,
       {
@@ -561,14 +592,7 @@ const pushCodeAndCreatePR = async (req, res) => {
         },
         body: JSON.stringify({
           base_tree: baseTreeSha, // Inherit from the base branch's tree
-          tree: [
-            {
-              path: generatedFilePath, // The path for the new file
-              mode: "100644", // File mode for a regular file
-              type: "blob",
-              sha: newBlobSha, // The SHA of the newly created blob
-            },
-          ],
+          tree: treeUpdates,
         }),
       }
     );

@@ -32,6 +32,22 @@ import {
 } from "@/features/codeAnalysisApiSlice";
 import { useParams } from "next/navigation";
 
+// Helper function to parse AI response for code blocks
+const parseAiCodeResponse = (aiResponseText) => {
+  const codeBlocks = [];
+  // This regex looks for markdown code blocks, optionally capturing the language
+  // and specifically looks for a comment line like "// path/to/file.js" or "# path/to/script.py"
+  const regex = /```(?:\w+)?\n(?:\/\/|#)\s*([^\n]+)\n([\s\S]*?)```/g;
+  let match;
+  while ((match = regex.exec(aiResponseText)) !== null) {
+    codeBlocks.push({
+      filePath: match[1].trim(), // e.g., 'path/to/file.js'
+      content: match[2].trim(),
+    });
+  }
+  return codeBlocks;
+};
+
 const App = () => {
   const params = useParams();
   const userId = params.userId;
@@ -267,19 +283,15 @@ const App = () => {
 
     const userMessageText = inputMessage;
     setInputMessage("");
-    setLastAiResponseForCodePush(null);
+    setLastAiResponseForCodePush(null); // Clear previous AI response for new user input
 
     try {
-      // In a real scenario, currentBranchCodeContext would be fetched dynamically
-      // For now, it's a placeholder to indicate where the actual code context would go.
-      const currentBranchCodeContext = `// Code context from branch: ${selectedBranch} (This is a placeholder. Actual code fetching needs to be implemented on the backend.)`;
-
       const result = await sendCodeAnalysisMessage({
         sessionId: currentChatSessionId,
         text: userMessageText,
-        currentBranchCodeContext,
       }).unwrap();
 
+      // Set the full AI response text for potential code push
       setLastAiResponseForCodePush(result.aiMessage.text);
     } catch (err) {
       console.error("Failed to send message:", err);
@@ -309,8 +321,6 @@ const App = () => {
         sender: "system",
         createdAt: new Date().toISOString(), // Add timestamp for system messages
       };
-      // We don't need to send system messages to the AI via sendCodeAnalysisMessage
-      // as they are purely UI notifications.
       setMessages((prev) => [...prev, systemMessage]);
     } catch (err) {
       console.error("Failed to create branch:", err);
@@ -327,6 +337,24 @@ const App = () => {
       console.error("Missing data for code push.");
       return;
     }
+
+    const parsedCodeBlocks = parseAiCodeResponse(lastAiResponseForCodePush);
+
+    if (parsedCodeBlocks.length === 0) {
+      const errorMessage = {
+        text: "AI response did not contain valid code blocks to push. Please refine your prompt.",
+        sender: "system",
+        isError: true,
+        createdAt: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      console.error("No code blocks found in AI response.");
+      return;
+    }
+
+    // For simplicity, we'll send the entire AI response text as generatedCode
+    // The backend will then parse it to extract individual file changes.
+    const generatedCodeContent = lastAiResponseForCodePush;
 
     // Use the last user prompt as part of the commit message for context
     const lastUserMessage = messages.findLast((msg) => msg.sender === "user");
@@ -346,7 +374,7 @@ const App = () => {
         projectId: projectId,
         selectedBranch,
         aiBranchName,
-        generatedCode: lastAiResponseForCodePush, // This is the code the AI generated
+        generatedCode: generatedCodeContent, // Send the full AI response for parsing on backend
         commitMessage,
       }).unwrap();
 
@@ -354,10 +382,9 @@ const App = () => {
         text: `Successfully generated code, pushed to new branch '${aiBranchName}', and created PR.`,
         sender: "system",
         prUrl: result.prUrl,
-        generatedCode: lastAiResponseForCodePush,
+        generatedCode: lastAiResponseForCodePush, // Display the full AI response in the UI
         createdAt: new Date().toISOString(),
       };
-      // Again, no need to send this system message to the AI
       setMessages((prev) => [...prev, systemMessage]);
 
       setLastAiResponseForCodePush(null); // Clear the AI response after pushing
