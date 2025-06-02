@@ -25,11 +25,18 @@ import {
   Checkbox,
   FormControlLabel,
   FormGroup,
-  IconButton, // Import IconButton for delete/edit icons
+  IconButton,
+  Chip,
+  Divider,
 } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete"; // Import Delete icon
-import EditIcon from "@mui/icons-material/Edit"; // Import Edit icon
-import { styled } from "@mui/system";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import PeopleIcon from '@mui/icons-material/People';
+import CodeIcon from '@mui/icons-material/Code';
+import DescriptionIcon from '@mui/icons-material/Description';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import AddIcon from '@mui/icons-material/Add';
+import { borderColor, styled } from "@mui/system";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import {
   useGetCollaboratorsQuery,
@@ -38,17 +45,128 @@ import {
 import {
   useAddCollaboratorMutation,
   useSearchGithubUsersQuery,
-  useDeleteCollaboratorMutation, // Import the new mutation
-  useUpdateCollaboratorPermissionsMutation, // Import the new mutation
-} from "@/features/githubApiSlice"; // Assuming these are in githubApiSlice
+  useDeleteCollaboratorMutation,
+  useUpdateCollaboratorPermissionsMutation,
+} from "@/features/githubApiSlice";
 
-const defaultTheme = createTheme();
+// Light and iterative color theme
+const lightTheme = createTheme({
+  palette: {
+    primary: {
+      main: '#4f46e5', // Vibrant indigo
+      contrastText: '#ffffff',
+    },
+    secondary: {
+      main: '#0ea5e9', // Sky blue
+    },
+    success: {
+      main: '#22c55e', // Emerald green
+    },
+    background: {
+      default: '#f9fafb', // Very light gray
+      paper: '#ffffff',
+    },
+    text: {
+      primary: '#1f2937', // Dark gray
+      secondary: '#6b7280', // Medium gray
+    },
+  },
+  typography: {
+    fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
+    h4: {
+      fontWeight: 700,
+      fontSize: '2rem',
+      lineHeight: 1.2,
+    },
+    h6: {
+      fontWeight: 600,
+      fontSize: '1.15rem',
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+          padding: '8px 16px',
+          fontWeight: 600,
+          textTransform: 'none',
+          transition: 'all 0.2s ease',
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: 'none',
+            transform: 'translateY(-1px)',
+          },
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+          border: '1px solid #e5e7eb',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            borderColor: '#d1d5db',
+            transform: 'translateY(-2px)',
+          },
+        },
+      },
+    },
+  },
+});
 
-const StyledButton = styled(Button)(({ theme }) => ({
-  borderRadius: theme.shape.borderRadius,
-  textTransform: "none",
-  fontWeight: "bold",
-  margin: theme.spacing(1),
+// Custom styled components
+const LightHeader = styled('div')(({ theme }) => ({
+  background: 'linear-gradient(135deg, #e0f2fe 0%, #ede9fe 100%)',
+  color: theme.palette.text.primary,
+  padding: theme.spacing(3),
+  borderRadius: '12px',
+  marginBottom: theme.spacing(3),
+  border: '1px solid #e5e7eb',
+}));
+
+const ActionButton = styled(Button)(({ theme }) => ({
+  borderRadius: '10px',
+  padding: theme.spacing(2),
+  minWidth: '180px',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  height: '130px',
+  transition: 'all 0.2s ease',
+  backgroundColor: '#ffffff',
+  border: '1px solid #e5e7eb',
+  '&:hover': {
+    backgroundColor: '#f9fafb',
+    // borderColor: theme.palette.primary.main,
+    borderColor: "light gray"
+  },
+  '& .MuiButton-startIcon': {
+    margin: 0,
+    marginBottom: theme.spacing(1),
+    fontSize: '2.2rem',
+    color: theme.palette.primary.main,
+  },
+}));
+
+const CollaboratorCard = styled(Card)(({ theme }) => ({
+  borderLeft: '2px solid #4f46e5',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    borderLeftColor: '#0ea5e9',
+  },
+}));
+
+const PermissionChip = styled(Chip)(({ theme }) => ({
+  margin: theme.spacing(0.3),
+  backgroundColor: '#f0f9ff',
+  color: theme.palette.primary.main,
+  fontWeight: 500,
+  fontSize: '0.75rem',
 }));
 
 const ProjectDetailPage = () => {
@@ -57,17 +175,15 @@ const ProjectDetailPage = () => {
   const projectId = params.projectId;
   const router = useRouter();
 
-  const [openAddDialog, setOpenAddDialog] = useState(false); // Renamed for clarity
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false); // New state for delete dialog
-  const [openEditDialog, setOpenEditDialog] = useState(false); // New state for edit dialog
-
+  const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedPermissions, setSelectedPermissions] = useState([]);
-  const [selectedCollaborator, setSelectedCollaborator] = useState(null); // New state for current collaborator to edit/delete
-  const [permissionsToEdit, setPermissionsToEdit] = useState([]); // New state for managing permissions in edit dialog
+  const [selectedCollaborator, setSelectedCollaborator] = useState(null);
+  const [permissionsToEdit, setPermissionsToEdit] = useState([]);
 
-  // Define the available permissions
   const availablePermissions = [
     "Create PR",
     "Assign PR",
@@ -85,7 +201,7 @@ const ProjectDetailPage = () => {
     error: projectError,
   } = useGetProjectByIdQuery(projectId, { skip: !projectId });
 
-  // Fetch collaborators for the project
+  // Fetch collaborators
   const {
     data: collaboratorsData,
     isLoading: collaboratorsLoading,
@@ -94,7 +210,7 @@ const ProjectDetailPage = () => {
     refetch: refetchCollaborators,
   } = useGetCollaboratorsQuery(projectId, { skip: !projectId });
 
-  // Search for GitHub users
+  // Search GitHub users
   const {
     data: searchResults,
     isLoading: searchLoading,
@@ -104,43 +220,23 @@ const ProjectDetailPage = () => {
     skip: searchTerm.length < 3,
   });
 
-  // Mutation to add a collaborator
+  // Mutations
   const [
     addCollaborator,
-    {
-      isLoading: addCollaboratorLoading,
-      isSuccess: addCollaboratorSuccess,
-      isError: addCollaboratorIsError,
-      error: addCollaboratorError,
-      reset: resetAddCollaboratorMutation,
-    },
+    { isLoading: addCollaboratorLoading, isSuccess: addCollaboratorSuccess, isError: addCollaboratorIsError, error: addCollaboratorError, reset: resetAddCollaboratorMutation },
   ] = useAddCollaboratorMutation();
 
-  // New: Mutation to delete a collaborator
   const [
     deleteCollaborator,
-    {
-      isLoading: deleteCollaboratorLoading,
-      isSuccess: deleteCollaboratorSuccess,
-      isError: deleteCollaboratorIsError,
-      error: deleteCollaboratorError,
-      reset: resetDeleteCollaboratorMutation,
-    },
+    { isLoading: deleteCollaboratorLoading, isSuccess: deleteCollaboratorSuccess, isError: deleteCollaboratorIsError, error: deleteCollaboratorError, reset: resetDeleteCollaboratorMutation },
   ] = useDeleteCollaboratorMutation();
 
-  // New: Mutation to update collaborator permissions
   const [
     updateCollaboratorPermissions,
-    {
-      isLoading: updatePermissionsLoading,
-      isSuccess: updatePermissionsSuccess,
-      isError: updatePermissionsIsError,
-      error: updatePermissionsError,
-      reset: resetUpdatePermissionsMutation,
-    },
+    { isLoading: updatePermissionsLoading, isSuccess: updatePermissionsSuccess, isError: updatePermissionsIsError, error: updatePermissionsError, reset: resetUpdatePermissionsMutation },
   ] = useUpdateCollaboratorPermissionsMutation();
 
-  // Effect to handle successful collaborator addition
+  // Effects for mutation success handling
   useEffect(() => {
     if (addCollaboratorSuccess) {
       setOpenAddDialog(false);
@@ -150,13 +246,8 @@ const ProjectDetailPage = () => {
       refetchCollaborators();
       resetAddCollaboratorMutation();
     }
-  }, [
-    addCollaboratorSuccess,
-    refetchCollaborators,
-    resetAddCollaboratorMutation,
-  ]);
+  }, [addCollaboratorSuccess, refetchCollaborators, resetAddCollaboratorMutation]);
 
-  // Effect to handle successful collaborator deletion
   useEffect(() => {
     if (deleteCollaboratorSuccess) {
       setOpenDeleteDialog(false);
@@ -164,13 +255,8 @@ const ProjectDetailPage = () => {
       refetchCollaborators();
       resetDeleteCollaboratorMutation();
     }
-  }, [
-    deleteCollaboratorSuccess,
-    refetchCollaborators,
-    resetDeleteCollaboratorMutation,
-  ]);
+  }, [deleteCollaboratorSuccess, refetchCollaborators, resetDeleteCollaboratorMutation]);
 
-  // Effect to handle successful permission update
   useEffect(() => {
     if (updatePermissionsSuccess) {
       setOpenEditDialog(false);
@@ -179,13 +265,9 @@ const ProjectDetailPage = () => {
       refetchCollaborators();
       resetUpdatePermissionsMutation();
     }
-  }, [
-    updatePermissionsSuccess,
-    refetchCollaborators,
-    resetUpdatePermissionsMutation,
-  ]);
+  }, [updatePermissionsSuccess, refetchCollaborators, resetUpdatePermissionsMutation]);
 
-  // Handlers for Add Collaborator Dialog
+  // Dialog handlers
   const handleOpenAddDialog = () => {
     setSearchTerm("");
     setSelectedUser(null);
@@ -202,18 +284,14 @@ const ProjectDetailPage = () => {
   };
 
   const handleButtonClick = (button) => {
-    // Handle button clicks for user story creation, code analysis, and documentation
     switch (button) {
       case "userStory":
-        console.log("User Story Creation clicked");
         router.push(`/${userId}/create-project/${projectId}/user-story`);
         break;
       case "codeAnalysis":
-        console.log("Code Analysis clicked");
         router.push(`/${userId}/create-project/${projectId}/code-analysis`);
         break;
       case "documentation":
-        console.log("Documentation clicked");
         router.push(`/${userId}/create-project/${projectId}/documentation`);
         break;
       default:
@@ -235,7 +313,6 @@ const ProjectDetailPage = () => {
     }
   };
 
-  // Handler for permission checkbox changes (Add dialog)
   const handlePermissionChange = (event) => {
     const { name, checked } = event.target;
     if (checked) {
@@ -245,7 +322,6 @@ const ProjectDetailPage = () => {
     }
   };
 
-  // NEW: Handlers for Delete Collaborator Dialog
   const handleOpenDeleteDialog = (collaborator) => {
     setSelectedCollaborator(collaborator);
     setOpenDeleteDialog(true);
@@ -269,10 +345,8 @@ const ProjectDetailPage = () => {
     }
   };
 
-  // NEW: Handlers for Edit Collaborator Permissions Dialog
   const handleOpenEditDialog = (collaborator) => {
     setSelectedCollaborator(collaborator);
-    // Initialize permissionsToEdit with existing permissions of the collaborator
     setPermissionsToEdit(collaborator.permissions || []);
     setOpenEditDialog(true);
   };
@@ -317,7 +391,7 @@ const ProjectDetailPage = () => {
         alignItems="center"
         minHeight="100vh"
       >
-        <CircularProgress />
+        <CircularProgress size={60} thickness={4} />
       </Box>
     );
   }
@@ -325,7 +399,7 @@ const ProjectDetailPage = () => {
   if (projectIsError) {
     return (
       <Box p={4}>
-        <Alert severity="error">
+        <Alert severity="error" sx={{ borderRadius: '12px' }}>
           Failed to load project details:{" "}
           {projectError?.data?.message ||
             projectError?.status ||
@@ -338,114 +412,143 @@ const ProjectDetailPage = () => {
   if (!project) {
     return (
       <Box p={4}>
-        <Alert severity="warning">Project not found.</Alert>
+        <Alert severity="warning" sx={{ borderRadius: '12px' }}>
+          Project not found.
+        </Alert>
       </Box>
     );
   }
 
-  return (
-    <ThemeProvider theme={defaultTheme}>
-      <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1000, margin: "auto" }}>
-        <Typography
-          variant="h4"
-          component="h1"
-          gutterBottom
-          sx={{ fontWeight: "bold" }}
-        >
-          {project?.projectName}
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          {project?.projectDescription}
-        </Typography>
 
-        <Card sx={{ mb: 4, boxShadow: 3 }}>
-          <CardContent>
-            <Typography variant="h6" component="h2" gutterBottom>
-              Project Details
+  return (
+    <ThemeProvider theme={lightTheme}>
+      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1100, margin: '0 auto' }}>
+        {/* Light Header */}
+        <LightHeader>
+          <Box display="flex" alignItems="center" mb={1.5}>
+            <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
+              {project?.projectName}
             </Typography>
-            {project?.githubRepoLink ? (
+            <Chip
+              label="Active"
+              size="small"
+              sx={{
+                ml: 2,
+                backgroundColor: '#dcfce7',
+                color: '#166534',
+                fontWeight: 600,
+              }}
+            />
+          </Box>
+
+          <Typography variant="body1" sx={{ maxWidth: '800px', mb: 1.5 }}>
+            {project?.projectDescription}
+          </Typography>
+
+          {project?.githubRepoLink && (
+            <Box display="flex" alignItems="center">
+              <GitHubIcon sx={{ mr: 1, color: 'primary.main' }} />
               <Link
                 href={project.githubRepoLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                sx={{ wordBreak: "break-all" }}
+                sx={{ display: 'flex', alignItems: 'center', color: 'primary.main' }}
               >
-                {project.githubRepoLink}
+                {project.githubRepoLink.replace('https://', '')}
               </Link>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                No GitHub repository linked.
-              </Typography>
-            )}
-          </CardContent>
-        </Card>
+            </Box>
+          )}
+        </LightHeader>
 
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            flexWrap: "wrap",
-            mb: 4,
-          }}
-        >
-          <StyledButton
-            variant="contained"
-            color="primary"
+        {/* Action Buttons Section */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+          gap: 2,
+          mb: 3
+        }}>
+          <ActionButton
             onClick={() => handleButtonClick("userStory")}
+            startIcon={<DescriptionIcon />}
           >
-            User Story Creation
-          </StyledButton>
-          <StyledButton
-            variant="contained"
-            color="secondary"
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main' }}>User Stories</Typography>
+            <Typography variant="caption">Create and manage requirements</Typography>
+          </ActionButton>
+
+          <ActionButton
             onClick={() => handleButtonClick("codeAnalysis")}
+            startIcon={<CodeIcon />}
           >
-            Code Analysis
-          </StyledButton>
-          <StyledButton
-            variant="contained"
-            sx={{
-              backgroundColor: "success.main",
-              "&:hover": { backgroundColor: "success.dark" },
-            }}
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'secondary.main' }}>Code Analysis</Typography>
+            <Typography variant="caption">Review and analyze code</Typography>
+          </ActionButton>
+
+          <ActionButton
             onClick={() => handleButtonClick("documentation")}
+            startIcon={<DescriptionIcon />}
           >
-            Documentation
-          </StyledButton>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'success.main' }}>Documentation</Typography>
+            <Typography variant="caption">Manage project docs</Typography>
+          </ActionButton>
         </Box>
 
         {/* Collaborators Section */}
-        <Card sx={{ boxShadow: 3 }}>
-          <CardContent>
+        <CollaboratorCard>
+          <CardContent sx={{ py: 2 }}>
             <Box
               sx={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                mb: 2,
+                mb: 1.5,
               }}
             >
-              <Typography variant="h6" component="h2">
-                Collaborators
-              </Typography>
-              <StyledButton
+              <Box display="flex" alignItems="center">
+                <PeopleIcon sx={{ mr: 1, color: 'primary.main', fontSize: 24 }} />
+                <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                  Team Collaborators
+                </Typography>
+                <Chip
+                  label={`${collaborators.length} members`}
+                  size="small"
+                  sx={{ ml: 1.5, backgroundColor: '#f0f9ff', fontWeight: 500 }}
+                />
+              </Box>
+
+              <Button
                 variant="outlined"
                 color="primary"
                 onClick={handleOpenAddDialog}
+                startIcon={<AddIcon />}
                 size="small"
+                sx={{
+                  backgroundColor: '#e3f2fd', // Light blue background initially
+                  borderColor: '#bbdefb',     // Light border
+                  color: '#1976d2',           // Primary blue text
+                  '&:hover': {
+                    backgroundColor: '#90caf9', // Darker blue on hover
+                    borderColor: '#64b5f6',     // Darker border on hover
+                    color: '#0d47a1',           // Even deeper blue text on hover (optional)
+                  },
+                }}
               >
-                Add Participants
-              </StyledButton>
+                Add Collaborators
+              </Button>
+
             </Box>
+
+            <Divider sx={{ my: 1.5 }} />
+
             {collaboratorsLoading ? (
-              <CircularProgress size={24} />
+              <Box display="flex" justifyContent="center" py={3}>
+                <CircularProgress size={32} />
+              </Box>
             ) : collaboratorsIsError ? (
-              <Alert severity="error" sx={{ mt: 1 }}>
-                Failed to load collaborators:{" "}
-                {collaboratorsError?.data?.message || "Error"}
+              <Alert severity="error" sx={{ borderRadius: '8px' }}>
+                {collaboratorsError?.data?.message || "Error loading collaborators"}
               </Alert>
             ) : collaborators.length > 0 ? (
-              <List dense>
+              <List dense sx={{ py: 0 }}>
                 {collaborators.map((collab) => (
                   <ListItem
                     key={collab.githubId || collab.username}
@@ -455,60 +558,111 @@ const ProjectDetailPage = () => {
                         <IconButton
                           edge="end"
                           aria-label="edit"
-                          onClick={() => handleOpenEditDialog(collab)}
-                          sx={{ mr: 1 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditDialog(collab);
+                          }}
+                          sx={{ mr: 0.5, color: 'primary.main' }}
+                          size="small"
                         >
-                          <EditIcon />
+                          <EditIcon fontSize="small" />
                         </IconButton>
                         <IconButton
                           edge="end"
                           aria-label="delete"
-                          onClick={() => handleOpenDeleteDialog(collab)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDeleteDialog(collab);
+                          }}
+                          sx={{ color: 'error.main' }}
+                          size="small"
                         >
-                          <DeleteIcon />
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Box>
                     }
+                    sx={{
+                      py: 1.5,
+                      borderBottom: '1px solid #f3f4f6',
+                      '&:last-child': { borderBottom: 'none' }
+                    }}
                   >
                     <ListItemAvatar>
-                      <Avatar src={collab.avatarUrl} alt={collab.username} />
+                      <Avatar
+                        src={collab.avatarUrl}
+                        alt={collab.username}
+                        sx={{ width: 40, height: 40 }}
+                      />
                     </ListItemAvatar>
                     <ListItemText
                       primary={
-                        <>
-                          {collab.username}
-                          <Typography
-                            component="span"
-                            variant="body2"
-                            color={
-                              collab.status === "accepted"
-                                ? "success.main"
-                                : collab.status === "pending"
-                                ? "warning.main"
-                                : "error.main"
-                            }
-                            sx={{ ml: 1, fontWeight: "bold" }}
-                          >
-                            ({collab.status})
+                        <Box display="flex" alignItems="center">
+                          <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                            {collab.username}
                           </Typography>
-                        </>
+                          <Chip
+                            label={collab.status}
+                            size="small"
+                            sx={{
+                              ml: 1,
+                              fontWeight: 500,
+                              fontSize: '0.7rem',
+                              height: '20px',
+                              backgroundColor: collab.status === "accepted"
+                                ? '#dcfce7'
+                                : collab.status === "pending"
+                                  ? '#fef9c3'
+                                  : '#fee2e2',
+                              color: collab.status === "accepted"
+                                ? '#166534'
+                                : collab.status === "pending"
+                                  ? '#854d0e'
+                                  : '#b91c1c'
+                            }}
+                          />
+                        </Box>
                       }
                       secondary={
-                        collab.permissions && collab.permissions.length > 0
-                          ? `Permissions: ${collab.permissions.join(", ")}`
-                          : "No specific permissions assigned"
+                        <Box sx={{ mt: 0.5 }}>
+                          {collab.permissions && collab.permissions.length > 0 ? (
+                            collab.permissions.map((perm) => (
+                              <PermissionChip key={perm} label={perm} size="small" />
+                            ))
+                          ) : (
+                            <Typography variant="caption" color="textSecondary">
+                              No specific permissions
+                            </Typography>
+                          )}
+                        </Box>
                       }
+                      sx={{ my: 0 }}
                     />
                   </ListItem>
                 ))}
               </List>
             ) : (
-              <Typography variant="body2" color="text.secondary">
-                No collaborators yet.
-              </Typography>
+              <Box textAlign="center" py={3}>
+                <PeopleIcon sx={{ fontSize: 48, color: '#d1d5db', mb: 1 }} />
+                <Typography variant="body1" color="textSecondary">
+                  No collaborators yet
+                </Typography>
+                <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5, display: 'block' }}>
+                  Add team members to collaborate
+                </Typography>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenAddDialog}
+                  size="small"
+                  sx={{ mt: 1.5 }}
+                >
+                  Add Collaborator
+                </Button>
+              </Box>
             )}
           </CardContent>
-        </Card>
+        </CollaboratorCard>
 
         {/* Add New Collaborator Dialog */}
         <Dialog
@@ -516,85 +670,90 @@ const ProjectDetailPage = () => {
           onClose={handleCloseAddDialog}
           fullWidth
           maxWidth="sm"
+          PaperProps={{ sx: { borderRadius: '12px' } }}
         >
-          <DialogTitle>Add New Collaborator</DialogTitle>
-          <DialogContent>
+          <DialogTitle sx={{
+            bgcolor: '#f0f9ff',
+            color: 'primary.main',
+            borderBottom: '1px solid #e5e7eb',
+            fontWeight: 600
+          }}>
+            <Box display="flex" alignItems="center">
+              <AddIcon sx={{ mr: 1 }} />
+              Add New Collaborator
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ py: 2 }}>
             <TextField
               autoFocus
               margin="dense"
-              id="github-username-search"
               label="Search GitHub Username"
               type="text"
               fullWidth
               variant="outlined"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              helperText="Type at least 3 characters to search."
+              helperText="Type at least 3 characters to search"
               sx={{ mb: 2 }}
+              InputProps={{
+                startAdornment: <GitHubIcon sx={{ color: 'action.active', mr: 1 }} />,
+              }}
+              size="small"
             />
+
             {searchLoading && (
-              <CircularProgress
-                size={24}
-                sx={{ display: "block", margin: "auto" }}
-              />
+              <Box display="flex" justifyContent="center" py={1}>
+                <CircularProgress size={24} />
+              </Box>
             )}
+
             {searchIsError && (
-              <Alert severity="error" sx={{ mt: 1 }}>
-                Error searching users:{" "}
-                {searchError?.data?.message || "Failed to search"}
+              <Alert severity="error" sx={{ mb: 1.5, borderRadius: '8px' }}>
+                {searchError?.data?.message || "Search error"}
               </Alert>
             )}
-            {!searchLoading &&
-              !searchIsError &&
-              searchTerm.length >= 3 &&
-              searchResults?.users?.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 1 }}
-                >
-                  No users found.
+
+            {!searchLoading && !searchIsError && searchTerm.length >= 3 && searchResults?.users?.length === 0 && (
+              <Box textAlign="center" py={1}>
+                <Typography variant="body2" color="textSecondary">
+                  No users found
                 </Typography>
-              )}
+              </Box>
+            )}
+
             {searchResults?.users && searchResults.users.length > 0 && (
-              <List
-                sx={{
-                  maxHeight: 300,
-                  overflow: "auto",
-                  mt: 1,
-                  border: "1px solid #ddd",
-                  borderRadius: 1,
-                }}
-              >
+              <List sx={{
+                maxHeight: 250,
+                overflow: 'auto',
+                mt: 1,
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px'
+              }}>
                 {searchResults.users.map((user) => (
                   <ListItemButton
                     key={user.id}
                     onClick={() => setSelectedUser(user)}
                     selected={selectedUser?.id === user.id}
+                    sx={{ borderRadius: '6px', py: 1 }}
                   >
                     <ListItemAvatar>
-                      <Avatar src={user.avatar_url} alt={user.login} />
+                      <Avatar src={user.avatar_url} alt={user.login} sx={{ width: 36, height: 36 }} />
                     </ListItemAvatar>
-                    <ListItemText primary={user.login} />
+                    <ListItemText
+                      primary={user.login}
+                      primaryTypographyProps={{ fontWeight: 500, fontSize: '0.95rem' }}
+                    />
                   </ListItemButton>
                 ))}
               </List>
             )}
 
             {selectedUser && (
-              <Box
-                sx={{
-                  mt: 3,
-                  mb: 2,
-                  p: 2,
-                  border: "1px solid #eee",
-                  borderRadius: 1,
-                }}
-              >
-                <Typography variant="h6" gutterBottom>
-                  Set Permissions for {selectedUser.login}
+              <Box sx={{ mt: 2, mb: 1, p: 2, bgcolor: '#f9fafb', borderRadius: '10px' }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+                  Permissions for {selectedUser.login}
                 </Typography>
-                <FormGroup>
+                <FormGroup sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
                   {availablePermissions.map((permission) => (
                     <FormControlLabel
                       key={permission}
@@ -603,9 +762,16 @@ const ProjectDetailPage = () => {
                           name={permission}
                           checked={selectedPermissions.includes(permission)}
                           onChange={handlePermissionChange}
+                          color="primary"
+                          size="small"
                         />
                       }
-                      label={permission}
+                      label={
+                        <Typography variant="body2" sx={{ fontSize: '0.9rem' }}>
+                          {permission}
+                        </Typography>
+                      }
+                      sx={{ m: 0 }}
                     />
                   ))}
                 </FormGroup>
@@ -613,24 +779,28 @@ const ProjectDetailPage = () => {
             )}
 
             {addCollaboratorIsError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                Failed to add collaborator:{" "}
-                {addCollaboratorError.data?.message ||
-                  "An unknown error occurred"}
+              <Alert severity="error" sx={{ mt: 1.5, borderRadius: '8px' }}>
+                {addCollaboratorError.data?.message || "Error adding collaborator"}
               </Alert>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseAddDialog} color="inherit">
+          <DialogActions sx={{ p: '12px 16px', borderTop: '1px solid #e5e7eb' }}>
+            <Button
+              onClick={handleCloseAddDialog}
+              variant="outlined"
+              size="small"
+            >
               Cancel
             </Button>
             <Button
               onClick={handleAddCollaborator}
               disabled={!selectedUser || addCollaboratorLoading}
               variant="contained"
+              color="primary"
+              size="small"
             >
               {addCollaboratorLoading ? (
-                <CircularProgress size={24} color="inherit" />
+                <CircularProgress size={20} color="inherit" />
               ) : (
                 "Add Collaborator"
               )}
@@ -638,32 +808,48 @@ const ProjectDetailPage = () => {
           </DialogActions>
         </Dialog>
 
-        {/* NEW: Delete Collaborator Confirmation Dialog */}
+        {/* Delete Collaborator Dialog */}
         <Dialog
           open={openDeleteDialog}
           onClose={handleCloseDeleteDialog}
           fullWidth
           maxWidth="xs"
+          PaperProps={{ sx: { borderRadius: '12px' } }}
         >
-          <DialogTitle>Confirm Deletion</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to remove{" "}
-              <Typography component="span" fontWeight="bold">
-                {selectedCollaborator?.username}
-              </Typography>{" "}
-              as a collaborator from this project and its GitHub repository?
-            </Typography>
+          <DialogTitle sx={{
+            bgcolor: '#fef2f2',
+            color: 'error.main',
+            borderBottom: '1px solid #e5e7eb',
+            fontWeight: 600
+          }}>
+            <Box display="flex" alignItems="center">
+              <DeleteIcon sx={{ mr: 1 }} />
+              Confirm Deletion
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ py: 2 }}>
+            <Box textAlign="center" py={1}>
+              <DeleteIcon sx={{ fontSize: 48, color: '#fecaca', mb: 1 }} />
+              <Typography variant="subtitle1" gutterBottom>
+                Remove {selectedCollaborator?.username}?
+              </Typography>
+              <Typography variant="body2">
+                This will remove them from the project and GitHub repository
+              </Typography>
+            </Box>
+
             {deleteCollaboratorIsError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                Failed to delete collaborator:{" "}
-                {deleteCollaboratorError.data?.message ||
-                  "An unknown error occurred"}
+              <Alert severity="error" sx={{ mt: 1.5, borderRadius: '8px' }}>
+                {deleteCollaboratorError.data?.message || "Error deleting"}
               </Alert>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseDeleteDialog} color="inherit">
+          <DialogActions sx={{ p: '12px 16px', borderTop: '1px solid #e5e7eb' }}>
+            <Button
+              onClick={handleCloseDeleteDialog}
+              variant="outlined"
+              size="small"
+            >
               Cancel
             </Button>
             <Button
@@ -671,9 +857,10 @@ const ProjectDetailPage = () => {
               color="error"
               variant="contained"
               disabled={deleteCollaboratorLoading}
+              size="small"
             >
               {deleteCollaboratorLoading ? (
-                <CircularProgress size={24} color="inherit" />
+                <CircularProgress size={20} color="inherit" />
               ) : (
                 "Delete"
               )}
@@ -681,30 +868,31 @@ const ProjectDetailPage = () => {
           </DialogActions>
         </Dialog>
 
-        {/* NEW: Edit Collaborator Permissions Dialog */}
+        {/* Edit Permissions Dialog */}
         <Dialog
           open={openEditDialog}
           onClose={handleCloseEditDialog}
           fullWidth
           maxWidth="sm"
+          PaperProps={{ sx: { borderRadius: '12px' } }}
         >
-          <DialogTitle>
-            Edit Permissions for {selectedCollaborator?.username}
+          <DialogTitle sx={{
+            bgcolor: '#f0f9ff',
+            color: 'primary.main',
+            borderBottom: '1px solid #e5e7eb',
+            fontWeight: 600
+          }}>
+            <Box display="flex" alignItems="center">
+              <EditIcon sx={{ mr: 1 }} />
+              Edit Permissions for {selectedCollaborator?.username}
+            </Box>
           </DialogTitle>
-          <DialogContent>
-            <Box
-              sx={{
-                mt: 1,
-                mb: 2,
-                p: 2,
-                border: "1px solid #eee",
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="h6" gutterBottom>
+          <DialogContent sx={{ py: 2 }}>
+            <Box sx={{ mt: 1, mb: 1, p: 2, bgcolor: '#f9fafb', borderRadius: '10px' }}>
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
                 Permissions
               </Typography>
-              <FormGroup>
+              <FormGroup sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
                 {availablePermissions.map((permission) => (
                   <FormControlLabel
                     key={permission}
@@ -713,32 +901,44 @@ const ProjectDetailPage = () => {
                         name={permission}
                         checked={permissionsToEdit.includes(permission)}
                         onChange={handleEditPermissionChange}
+                        color="primary"
+                        size="small"
                       />
                     }
-                    label={permission}
+                    label={
+                      <Typography variant="body2" sx={{ fontSize: '0.9rem' }}>
+                        {permission}
+                      </Typography>
+                    }
+                    sx={{ m: 0 }}
                   />
                 ))}
               </FormGroup>
             </Box>
+
             {updatePermissionsIsError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                Failed to update permissions:{" "}
-                {updatePermissionsError.data?.message ||
-                  "An unknown error occurred"}
+              <Alert severity="error" sx={{ mt: 1.5, borderRadius: '8px' }}>
+                {updatePermissionsError.data?.message || "Error updating"}
               </Alert>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseEditDialog} color="inherit">
+          <DialogActions sx={{ p: '12px 16px', borderTop: '1px solid #e5e7eb' }}>
+            <Button
+              onClick={handleCloseEditDialog}
+              variant="outlined"
+              size="small"
+            >
               Cancel
             </Button>
             <Button
               onClick={handleSavePermissions}
               variant="contained"
+              color="primary"
               disabled={updatePermissionsLoading}
+              size="small"
             >
               {updatePermissionsLoading ? (
-                <CircularProgress size={24} color="inherit" />
+                <CircularProgress size={20} color="inherit" />
               ) : (
                 "Save Changes"
               )}

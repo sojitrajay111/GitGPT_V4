@@ -15,7 +15,13 @@ export const projectApiSlice = createApi({
     },
   }),
 
-  tagTypes: ["Project", "GitHubRepos"], // "GitHubRepos" added because project creation can affect GitHub state
+  tagTypes: [
+  "Project",
+  "GitHubRepos",
+  "GitHubStatus",
+  "ProjectCollaborators",
+],
+ // "GitHubRepos" added because project creation can affect GitHub state
 
   // Define the API endpoints
   endpoints: (builder) => ({
