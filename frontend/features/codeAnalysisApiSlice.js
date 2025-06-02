@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const codeAnalysisApiSlice = createApi({
   reducerPath: "codeAnalysisApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "https://gitgpt-v2.onrender.com/api/code-analysis", // Base URL for code analysis APIs
+    baseUrl: "http://localhost:3001/api/code-analysis", // Base URL for code analysis APIs
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("token");
       if (token) {
