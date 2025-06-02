@@ -34,6 +34,7 @@ import {
   useUpdateDocumentMutation, // Import new hook
   useDeleteDocumentMutation, // Import new hook
 } from "@/features/documentApiSlice"; // Adjust path as needed
+import { useParams } from "next/navigation";
 
 // Placeholder values - REPLACE WITH ACTUAL DYNAMIC VALUES from props, context, or router
 const PLACEHOLDER_PROJECT_ID = "68380bcf206b1a77dce7a991";
@@ -99,6 +100,9 @@ const Alert = React.forwardRef(function Alert(props, ref) {
 // Main Component
 const DocumentationPage = ({ projectIdFromProps, projectData }) => {
   // Use projectId from props or fallback to placeholder
+
+  const params = useParams();
+  const projectId = params.projectId;
   const currentProjectId = projectIdFromProps || PLACEHOLDER_PROJECT_ID;
 
   const {
@@ -107,8 +111,8 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
     isError,
     error,
     refetch,
-  } = useGetProjectDocumentsQuery(currentProjectId, {
-    skip: !currentProjectId, // Skip query if no projectId
+  } = useGetProjectDocumentsQuery(projectId, {
+    skip: !projectId, // Skip query if no projectId
   });
   const documents = documentsResponse?.documents;
 
