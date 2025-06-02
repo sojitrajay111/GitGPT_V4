@@ -2,7 +2,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 // Import from githubApiSlice, NOT userStoryApiSlice
 
-
 export const githubApiSlice = createApi({
   reducerPath: "githubApi",
   baseQuery: fetchBaseQuery({
@@ -115,6 +114,12 @@ export const githubApiSlice = createApi({
         { type: "GitHubBranches", id: `${owner}/${repo}` },
       ],
     }),
+    getUserAndGithubData: builder.query({
+      query: (userId) => `/user-and-github-data/${userId}`,
+      providesTags: (result, error, userId) => [
+        { type: "UserAndGitHubData", id: userId },
+      ],
+    }),
   }),
 });
 
@@ -131,4 +136,5 @@ export const {
   useUpdateCollaboratorPermissionsMutation,
   useCreateGitHubBranchMutation,
   useGetGitHubRepoBranchesQuery,
+  useGetUserAndGithubDataQuery,
 } = githubApiSlice;

@@ -968,6 +968,47 @@ const getRepoBranches = async (req, res) => {
   }
 };
 
+const getUserAndGithubData = async (req, res) => {
+  try {
+    const { userId } = req.params; // Get userId from URL parameters
+    const authenticatedUserId = req.user.id; // Get authenticated user's ID from middleware
+
+    // Ensure the requested userId matches the authenticated userId for security
+    if (userId !== authenticatedUserId) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: You can only access your own data.",
+      });
+    }
+
+    // Fetch user data
+    const user = await User.findById(userId).select("-password"); // Exclude password
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    // Fetch associated GitHub data
+    const githubData = await GitHubData.findOne({ userId }).select(
+      "-githubPAT"
+    ); // Exclude PAT
+
+    res.status(200).json({
+      success: true,
+      user: user,
+      githubData: githubData, // Will be null if no GitHubData exists for the user
+      message: "User and GitHub data fetched successfully.",
+    });
+  } catch (error) {
+    console.error("Error fetching user and GitHub data:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while fetching user and GitHub data.",
+    });
+  }
+};
+
 module.exports = {
   authenticateGitHub,
   getGitHubStatus,
@@ -984,4 +1025,5 @@ module.exports = {
   handleGitHubWebhook,
   createBranch,
   getRepoBranches,
+  getUserAndGithubData,
 };
