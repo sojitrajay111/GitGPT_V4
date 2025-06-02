@@ -13,6 +13,8 @@ const {
   deleteCollaborator,
   updateCollaboratorPermissions,
   handleGitHubWebhook,
+  createBranch,
+  getRepoBranches,
 } = require("../controllers/githubController");
 
 // Middleware to authenticate user (replace with your auth middleware)
@@ -63,5 +65,9 @@ router.put(
 );
 
 router.post("/webhook", handleGitHubWebhook);
+
+router.post("/repos/:owner/:repo/branches", authenticateUser, createBranch);
+
+router.get("/repos/:owner/:repo/branches", authenticateUser, getRepoBranches);
 
 module.exports = router;

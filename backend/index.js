@@ -8,6 +8,8 @@ const authRoutes = require("./routes/authRoutes");
 const githubRoutes = require("./routes/githubRoutes");
 const projectRoutes = require("./routes/projectRoutes"); //
 const userStoryRoutes = require("./routes/userStoryRoutes");
+const codeAnalysisRoutes = require("./routes/codeAnalysisRoutes");
+const documentRoutes = require("./routes/documentRoutes");
 
 const app = express();
 
@@ -29,6 +31,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/github", githubRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/user-stories", userStoryRoutes);
+app.use("/api/code-analysis", codeAnalysisRoutes);
+app.use("/api/documents", documentRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
