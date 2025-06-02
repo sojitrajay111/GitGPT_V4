@@ -5,7 +5,7 @@ export const projectApiSlice = createApi({
   reducerPath: "projectApi",
 
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3001/api",
+    baseUrl: "https://gitgpt-v2.onrender.com/api",
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("token"); // Get the token from local storage
       if (token) {
@@ -15,13 +15,8 @@ export const projectApiSlice = createApi({
     },
   }),
 
-  tagTypes: [
-  "Project",
-  "GitHubRepos",
-  "GitHubStatus",
-  "ProjectCollaborators",
-],
- // "GitHubRepos" added because project creation can affect GitHub state
+  tagTypes: ["Project", "GitHubRepos", "GitHubStatus", "ProjectCollaborators"],
+  // "GitHubRepos" added because project creation can affect GitHub state
 
   // Define the API endpoints
   endpoints: (builder) => ({
