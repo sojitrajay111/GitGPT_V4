@@ -1,25 +1,31 @@
 "use client";
-import React from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import React from "react";
+import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FolderOpen,
   BarChart,
   Settings,
   LogOut,
-  Sparkles
-} from 'lucide-react';
+  Sparkles,
+} from "lucide-react";
+import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
 
 const Sidebar = ({ userId }) => {
   const router = useRouter();
   const pathname = usePathname();
-  
+  const { data } = useGetUserAndGithubDataQuery(userId);
+
+  const username = data?.githubData?.username || "Loading...";
+  const avatar_url = data?.githubData?.avatar_url || "/default-avatar.png";
+  const github_name = data?.githubData?.name || "GitHub User";
+
   // Extract active tab from URL path
   const getActiveTab = () => {
-    const segments = pathname.split('/');
-    return segments.length > 2 ? segments[2] : 'dashboard';
+    const segments = pathname.split("/");
+    return segments.length > 2 ? segments[2] : "dashboard";
   };
-  
+
   const activeTab = getActiveTab();
 
   const handleNavigate = (tab) => {
@@ -27,20 +33,20 @@ const Sidebar = ({ userId }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('userid');
-    router.push('/login');
+    localStorage.removeItem("userid");
+    router.push("/login");
   };
 
   // Navigation items configuration
   const mainNavItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'create-project', label: 'Projects', icon: FolderOpen },
-    { id: 'report', label: 'Reports', icon: BarChart }
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "create-project", label: "Projects", icon: FolderOpen },
+    { id: "report", label: "Reports", icon: BarChart },
   ];
 
   const accountNavItems = [
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'logout', label: 'Logout', icon: LogOut, action: handleLogout }
+    { id: "settings", label: "Settings", icon: Settings },
+    { id: "logout", label: "Logout", icon: LogOut, action: handleLogout },
   ];
 
   return (
@@ -51,7 +57,9 @@ const Sidebar = ({ userId }) => {
           <Sparkles className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">GitGPT</h1>
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">
+            GitGPT
+          </h1>
           <p className="text-xs text-gray-500 mt-0.5">Developer Copilot</p>
         </div>
       </div>
@@ -64,7 +72,7 @@ const Sidebar = ({ userId }) => {
             <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
             Main Navigation
           </h3>
-          
+
           <div className="mt-2 space-y-1">
             {mainNavItems.map((item) => {
               const isActive = activeTab === item.id;
@@ -73,19 +81,21 @@ const Sidebar = ({ userId }) => {
                   key={item.id}
                   onClick={() => handleNavigate(item.id)}
                   className={`flex items-center w-full px-4 py-3 text-left rounded-lg transition-all duration-200 group ${
-                    isActive 
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                      : 'hover:bg-gray-100 hover:text-gray-900'
+                    isActive
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : "hover:bg-gray-100 hover:text-gray-900"
                   }`}
                 >
-                  <item.icon 
+                  <item.icon
                     className={`w-5 h-5 mr-3 ${
-                      isActive 
-                        ? 'text-blue-600' 
-                        : 'text-gray-500 group-hover:text-blue-600'
-                    }`} 
+                      isActive
+                        ? "text-blue-600"
+                        : "text-gray-500 group-hover:text-blue-600"
+                    }`}
                   />
-                  <span className={`font-medium ${isActive ? 'text-blue-700' : ''}`}>
+                  <span
+                    className={`font-medium ${isActive ? "text-blue-700" : ""}`}
+                  >
                     {item.label}
                   </span>
                   {isActive && (
@@ -103,7 +113,7 @@ const Sidebar = ({ userId }) => {
             <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
             Account
           </h3>
-          
+
           <div className="mt-2 space-y-1">
             {accountNavItems.map((item) => {
               const isActive = activeTab === item.id;
@@ -112,19 +122,21 @@ const Sidebar = ({ userId }) => {
                   key={item.id}
                   onClick={item.action || (() => handleNavigate(item.id))}
                   className={`flex items-center w-full px-4 py-3 text-left rounded-lg transition-all duration-200 group ${
-                    isActive 
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                      : 'hover:bg-gray-100 hover:text-gray-900'
+                    isActive
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : "hover:bg-gray-100 hover:text-gray-900"
                   }`}
                 >
-                  <item.icon 
+                  <item.icon
                     className={`w-5 h-5 mr-3 ${
-                      isActive 
-                        ? 'text-blue-600' 
-                        : 'text-gray-500 group-hover:text-blue-600'
-                    }`} 
+                      isActive
+                        ? "text-blue-600"
+                        : "text-gray-500 group-hover:text-blue-600"
+                    }`}
                   />
-                  <span className={`font-medium ${isActive ? 'text-blue-700' : ''}`}>
+                  <span
+                    className={`font-medium ${isActive ? "text-blue-700" : ""}`}
+                  >
                     {item.label}
                   </span>
                   {isActive && (
