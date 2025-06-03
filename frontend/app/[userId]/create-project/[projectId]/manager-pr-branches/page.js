@@ -626,7 +626,7 @@ const ManagePrBranchesPage = () => {
 
   return (
     <ThemeProvider theme={pageTheme}>
-      <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Box sx={{ p: { xs: 2, sm: 3 }, width: "100%" }}>
         <Typography
           variant="h5"
           component="h1"
@@ -859,7 +859,7 @@ const ManagePrBranchesPage = () => {
               onChange={(e) => setPrDescription(e.target.value)}
               sx={{ mb: 2 }}
             />
-            <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid container fullWidth spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth margin="dense" required>
                   <InputLabel id="pr-compare-branch-label">
