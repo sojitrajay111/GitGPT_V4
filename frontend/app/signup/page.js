@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { useSignupMutation } from "@/features/authApiSlice"; // Adjust the import path as needed
+import { useSignupMutation } from "@/features/authApiSlice";
 import {
   Snackbar,
   Alert,
@@ -11,6 +11,13 @@ import {
   Button,
   Container,
   Typography,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
+  FormLabel,
+  Paper,
+  Box,
 } from "@mui/material";
 
 const SignUp = () => {
@@ -41,72 +48,97 @@ const SignUp = () => {
   };
 
   const handleClose = (event, reason) => {
-    if (reason === "clickaway") {
-      return;
-    }
+    if (reason === "clickaway") return;
     setOpen(false);
   };
 
   return (
     <Container maxWidth="sm" className="mt-10">
-      <Typography variant="h4" gutterBottom>
-        Sign Up
-      </Typography>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <TextField
-          label="Username"
-          name="username"
-          fullWidth
-          {...register("username", { required: "Username is required" })}
-          error={!!errors.username}
-          helperText={errors.username?.message}
-        />
-        <TextField
-          label="Email"
-          name="email"
-          type="email"
-          fullWidth
-          {...register("email", { required: "Email is required" })}
-          error={!!errors.email}
-          helperText={errors.email?.message}
-        />
-        <TextField
-          label="Password"
-          name="password"
-          type="password"
-          fullWidth
-          {...register("password", {
-            required: "Password is required",
-            minLength: {
-              value: 6,
-              message: "Password must be at least 6 characters",
-            },
-          })}
-          error={!!errors.password}
-          helperText={errors.password?.message}
-        />
-        <TextField
-          label="Confirm Password"
-          name="confirmPassword"
-          type="password"
-          fullWidth
-          {...register("confirmPassword", {
-            required: "Confirm Password is required",
-            validate: (value) =>
-              value === watch("password") || "Passwords do not match",
-          })}
-          error={!!errors.confirmPassword}
-          helperText={errors.confirmPassword?.message}
-        />
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          disabled={isLoading}
-        >
-          {isLoading ? "Signing Up..." : "Sign Up"}
-        </Button>
-      </form>
+      <Paper elevation={6} sx={{ padding: 4, borderRadius: 4 }}>
+        <Typography variant="h4" gutterBottom align="center">
+          🚀 Create Your Account
+        </Typography>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <TextField
+            label="Username"
+            fullWidth
+            {...register("username", { required: "Username is required" })}
+            error={!!errors.username}
+            helperText={errors.username?.message}
+          />
+          <TextField
+            label="Email"
+            type="email"
+            fullWidth
+            {...register("email", { required: "Email is required" })}
+            error={!!errors.email}
+            helperText={errors.email?.message}
+          />
+          <TextField
+            label="Password"
+            type="password"
+            fullWidth
+            {...register("password", {
+              required: "Password is required",
+              minLength: {
+                value: 6,
+                message: "Password must be at least 6 characters",
+              },
+            })}
+            error={!!errors.password}
+            helperText={errors.password?.message}
+          />
+          <TextField
+            label="Confirm Password"
+            type="password"
+            fullWidth
+            {...register("confirmPassword", {
+              required: "Confirm Password is required",
+              validate: (value) =>
+                value === watch("password") || "Passwords do not match",
+            })}
+            error={!!errors.confirmPassword}
+            helperText={errors.confirmPassword?.message}
+          />
+
+          <FormControl component="fieldset" error={!!errors.role}>
+            <FormLabel component="legend">Role</FormLabel>
+            <RadioGroup row defaultValue="developer">
+              <FormControlLabel
+                value="developer"
+                control={<Radio />}
+                label="Developer"
+                {...register("role", { required: "Role is required" })}
+              />
+              <FormControlLabel
+                value="manager"
+                control={<Radio />}
+                label="Manager"
+                {...register("role", { required: "Role is required" })}
+              />
+            </RadioGroup>
+            {errors.role && (
+              <Typography variant="body2" color="error">
+                {errors.role.message}
+              </Typography>
+            )}
+          </FormControl>
+
+          <Box textAlign="center" mt={2}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={isLoading}
+              fullWidth
+              sx={{ py: 1.5 }}
+            >
+              {isLoading ? "Signing Up..." : "Sign Up"}
+            </Button>
+          </Box>
+        </form>
+      </Paper>
+
       <Snackbar open={open} autoHideDuration={6000} onClose={handleClose}>
         <Alert onClose={handleClose} severity={severity} sx={{ width: "100%" }}>
           {message}

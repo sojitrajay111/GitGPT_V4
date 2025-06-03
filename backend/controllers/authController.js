@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET; // Ensure this is loaded correctly fr
 
 exports.register = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, role } = req.body; // Destructure role from req.body
 
     // Check if the user already exists
     const existingUser = await User.findOne({ email });
@@ -15,12 +15,18 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    // Hash password before saving
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create new user with the HASHED password
-    const user = new User({ username, email, password: hashedPassword });
+    // Create user with hashed password and role
+    const user = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role: role, // Assign the role from the request body
+    });
+
     await user.save();
 
     res.status(201).json({ message: "User registered successfully" });

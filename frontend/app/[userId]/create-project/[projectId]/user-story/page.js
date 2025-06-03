@@ -41,6 +41,12 @@ import {
   useGenerateAiStoryMutation,
 } from "@/features/userStoryApiSlice";
 import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
+import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
+import {
+  useGetCollaboratorPermissionsQuery,
+  useGetDeveloperUserStoriesQuery,
+} from "@/features/developerApiSlice";
+import { skipToken } from "@reduxjs/toolkit/query";
 
 // Custom light theme with professional palette
 const freshTheme = createTheme({
@@ -185,6 +191,7 @@ const CollaboratorChip = styled(Chip)(({ theme }) => ({
 }));
 const UserStoryPage = () => {
   const params = useParams();
+  const userId = params.userId;
   const projectId = params.projectId;
   const router = useRouter();
 
@@ -202,6 +209,20 @@ const UserStoryPage = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success"); // 'success', 'error', 'warning', 'info'
+
+  const { data: userData } = useGetUserAndGithubDataQuery(userId);
+
+  const user_role = userData?.user?.role;
+  const githubId = userData?.githubData?.githubId;
+
+  const { data: developerPermissions } = useGetCollaboratorPermissionsQuery(
+    projectId && githubId && user_role === "developer"
+      ? { projectId, githubId }
+      : skipToken
+  );
+
+  const { data: developerUserStories } =
+    useGetDeveloperUserStoriesQuery(githubId);
 
   const {
     data: userStoriesData,
@@ -386,7 +407,10 @@ const UserStoryPage = () => {
     }
   };
 
-  const userStories = userStoriesData?.userStories || [];
+  const userStories =
+    user_role === "developer"
+      ? developerUserStories
+      : userStoriesData?.userStories || [];
   const availableCollaborators = collaboratorsData?.collaborators || [];
 
   return (
@@ -415,20 +439,38 @@ const UserStoryPage = () => {
                 and features
               </Typography>
             </Box>
-            <Button
-              variant="contained"
-              onClick={handleOpenCreateDialog}
-              startIcon={<AddIcon />}
-              sx={{
-                backgroundColor: "white",
-                color: "#5e72e4",
-                "&:hover": {
-                  backgroundColor: "#f8f9fe",
-                },
-              }}
-            >
-              Create User Story
-            </Button>
+            {user_role === "developer" &&
+            developerPermissions?.includes("User story creation") ? (
+              <Button
+                variant="contained"
+                onClick={handleOpenCreateDialog}
+                startIcon={<AddIcon />}
+                sx={{
+                  backgroundColor: "white",
+                  color: "#5e72e4",
+                  "&:hover": {
+                    backgroundColor: "#f8f9fe",
+                  },
+                }}
+              >
+                Create User Story
+              </Button>
+            ) : user_role === "manager" ? (
+              <Button
+                variant="contained"
+                onClick={handleOpenCreateDialog}
+                startIcon={<AddIcon />}
+                sx={{
+                  backgroundColor: "white",
+                  color: "#5e72e4",
+                  "&:hover": {
+                    backgroundColor: "#f8f9fe",
+                  },
+                }}
+              >
+                Create User Story
+              </Button>
+            ) : null}
           </Box>
         </HeaderCard>
 

@@ -16,7 +16,6 @@ const Header = ({ activeTab, userId, activeUrl, handleBreadcrumbClick }) => {
   const username = data?.user?.username || "Loading...";
   const avatar_url = data?.githubData?.avatarUrl || "/default-avatar.png";
   const github_name = data?.githubData?.githubUsername || "GitHub User";
-  console.log("User Data:", data);
 
   return (
     <div className="sticky top-0 z-10 flex justify-between items-center min-h-[60px] px-8 py-1 bg-gradient-to-r from-gray-50 to-white shadow-sm border-b border-gray-200">
