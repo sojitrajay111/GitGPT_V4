@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const githubApiSlice = createApi({
   reducerPath: "githubApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3001/api/github", // Adjust based on your API structure
+    baseUrl: "https://gitgpt-v2.onrender.com/api/github", // Adjust based on your API structure
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("token"); // Or however you store your auth token
       if (token) {
