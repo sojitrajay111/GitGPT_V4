@@ -2,7 +2,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 // Create a base query that will inject the token into the headers
 const baseQueryWithAuth = fetchBaseQuery({
-  baseUrl: "https://gitgpt-v2.onrender.com/api", // Explicit base URL
+  baseUrl: "http://localhost:3001/api", // Explicit base URL
   credentials: "include", // Still include credentials for cookies if any
   prepareHeaders: (headers, { getState }) => {
     // Retrieve the token from local storage using the key 'token'
