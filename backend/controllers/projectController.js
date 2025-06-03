@@ -141,9 +141,8 @@ const getProjectsByUserId = async (req, res) => {
 const getProjectById = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user.id;
 
-    const project = await Project.findOne({ _id: projectId, userId });
+    const project = await Project.findOne({ _id: projectId });
 
     if (!project) {
       return res.status(404).json({
