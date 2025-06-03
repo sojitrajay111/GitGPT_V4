@@ -1,79 +1,96 @@
-// routes/github.js (or wherever you define your routes)
+// routes/githubRoutes.js
 const express = require("express");
 const router = express.Router();
 const {
   authenticateGitHub,
   getGitHubStatus,
   disconnectGitHub,
-  getGitHubData,
-  checkGitHubAuthStatus,
-  getUserGithubRepos, // <--- Make sure this is imported
+  getGitHubData, // Legacy
+  checkGitHubAuthStatus, // Legacy
+  getUserGithubRepos,
   searchGithubUsers,
   addCollaborator,
-  deleteCollaborator,
+  deleteCollaborator, // Make sure this is the one you intend if you have multiple
   updateCollaboratorPermissions,
   handleGitHubWebhook,
-  createBranch,
-  getRepoBranches,
+  // Using the new/updated controller function names for clarity and consistency
+  createBranch, // This will map to createNewBranch from controller
+  getRepoBranches, // This will map to listRepoBranches from controller
+  deleteExistingBranch,
+  listPullRequests,
+  createNewPullRequest,
+  updateExistingPullRequest,
   getUserAndGithubData,
+  getCollaboratorsByProjectId, // Added this to imports as it's used in a route
 } = require("../controllers/githubController");
 
-// Middleware to authenticate user (replace with your auth middleware)
-const authenticateUser = require("../middleware/authMiddleware"); // Your auth middleware
+// Middleware to authenticate user (ensure this path is correct)
+const authenticateUser = require("../middleware/authMiddleware");
 
-// New unified route - gets both authentication status and data
+// --- General GitHub Account Routes ---
 router.get("/status", authenticateUser, getGitHubStatus);
-
-// Authenticate/Connect GitHub account
 router.post("/authenticate", authenticateUser, authenticateGitHub);
-
-// Disconnect GitHub account
 router.delete("/disconnect", authenticateUser, disconnectGitHub);
 
-// Route to get user's private GitHub repositories
-router.get("/repos", authenticateUser, getUserGithubRepos); // <--- Added this route
-router.get("/search/users", authenticateUser, searchGithubUsers); // New: Search GitHub users
-router.post("/collaborators", authenticateUser, addCollaborator);
-
-// Legacy routes (keep for backward compatibility)
-router.get("/auth-status", authenticateUser, checkGitHubAuthStatus);
-router.get("/data", authenticateUser, getGitHubData);
-
-// Add this logging middleware to the DELETE route
-router.delete(
-  "/collaborators/:projectId/:githubUsername",
-  (req, res, next) => {
-    console.log(
-      `DEBUG: Hitting DELETE route for project: ${req.params.projectId}, user: ${req.params.githubUsername}`
-    );
-    next(); // IMPORTANT: Pass control to the next middleware/handler
-  },
-  authenticateUser,
-  deleteCollaborator
-);
-
-// Add this logging middleware to the PUT route
-router.put(
-  "/collaborators/:projectId/:githubUsername/permissions",
-  (req, res, next) => {
-    console.log(
-      `DEBUG: Hitting PUT permissions route for project: ${req.params.projectId}, user: ${req.params.githubUsername}`
-    );
-    next(); // IMPORTANT: Pass control to the next middleware/handler
-  },
-  authenticateUser,
-  updateCollaboratorPermissions
-);
-
-router.post("/webhook", handleGitHubWebhook);
-
-router.post("/repos/:owner/:repo/branches", authenticateUser, createBranch);
-
-router.get("/repos/:owner/:repo/branches", authenticateUser, getRepoBranches);
+// --- User and Repository Info ---
+router.get("/repos", authenticateUser, getUserGithubRepos); // List user's own repos (for project creation)
+router.get("/search/users", authenticateUser, searchGithubUsers);
 router.get(
   "/user-and-github-data/:userId",
   authenticateUser,
   getUserAndGithubData
 );
+
+// --- Collaborators ---
+// For a specific project (if collaborators are tied to projects in your system)
+router.get(
+  "/projects/:projectId/collaborators",
+  authenticateUser,
+  getCollaboratorsByProjectId
+);
+// General collaborator management (as per your existing structure)
+router.post("/collaborators", authenticateUser, addCollaborator);
+router.delete(
+  "/collaborators/:projectId/:githubUsername",
+  authenticateUser,
+  deleteCollaborator
+);
+router.put(
+  "/collaborators/:projectId/:githubUsername/permissions",
+  authenticateUser,
+  updateCollaboratorPermissions
+);
+
+// --- Branch Management for a specific repository ---
+// The :owner and :repo params will be extracted from project's githubRepoLink on the frontend
+router.get("/repos/:owner/:repo/branches", authenticateUser, getRepoBranches); // Maps to listRepoBranches
+router.post("/repos/:owner/:repo/branches", authenticateUser, createBranch); // Maps to createNewBranch
+router.delete(
+  "/repos/:owner/:repo/branches/:branchNameEncoded",
+  authenticateUser,
+  deleteExistingBranch
+);
+
+// --- Pull Request Management for a specific repository ---
+router.get("/repos/:owner/:repo/pulls", authenticateUser, listPullRequests);
+router.post(
+  "/repos/:owner/:repo/pulls",
+  authenticateUser,
+  createNewPullRequest
+);
+router.patch(
+  "/repos/:owner/:repo/pulls/:pullNumber",
+  authenticateUser,
+  updateExistingPullRequest
+);
+
+// --- Webhook ---
+// Ensure this route is configured for raw body parsing if verifying signatures
+// e.g., app.use('/api/github/webhook', express.raw({ type: 'application/json' }), githubWebhookRoute);
+router.post("/webhook", handleGitHubWebhook);
+
+// --- Legacy Routes (if still needed) ---
+router.get("/auth-status", authenticateUser, checkGitHubAuthStatus);
+router.get("/data", authenticateUser, getGitHubData);
 
 module.exports = router;
