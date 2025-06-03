@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const developerApiSlice = createApi({
   reducerPath: "developerApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3001/api/developer",
+    baseUrl: "https://gitgpt-v2.onrender.com/api/developer",
     credentials: "include",
   }),
   tagTypes: ["developer"],
