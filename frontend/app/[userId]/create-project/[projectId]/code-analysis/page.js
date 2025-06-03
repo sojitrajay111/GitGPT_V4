@@ -28,15 +28,17 @@ import {
   useSendCodeAnalysisMessageMutation,
   useStartCodeAnalysisSessionMutation,
 } from "@/features/codeAnalysisApiSlice";
-import { useParams } from "next/navigation";
-
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@mui/material";
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+ 
 const App = () => {
   const params = useParams();
   const userId = params.userId;
   const projectId = params.projectId;
   const [githubData, setGithubData] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
+const router = useRouter();
   const {
     data: statusResponse,
     isLoading: statusLoading,
@@ -91,6 +93,11 @@ const App = () => {
       return () => container.removeEventListener('scroll', handleScroll);
     }
   }, []);
+
+  // Handler for the "Go Back" button
+  const handleGoBack = () => {
+    router.push(`/${userId}/create-project/${projectId}`)
+  };
 
   // RTK Query Hooks
   const {
@@ -479,7 +486,20 @@ const App = () => {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-3 bg-gradient-to-br from-blue-50 to-indigo-100">
+   <div className="flex flex-col min-h-screen p-3 bg-gradient-to-br from-blue-50 to-indigo-100">
+  <div className="flex justify-start mb-4">
+    <Button
+      onClick={handleGoBack}
+      startIcon={<ArrowBackIcon />}
+      sx={{
+        textTransform: "none",
+        fontWeight: 600,
+        color: "text.secondary",
+      }}
+    >
+      Go Back
+    </Button>
+  </div>
       <div className="relative flex w-full h-[88vh] max-w-6xl mx-auto rounded-xl shadow-xl overflow-hidden">
         {/* Sidebar for Chat History */}
         <div
