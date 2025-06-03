@@ -48,7 +48,10 @@ import {
   useSearchGithubUsersQuery,
   useDeleteCollaboratorMutation,
   useUpdateCollaboratorPermissionsMutation,
+  useGetUserAndGithubDataQuery,
 } from "@/features/githubApiSlice";
+import { useGetCollaboratorPermissionsQuery } from "@/features/developerApiSlice";
+import { skipToken } from "@reduxjs/toolkit/query";
 
 // Light and iterative color theme (assuming this theme is defined as in your original file)
 const lightTheme = createTheme({
@@ -185,6 +188,17 @@ const ProjectDetailPage = () => {
   const [selectedPermissions, setSelectedPermissions] = useState([]);
   const [selectedCollaborator, setSelectedCollaborator] = useState(null);
   const [permissionsToEdit, setPermissionsToEdit] = useState([]);
+
+  const { data: userData } = useGetUserAndGithubDataQuery(userId);
+
+  const user_role = userData?.user?.role;
+  const githubId = userData?.githubData?.githubId;
+
+  const { data: developerPermissions } = useGetCollaboratorPermissionsQuery(
+    projectId && githubId && user_role === "developer"
+      ? { projectId, githubId }
+      : skipToken
+  );
 
   const availablePermissions = [
     "Create PR",
@@ -532,12 +546,40 @@ const ProjectDetailPage = () => {
           </ActionButton>
 
           <ActionButton
-            onClick={() => handleButtonClick("codeAnalysis")}
-            startIcon={<CodeIcon sx={{ color: "#38bdf8" }} />} // Sky Blue
+            onClick={() => {
+              if (
+                developerPermissions?.includes("Code analysis") ||
+                user_role === "manager"
+              ) {
+                handleButtonClick("codeAnalysis");
+              }
+            }}
+            startIcon={<CodeIcon sx={{ color: "#38bdf8" }} />}
+            disabled={
+              !(
+                user_role === "manager" ||
+                developerPermissions?.includes("Code analysis")
+              )
+            } // disables if permission not present
+            sx={{
+              opacity: !(
+                user_role === "manager" ||
+                developerPermissions?.includes("Code analysis")
+              )
+                ? 0.5
+                : 1,
+              pointerEvents: !(
+                user_role === "manager" ||
+                developerPermissions?.includes("Code analysis")
+              )
+                ? "none"
+                : "auto",
+              backgroundColor: "#f5f5f5", // light gray background for disabled
+            }}
           >
             <Typography
               variant="subtitle1"
-              sx={{ fontWeight: 600, color: "#10b981" }} // Emerald
+              sx={{ fontWeight: 600, color: "#10b981" }}
             >
               Code Analysis
             </Typography>
@@ -547,8 +589,36 @@ const ProjectDetailPage = () => {
           </ActionButton>
 
           <ActionButton
-            onClick={() => handleButtonClick("documentation")}
+            onClick={() => {
+              if (
+                developerPermissions?.includes("documentation") ||
+                user_role === "manager"
+              ) {
+                handleButtonClick("codeAnalysis");
+              }
+            }}
             startIcon={<DescriptionIcon sx={{ color: "#a3e635" }} />} // Lime
+            disabled={
+              !(
+                user_role === "manager" ||
+                developerPermissions?.includes("documentation")
+              )
+            } // disables if permission not present
+            sx={{
+              opacity: !(
+                user_role === "manager" ||
+                developerPermissions?.includes("documentation")
+              )
+                ? 0.5
+                : 1,
+              pointerEvents: !(
+                user_role === "manager" ||
+                developerPermissions?.includes("documentation")
+              )
+                ? "none"
+                : "auto",
+              backgroundColor: "#f5f5f5", // light gray background for disabled
+            }}
           >
             <Typography
               variant="subtitle1"
@@ -608,25 +678,27 @@ const ProjectDetailPage = () => {
                 />
               </Box>
 
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={handleOpenAddDialog}
-                startIcon={<AddIcon />}
-                size="small"
-                sx={{
-                  backgroundColor: "#e3f2fd", // Light blue background initially
-                  borderColor: "#bbdefb", // Light border
-                  color: "#1976d2", // Primary blue text
-                  "&:hover": {
-                    backgroundColor: "#90caf9", // Darker blue on hover
-                    borderColor: "#64b5f6", // Darker border on hover
-                    color: "#0d47a1", // Even deeper blue text on hover (optional)
-                  },
-                }}
-              >
-                Add Collaborators
-              </Button>
+              {user_role === "manager" ? (
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleOpenAddDialog}
+                  startIcon={<AddIcon />}
+                  size="small"
+                  sx={{
+                    backgroundColor: "#e3f2fd", // Light blue background initially
+                    borderColor: "#bbdefb", // Light border
+                    color: "#1976d2", // Primary blue text
+                    "&:hover": {
+                      backgroundColor: "#90caf9", // Darker blue on hover
+                      borderColor: "#64b5f6", // Darker border on hover
+                      color: "#0d47a1", // Even deeper blue text on hover (optional)
+                    },
+                  }}
+                >
+                  Add Collaborators
+                </Button>
+              ) : null}
             </Box>
 
             <Divider sx={{ my: 1.5 }} />
@@ -648,30 +720,35 @@ const ProjectDetailPage = () => {
                     disablePadding
                     secondaryAction={
                       <Box>
-                        <IconButton
-                          edge="end"
-                          aria-label="edit"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEditDialog(collab);
-                          }}
-                          sx={{ mr: 0.5, color: "primary.main" }}
-                          size="small"
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          edge="end"
-                          aria-label="delete"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDeleteDialog(collab);
-                          }}
-                          sx={{ color: "error.main" }}
-                          size="small"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                        {user_role === "manager" ? (
+                          <>
+                            {" "}
+                            <IconButton
+                              edge="end"
+                              aria-label="edit"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditDialog(collab);
+                              }}
+                              sx={{ mr: 0.5, color: "primary.main" }}
+                              size="small"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              edge="end"
+                              aria-label="delete"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDeleteDialog(collab);
+                              }}
+                              sx={{ color: "error.main" }}
+                              size="small"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </>
+                        ) : null}
                       </Box>
                     }
                     sx={{

@@ -10,11 +10,6 @@ export default function Layout({ children }) {
   const { userId } = useParams(); // ✅ Correct way to get dynamic param in client layout
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState("dashboard");
-  const user = {
-    name: "Alex Johnson",
-    githubId: "alexj-dev",
-    role: "Project Manager",
-  };
 
   const [activeUrl, setActiveUrl] = useState([]);
 

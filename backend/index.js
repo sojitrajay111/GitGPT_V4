@@ -10,6 +10,7 @@ const projectRoutes = require("./routes/projectRoutes"); //
 const userStoryRoutes = require("./routes/userStoryRoutes");
 const codeAnalysisRoutes = require("./routes/codeAnalysisRoutes");
 const documentRoutes = require("./routes/documentRoutes");
+const developerRoutes = require("./routes/developerRoutes"); // Import developer routes
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/user-stories", userStoryRoutes);
 app.use("/api/code-analysis", codeAnalysisRoutes);
 app.use("/api/documents", documentRoutes);
+app.use("/api/developer", developerRoutes); // Use developer routes
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
