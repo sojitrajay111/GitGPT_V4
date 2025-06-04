@@ -10,11 +10,11 @@ import {
   Sparkles,
   X,
   ChevronLeft,
+  Menu,
 } from "lucide-react";
-import { HiMenu } from "react-icons/hi";
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
 
-const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
+const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed, onToggle }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { data } = useGetUserAndGithubDataQuery(userId);
@@ -32,6 +32,10 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
 
   const handleNavigate = (tab) => {
     router.push(`/${userId}/${tab}`);
+    // Close sidebar on mobile after navigation
+    if (window.innerWidth < 1024) {
+      onClose();
+    }
   };
 
   const handleLogout = () => {
@@ -52,6 +56,28 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
 
   return (
     <>
+      {/* Mobile Header with Hamburger Menu */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
+        <button
+          onClick={onToggle}
+          className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          aria-label="Toggle sidebar"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+        
+        <div className="flex items-center space-x-2">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-1.5 rounded-lg shadow flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <h1 className="text-lg font-bold tracking-tight text-gray-900">
+            GitGPT
+          </h1>
+        </div>
+        
+        <div className="w-10" /> {/* Spacer for centering */}
+      </div>
+
       {/* Overlay for mobile when open */}
       {isOpen && (
         <div
@@ -61,18 +87,21 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
       )}
 
       <div
-        className={`fixed inset-y-0 left-0 z-30 bg-gradient-to-b from-gray-50 to-gray-100 text-gray-800 flex flex-col h-screen border-r border-gray-200 shadow-sm transform transition-all duration-300 ease-in-out
-        lg:static
+        className={`fixed inset-y-0 left-0 z-30 bg-gradient-to-b from-gray-50 to-gray-100 text-gray-800 flex flex-col h-screen border-r border-gray-200 shadow-lg transform transition-all duration-300 ease-in-out
+        lg:static lg:shadow-sm
         ${isOpen ? "translate-x-0" : "-translate-x-full"}
         ${collapsed ? "w-16" : "w-64"}
         lg:translate-x-0`}
+        style={{ 
+          paddingTop: window?.innerWidth < 1024 ? '0' : '0' 
+        }}
       >
-        {/* Mobile Close */}
+        {/* Mobile Close Button */}
         <button
-          className="absolute top-4 right-4 p-1 lg:hidden text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-200"
+          className="absolute top-4 right-4 p-2 lg:hidden text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-200 z-10"
           onClick={onClose}
         >
-          <X className="w-6 h-6" />
+          <X className="w-5 h-5" />
         </button>
 
         {/* Header */}
@@ -99,13 +128,13 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
             )}
           </div>
 
-          {/* Toggle Button */}
+          {/* Desktop Toggle Button */}
           <button
-            className="text-gray-500 hover:text-gray-700 ml-auto"
+            className="hidden lg:block text-gray-500 hover:text-gray-700 ml-auto"
             onClick={() => setCollapsed(!collapsed)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {collapsed ? <HiMenu size={20} /> : <ChevronLeft size={20} />}
+            {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
           </button>
         </div>
 
@@ -116,13 +145,13 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
               <img
                 src={avatar_url}
                 alt="Avatar"
-                className="w-10 h-10 rounded-full object-cover"
+                className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-200"
               />
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-gray-900 truncate max-w-[140px]">
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-sm font-medium text-gray-900 truncate">
                   {username}
                 </span>
-                <span className="text-xs text-gray-600 truncate max-w-[160px]">
+                <span className="text-xs text-gray-600 truncate">
                   {email}
                 </span>
               </div>
@@ -136,7 +165,7 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
             {/* Main Nav */}
             <div>
               <h3
-                className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${
+                className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 ${
                   collapsed ? "sr-only" : ""
                 }`}
               >
@@ -147,18 +176,20 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
                   <li key={id}>
                     <button
                       onClick={() => handleNavigate(id)}
-                      className={`flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors
+                      className={`flex items-center w-full px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group
                         ${
                           activeTab === id
-                            ? "bg-indigo-100 text-indigo-700 font-medium"
-                            : "hover:bg-gray-100 text-gray-700"
+                            ? "bg-indigo-100 text-indigo-700 font-medium shadow-sm"
+                            : "hover:bg-gray-100 text-gray-700 hover:text-gray-900"
                         }`}
-                      title={label}
+                      title={collapsed ? label : ""}
                     >
                       <Icon
-                        className={`w-5 h-5 ${!collapsed ? "mr-3" : "mx-auto"}`}
+                        className={`w-5 h-5 ${!collapsed ? "mr-3" : "mx-auto"} ${
+                          activeTab === id ? "text-indigo-600" : "group-hover:text-gray-900"
+                        }`}
                       />
-                      {!collapsed && label}
+                      {!collapsed && <span className="truncate">{label}</span>}
                     </button>
                   </li>
                 ))}
@@ -166,9 +197,9 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
             </div>
 
             {/* Account Nav */}
-            <div className="mt-4">
+            <div className="mt-8">
               <h3
-                className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${
+                className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 ${
                   collapsed ? "sr-only" : ""
                 }`}
               >
@@ -179,13 +210,17 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
                   <li key={id}>
                     <button
                       onClick={() => (action ? action() : handleNavigate(id))}
-                      className="flex items-center w-full px-3 py-2 text-sm rounded-md hover:bg-gray-100 text-gray-700"
-                      title={label}
+                      className={`flex items-center w-full px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group hover:bg-gray-100 text-gray-700 hover:text-gray-900 ${
+                        id === 'logout' ? 'hover:bg-red-50 hover:text-red-700' : ''
+                      }`}
+                      title={collapsed ? label : ""}
                     >
                       <Icon
-                        className={`w-5 h-5 ${!collapsed ? "mr-3" : "mx-auto"}`}
+                        className={`w-5 h-5 ${!collapsed ? "mr-3" : "mx-auto"} group-hover:text-gray-900 ${
+                          id === 'logout' ? 'group-hover:text-red-600' : ''
+                        }`}
                       />
-                      {!collapsed && label}
+                      {!collapsed && <span className="truncate">{label}</span>}
                     </button>
                   </li>
                 ))}
