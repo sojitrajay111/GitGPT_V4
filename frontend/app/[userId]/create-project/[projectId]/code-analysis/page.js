@@ -20,6 +20,8 @@ import {
   Trash2,
   ShieldAlert,
   ArrowLeftCircle,
+  ChevronLeft,
+  MessageSquare,
 } from "lucide-react";
 
 import { useGetProjectByIdQuery } from "@/features/projectApiSlice";
@@ -525,127 +527,111 @@ const App = () => {
     const codeBlocksFromAi = isAI ? parseAiCodeResponse(msg.text) : [];
 
     return (
-      <div className={`flex mb-3 ${isUser ? "justify-end" : "justify-start"}`}>
+      <div className={`flex mb-4 ${isUser ? "justify-end" : "justify-start"}`}>
         <div
-          className={`py-2 px-3 md:py-2.5 md:px-4 rounded-lg shadow-md max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-3xl
+          className={`py-3 px-4 rounded-2xl max-w-[85%] md:max-w-[75%] lg:max-w-[65%] 
             ${
               isUser
-                ? "bg-blue-500 text-white rounded-br-none"
+                ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-br-none shadow-md"
                 : isAI
-                ? "bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200"
-                : "bg-yellow-100 text-yellow-800 border border-yellow-300 rounded-lg w-full text-xs md:text-sm"
+                ? "bg-gradient-to-br from-gray-800 to-gray-900 text-gray-100 rounded-bl-none border border-gray-700 shadow-md"
+                : "bg-gradient-to-br from-amber-700 to-amber-800 text-amber-50 border border-amber-600 rounded-lg w-full text-xs md:text-sm"
             }
             ${
               isSystem && msg.isError
-                ? "bg-red-100 text-red-700 border-red-300"
+                ? "bg-gradient-to-br from-red-700 to-red-800 text-red-50 border-red-600"
                 : ""
             }`}
         >
-          <div className="flex items-center mb-1">
+          <div className="flex items-center mb-1.5">
             {isUser && (
-              <User size={16} className="mr-1.5 text-blue-100 flex-shrink-0" />
+              <User size={18} className="mr-2 text-purple-200 flex-shrink-0" />
             )}
             {isAI && (
-              <Bot size={16} className="mr-1.5 text-gray-500 flex-shrink-0" />
+              <Bot size={18} className="mr-2 text-gray-300 flex-shrink-0" />
             )}
             {isSystem && (
-              <Github
-                size={16}
-                className="mr-1.5 text-gray-600 flex-shrink-0"
-              />
+              <Github size={18} className="mr-2 text-amber-200 flex-shrink-0" />
             )}
-            <span className="font-semibold text-xs md:text-sm">
-              {isUser ? "You" : isAI ? "AI Analyst" : "System"}
+            <span className="font-medium text-sm">
+              {isUser ? "You" : isAI ? "Code Assistant" : "System"}
             </span>
+            {msg.createdAt && (
+              <span
+                className={`ml-auto text-xs opacity-80 ${
+                  isUser ? "text-purple-100" : "text-gray-300"
+                }`}
+              >
+                {new Date(msg.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            )}
           </div>
           <div className="text-sm whitespace-pre-wrap leading-relaxed break-words">
             {msg.text}
           </div>
+
           {isSystem && msg.prUrl && (
             <a
               href={msg.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1.5 inline-flex items-center text-blue-600 hover:text-blue-800 underline font-medium transition-colors duration-200 text-xs md:text-sm"
+              className="mt-2 inline-flex items-center text-amber-300 hover:text-amber-100 underline font-medium transition-colors duration-200 text-xs"
             >
               View Pull Request{" "}
               <GitPullRequest size={14} className="inline ml-1" />
             </a>
           )}
-          {isSystem && msg.generatedCode && (
-            <details className="mt-1.5 bg-gray-50 p-1.5 rounded border border-gray-200">
-              <summary className="cursor-pointer text-xs font-medium text-gray-600 hover:text-gray-800 flex items-center">
-                <UploadCloud size={12} className="mr-1" /> Show AI Response
-                Detail
-              </summary>
-              <pre className="mt-1 p-1.5 bg-gray-800 text-green-300 rounded text-xs overflow-x-auto font-mono leading-normal max-h-40 md:max-h-52">
-                <code>{msg.generatedCode}</code>
-              </pre>
-            </details>
-          )}
+
           {codeBlocksFromAi.length > 0 && (
-            <details className="mt-1.5 bg-gray-700 p-1.5 rounded border border-gray-600">
-              <summary className="cursor-pointer text-xs font-medium text-gray-200 hover:text-white flex items-center">
-                <UploadCloud size={12} className="mr-1" /> View Extracted
-                Code(s)
+            <details className="mt-3 bg-gray-800 p-2 rounded-lg border border-gray-700">
+              <summary className="cursor-pointer text-xs font-medium text-gray-300 hover:text-gray-100 flex items-center">
+                <UploadCloud size={14} className="mr-1.5" /> View Extracted Code
               </summary>
-              {codeBlocksFromAi.map((block, index) => (
-                <div key={index} className="mt-1">
-                  <p className="text-xs text-gray-400 font-mono mb-0.5">
-                    // File: {block.filePath}
-                  </p>
-                  <pre className="p-1.5 bg-black text-green-300 rounded text-xs overflow-x-auto font-mono leading-normal max-h-40 md:max-h-52">
-                    <code>{block.content}</code>
-                  </pre>
-                </div>
-              ))}
+              <div className="mt-2 space-y-2">
+                {codeBlocksFromAi.map((block, index) => (
+                  <div key={index}>
+                    <p className="text-xs text-gray-400 font-mono mb-1">
+                      {block.filePath}
+                    </p>
+                    <pre className="p-2 bg-gray-900 text-gray-100 rounded text-xs overflow-x-auto font-mono">
+                      <code>{block.content}</code>
+                    </pre>
+                  </div>
+                ))}
+              </div>
             </details>
-          )}
-          {msg.createdAt && (
-            <p
-              className={`text-xs mt-1 opacity-60 text-right ${
-                isUser
-                  ? "text-blue-100"
-                  : isAI
-                  ? "text-gray-500"
-                  : isSystem && msg.isError
-                  ? "text-red-200"
-                  : "text-gray-600"
-              }`}
-            >
-              {new Date(msg.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
           )}
         </div>
       </div>
     );
   });
-  MessageDisplay.displayName = "MessageDisplay";
+
+  // ... (keep all other existing functions the same)
 
   if (isLoadingProject && !projectData) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
-        <Loader2 className="animate-spin h-10 w-10 text-blue-600" />
-        <p className="ml-3 text-lg text-gray-700">Loading Project...</p>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+        <Loader2 className="animate-spin h-10 w-10 text-purple-500" />
+        <p className="ml-3 text-lg text-gray-300">Loading Project...</p>
       </div>
     );
   }
 
   if (projectError) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-red-50 text-red-700 p-4">
-        <div className="text-center bg-white p-6 md:p-8 rounded-lg shadow-xl border border-red-200 max-w-md w-full">
-          <ShieldAlert size={44} className="mx-auto mb-3 text-red-500" />
-          <h1 className="text-xl md:text-2xl font-semibold mb-2">
+      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-red-900 to-red-800 p-4">
+        <div className="text-center bg-gray-800 p-6 md:p-8 rounded-xl shadow-lg border border-gray-700 max-w-md w-full">
+          <ShieldAlert size={44} className="mx-auto mb-3 text-red-400" />
+          <h1 className="text-xl md:text-2xl font-semibold mb-2 text-white">
             Project Load Error
           </h1>
-          <p className="text-sm md:text-base mb-3">
+          <p className="text-sm md:text-base mb-3 text-gray-300">
             Could not load project details. Please try again.
           </p>
-          <p className="mt-2 text-xs font-mono bg-red-100 p-1.5 rounded border border-red-200 text-red-600 overflow-x-auto">
+          <p className="mt-2 text-xs font-mono bg-red-900/50 p-2 rounded border border-red-800 text-red-200 overflow-x-auto">
             Error:{" "}
             {projectError.data?.message ||
               projectError.status?.toString() ||
@@ -653,7 +639,7 @@ const App = () => {
           </p>
           <button
             onClick={handleGoBack}
-            className="mt-5 flex items-center mx-auto bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm md:text-base font-medium shadow-md transition-colors"
+            className="mt-5 flex items-center mx-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg text-sm md:text-base font-medium shadow-md transition-all"
           >
             <ArrowLeftCircle size={18} className="mr-1.5" /> Go Back
           </button>
@@ -663,31 +649,48 @@ const App = () => {
   }
 
   return (
-    <div className="flex h-screen font-sans bg-gray-50 text-gray-800 overflow-hidden">
+    <div className="flex h-screen font-sans bg-gradient-to-br from-gray-900 to-gray-800 text-gray-200 overflow-hidden">
+      {/* Mobile sidebar toggle (floating button) */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className={`md:hidden fixed z-30 bottom-4 left-4 p-3 rounded-full shadow-lg bg-gradient-to-br from-purple-600 to-indigo-600 border border-purple-400 transition-all ${
+          isSidebarOpen ? "transform -translate-x-60" : ""
+        }`}
+      >
+        {isSidebarOpen ? (
+          <X size={20} className="text-white" />
+        ) : (
+          <MessageSquare size={20} className="text-white" />
+        )}
+      </button>
+
       {/* Sidebar */}
       <div
-        className={`bg-white shadow-lg transition-all duration-300 ease-in-out flex flex-col border-r border-gray-200
-          ${isSidebarOpen ? "w-60 md:w-64 p-3" : "w-0 p-0"} ${
-          isSidebarOpen ? "block" : "hidden"
-        } md:flex`}
+        className={`fixed md:relative z-20 h-full bg-gradient-to-b from-gray-800 to-gray-900 shadow-lg transition-all duration-300 ease-in-out flex flex-col border-r border-gray-700
+          ${
+            isSidebarOpen
+              ? "w-64 translate-x-0"
+              : "-translate-x-full md:translate-x-0 md:w-20"
+          } 
+          ${isSidebarOpen ? "block" : "hidden"} md:flex`}
       >
-        {isSidebarOpen && (
+        {isSidebarOpen ? (
           <>
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg md:text-xl font-semibold text-gray-700">
+            <div className="flex justify-between items-center p-4 border-b border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-200">
                 Chat History
               </h2>
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="md:hidden p-1 rounded hover:bg-gray-200"
+                className="p-1 rounded-full hover:bg-gray-700"
               >
-                <X size={18} className="text-gray-500" />
+                <X size={18} className="text-gray-400" />
               </button>
             </div>
-            <div className="flex-grow overflow-y-auto mb-2 pr-0.5 space-y-1.5">
+            <div className="flex-grow overflow-y-auto p-2 space-y-1">
               {isLoadingHistory ? (
                 <div className="flex items-center justify-center h-full pt-10">
-                  <Loader2 className="animate-spin h-6 w-6 text-blue-500" />
+                  <Loader2 className="animate-spin h-6 w-6 text-purple-500" />
                 </div>
               ) : sessionsData?.sessions?.length > 0 ? (
                 sessionsData.sessions.map((session) => (
@@ -695,35 +698,31 @@ const App = () => {
                     key={session._id}
                     onClick={() =>
                       currentChatSessionId !== session._id &&
-                      loadChatSession(session._id)
+                      handleSessionChange(session._id)
                     }
-                    className={`p-2 rounded-md cursor-pointer transition-colors duration-150 flex justify-between items-center group
+                    className={`p-2 rounded-lg cursor-pointer transition-colors duration-150 flex justify-between items-center group
                       ${
                         currentChatSessionId === session._id
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-50 hover:bg-gray-100 border border-gray-200"
+                          ? "bg-gradient-to-r from-purple-900/50 to-purple-800/50 text-purple-100 border border-purple-700"
+                          : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
                       }`}
                   >
                     <div className="flex-1 overflow-hidden">
                       <p
-                        className={`font-medium text-xs md:text-sm truncate ${
+                        className={`font-medium text-sm truncate ${
                           currentChatSessionId === session._id
-                            ? "text-white"
-                            : "text-gray-700"
+                            ? "text-purple-100"
+                            : "text-gray-200"
                         }`}
-                        title={
-                          session.title || `Session ...${session._id.slice(-6)}`
-                        }
                       >
                         {session.title || `Session ...${session._id.slice(-6)}`}
                       </p>
                       <p
                         className={`text-xs mt-0.5 opacity-70 truncate ${
                           currentChatSessionId === session._id
-                            ? "text-blue-100"
-                            : "text-gray-500"
+                            ? "text-purple-300"
+                            : "text-gray-400"
                         }`}
-                        title={session.selectedBranch || "N/A"}
                       >
                         {session.selectedBranch || "N/A"}
                       </p>
@@ -733,19 +732,18 @@ const App = () => {
                         e.stopPropagation();
                         openDeleteModal(session._id);
                       }}
-                      className={`p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-150 ml-1 ${
+                      className={`p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${
                         currentChatSessionId === session._id
-                          ? "hover:bg-red-400 opacity-70"
-                          : "hover:bg-red-100"
+                          ? "hover:bg-purple-700/50 opacity-70"
+                          : "hover:bg-gray-500"
                       }`}
-                      title="Delete session"
                     >
                       <Trash2
                         size={14}
                         className={`${
                           currentChatSessionId === session._id
-                            ? "text-red-100 group-hover:text-white"
-                            : "text-red-500 group-hover:text-red-600"
+                            ? "text-purple-300 group-hover:text-purple-100"
+                            : "text-gray-400 group-hover:text-gray-200"
                         }`}
                       />
                     </button>
@@ -753,13 +751,13 @@ const App = () => {
                 ))
               ) : (
                 <p className="text-xs text-gray-500 text-center py-2">
-                  No chat history.
+                  No chat history
                 </p>
               )}
             </div>
             <button
               onClick={() => handleSessionChange(null)}
-              className="mt-auto w-full flex items-center justify-center p-2 bg-green-500 hover:bg-green-600 text-white rounded-md text-sm font-medium shadow-sm transition-colors"
+              className="m-3 p-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg text-sm font-medium shadow-md transition-all flex items-center justify-center"
               disabled={
                 isStartingSession ||
                 !project ||
@@ -768,61 +766,60 @@ const App = () => {
               }
             >
               {isStartingSession ? (
-                <Loader2 className="animate-spin h-4 w-4 mr-1.5" />
+                <Loader2 className="animate-spin h-4 w-4" />
               ) : (
-                <Plus size={16} className="mr-1" />
+                <Plus size={16} className="mr-2" />
               )}
               New Chat
             </button>
           </>
+        ) : (
+          // Collapsed sidebar
+          <div className="flex flex-col items-center py-4 h-full">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 rounded-full hover:bg-gray-700 mb-4"
+            >
+              <Menu size={20} className="text-gray-300" />
+            </button>
+            <button
+              onClick={() => handleSessionChange(null)}
+              className="p-2 rounded-full hover:bg-gray-700 mb-4"
+              title="New Chat"
+            >
+              <Plus size={20} className="text-gray-300" />
+            </button>
+          </div>
         )}
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative bg-gray-100">
-        <header className="bg-white p-3 shadow-sm z-10 border-b border-gray-200">
+      <div className="flex-1 flex flex-col relative bg-gradient-to-b from-gray-900/80 to-gray-800/80">
+        {/* Header with improved layout */}
+        <header className="bg-gray-800 p-3 shadow-md z-10 border-b border-gray-700">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-3">
               <button
                 onClick={handleGoBack}
-                className="p-1.5 rounded-full hover:bg-gray-200 mr-1.5 md:mr-2"
+                className="p-1.5 rounded-full hover:bg-gray-700"
                 title="Go Back"
               >
-                <ArrowLeftCircle size={18} className="text-gray-600" />
+                <ChevronLeft size={20} className="text-gray-300" />
               </button>
-              <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-1.5 rounded-full hover:bg-gray-200 mr-2 md:mr-3"
-              >
-                <Menu size={18} className="text-gray-600" />
-              </button>
-              {isLoadingProject && !project ? (
-                <Loader2 className="animate-spin h-5 w-5 text-blue-500" />
-              ) : project ? (
-                <>
-                  <Github
-                    size={18}
-                    className="mr-1.5 text-purple-500 flex-shrink-0"
-                  />
-                  <h1
-                    className="text-sm md:text-lg font-semibold text-gray-700 truncate"
-                    title={project.githubRepoLink || project.projectName}
-                  >
+
+              {project && (
+                <div className="flex items-center">
+                  <Github size={18} className="text-gray-300 mr-2" />
+                  <h1 className="text-sm font-semibold text-gray-100 truncate max-w-[160px] md:max-w-none">
                     {project.projectName || "Project Analysis"}
                   </h1>
-                </>
-              ) : (
-                <h1 className="text-sm md:text-lg font-semibold text-red-500">
-                  Project Not Found
-                </h1>
+                </div>
               )}
             </div>
 
-            {!isLoadingProject && project && (
-              <div className="flex items-center space-x-2 md:space-x-3">
-                {isLoadingBranches ? (
-                  <Loader2 className="animate-spin h-5 w-5 text-blue-500" />
-                ) : (
+            {project && (
+              <div className="flex items-center space-x-2">
+                {!isLoadingBranches && branches?.length > 0 && (
                   <select
                     value={selectedBranch}
                     onChange={(e) => {
@@ -832,36 +829,22 @@ const App = () => {
                         setCurrentChatSessionId(null);
                       }
                     }}
-                    className="bg-white border border-gray-300 rounded-md px-2 py-1 text-xs md:text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 shadow-sm max-w-[100px] md:max-w-[150px]"
-                    disabled={!branches || branches.length === 0}
+                    className="bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-sm max-w-[120px] md:max-w-[150px]"
                   >
-                    {!branches || branches.length === 0 ? (
-                      <option value="">No branches</option>
-                    ) : (
-                      branches.map((branch) => (
-                        <option key={branch.name} value={branch.name}>
-                          {" "}
-                          {branch.name}{" "}
-                        </option>
-                      ))
-                    )}
+                    {branches.map((branch) => (
+                      <option key={branch.name} value={branch.name}>
+                        {branch.name}
+                      </option>
+                    ))}
                   </select>
                 )}
                 <button
                   onClick={() => {
-                    setBaseBranch(
-                      selectedBranch ||
-                        (branches?.length > 0 ? branches[0].name : "")
-                    );
+                    setBaseBranch(selectedBranch || branches?.[0]?.name || "");
                     setIsNewBranchModalOpen(true);
                   }}
-                  className="flex items-center bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs md:text-sm font-medium shadow-sm transition-colors"
-                  disabled={
-                    isLoadingBranches ||
-                    !branches ||
-                    branches.length === 0 ||
-                    !githubData?.githubUsername
-                  }
+                  className="flex items-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-2 py-1 rounded-lg text-xs font-medium shadow-md transition-all"
+                  disabled={!branches || branches.length === 0}
                 >
                   <Plus size={14} className="mr-1" /> Branch
                 </button>
@@ -870,36 +853,37 @@ const App = () => {
           </div>
         </header>
 
+        {/* Chat messages area */}
         <main
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2.5 md:space-y-3"
+          className="flex-1 overflow-y-auto p-4 space-y-4"
         >
           {isLoadingMessages && !messages.length && currentChatSessionId && (
             <div className="flex justify-center items-center h-full pt-10">
-              <Loader2 className="animate-spin h-7 w-7 text-blue-500" />
+              <Loader2 className="animate-spin h-7 w-7 text-purple-500" />
             </div>
           )}
           {!currentChatSessionId &&
             !isLoadingHistory &&
             !isStartingSession &&
             project && (
-              <div className="text-center text-gray-500 pt-10">
-                <Bot size={36} className="mx-auto mb-2 opacity-40" />
-                <p className="text-sm md:text-base">
+              <div className="text-center text-gray-400 pt-20">
+                <Bot size={36} className="mx-auto mb-3 opacity-60" />
+                <p className="text-sm">
                   {!selectedBranch && !isLoadingBranches
-                    ? "Please select a branch."
-                    : "Select or start a new chat."}
+                    ? "Please select a branch"
+                    : "Select or start a new chat"}
                 </p>
               </div>
             )}
           {currentChatSessionId &&
             !isLoadingMessages &&
             messages.length === 0 && (
-              <div className="text-center text-gray-500 pt-10">
-                <Bot size={36} className="mx-auto mb-2 opacity-40" />
-                <p className="text-sm md:text-base">This chat is empty.</p>
-                <p className="text-xs">
-                  Send a message to start the AI analysis.
+              <div className="text-center text-gray-400 pt-20">
+                <Bot size={36} className="mx-auto mb-3 opacity-60" />
+                <p className="text-sm">This chat is empty</p>
+                <p className="text-xs text-gray-500">
+                  Send a message to start the analysis
                 </p>
               </div>
             )}
@@ -909,31 +893,26 @@ const App = () => {
               msg={msg}
             />
           ))}
-          {/* AI Processing Indicator (if needed, without typing effect) */}
-          {isSendingMessage &&
-            !messages.find(
-              (m) => m.sender === "ai" && !m._id?.startsWith("temp")
-            ) && (
-              <div className="flex justify-start mb-3">
-                <div className="py-2 px-3 md:py-2.5 md:px-4 rounded-lg shadow-md bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200 max-w-xs sm:max-w-md">
-                  <div className="flex items-center">
-                    <Bot size={16} className="mr-1.5 text-gray-500" />
-                    <span className="font-semibold text-xs md:text-sm">
-                      AI is processing...
-                    </span>
-                    <Loader2 className="animate-spin h-4 w-4 ml-2 text-blue-500" />
-                  </div>
+          {isSendingMessage && (
+            <div className="flex justify-start mb-4">
+              <div className="py-3 px-4 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 text-gray-200 rounded-bl-none border border-gray-700 shadow-md max-w-[75%]">
+                <div className="flex items-center">
+                  <Bot size={18} className="mr-2 text-gray-400" />
+                  <span className="font-medium text-sm">Analyzing...</span>
+                  <Loader2 className="animate-spin h-4 w-4 ml-2 text-purple-500" />
                 </div>
               </div>
-            )}
+            </div>
+          )}
         </main>
 
-        <footer className="bg-white p-2.5 md:p-3 shadow- ऊपर z-10 border-t border-gray-200">
+        {/* Footer with message input */}
+        <footer className="bg-gray-800 p-3 border-t border-gray-700">
           {lastAiResponseForCodePush && !isPushingCode && (
             <div className="mb-2 flex justify-end">
               <button
                 onClick={handleGenerateAndPushCode}
-                className="flex items-center bg-purple-500 hover:bg-purple-600 text-white px-3 py-1.5 rounded-md text-xs md:text-sm font-medium shadow-sm transition-colors"
+                className="flex items-center bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-md transition-all"
                 disabled={!currentChatSessionId || isSendingMessage}
               >
                 <UploadCloud size={14} className="mr-1" /> Push AI Code
@@ -941,12 +920,13 @@ const App = () => {
             </div>
           )}
           {isPushingCode && (
-            <div className="mb-2 flex justify-end items-center text-xs md:text-sm text-purple-600 font-medium">
+            <div className="mb-2 flex justify-end items-center text-xs text-amber-400 font-medium">
               <Loader2 className="animate-spin h-4 w-4 mr-1.5" />
               Pushing code & creating PR...
             </div>
           )}
-          <div className="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
+
+          <div className="flex items-center bg-gray-700 rounded-lg p-1.5 border border-gray-600">
             <input
               type="text"
               value={inputMessage}
@@ -955,15 +935,16 @@ const App = () => {
                 e.key === "Enter" && !isSendingMessage && handleSendMessage()
               }
               placeholder={
-                currentChatSessionId ? "Ask AI..." : "Select or start a session"
+                currentChatSessionId
+                  ? "Ask about your code..."
+                  : "Select or start a session"
               }
-              className="flex-1 bg-transparent px-2 py-1.5 text-sm md:text-base text-gray-700 focus:outline-none placeholder-gray-400"
+              className="flex-1 bg-transparent px-3 py-2 text-sm text-gray-200 focus:outline-none placeholder-gray-400"
               disabled={
                 isSendingMessage ||
                 !project ||
                 !selectedBranch ||
-                !currentChatSessionId ||
-                !githubData?.githubUsername
+                !currentChatSessionId
               }
             />
             <button
@@ -973,10 +954,9 @@ const App = () => {
                 !inputMessage.trim() ||
                 !project ||
                 !selectedBranch ||
-                !currentChatSessionId ||
-                !githubData?.githubUsername
+                !currentChatSessionId
               }
-              className="bg-blue-500 hover:bg-blue-600 text-white p-1.5 md:p-2 rounded-md disabled:opacity-50 shadow-sm transition-colors"
+              className="ml-2 p-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg disabled:opacity-50 shadow-md transition-all"
             >
               {isSendingMessage ? (
                 <Loader2 className="animate-spin h-4 w-4" />
@@ -985,52 +965,16 @@ const App = () => {
               )}
             </button>
           </div>
-          <div className="text-xs mt-1 space-y-0.5 max-h-10 overflow-y-auto">
+
+          <div className="text-xs mt-2 text-gray-500 space-y-0.5">
             {!project && !isLoadingProject && (
-              <p className="text-red-600 font-medium">Project not loaded.</p>
+              <p className="text-red-400">Project not loaded</p>
             )}
-            {project &&
-              !selectedBranch &&
-              !isLoadingBranches &&
-              branches?.length > 0 && (
-                <p className="text-orange-600 font-medium">Select a branch.</p>
-              )}
-            {project &&
-              !githubData?.githubUsername &&
-              !statusResponse?.isLoading && (
-                <p className="text-red-600 font-medium">
-                  GitHub not authenticated.
-                </p>
-              )}
-            {startSessionError && (
-              <p className="text-red-600">
-                Session Error:{" "}
-                {startSessionError.data?.message || startSessionError.message}
-              </p>
+            {project && !selectedBranch && !isLoadingBranches && (
+              <p className="text-amber-400">Select a branch</p>
             )}
-            {sendMessageError && (
-              <p className="text-red-600">
-                Send Error:{" "}
-                {sendMessageError.data?.message || sendMessageError.message}
-              </p>
-            )}
-            {createBranchError && (
-              <p className="text-red-600">
-                Branch Error:{" "}
-                {createBranchError.data?.message || createBranchError.message}
-              </p>
-            )}
-            {pushCodeError && (
-              <p className="text-red-600">
-                Push/PR Error:{" "}
-                {pushCodeError.data?.message || pushCodeError.message}
-              </p>
-            )}
-            {deleteSessionError && (
-              <p className="text-red-600">
-                Delete Error:{" "}
-                {deleteSessionError.data?.message || deleteSessionError.message}
-              </p>
+            {project && !githubData?.githubUsername && (
+              <p className="text-red-400">GitHub not authenticated</p>
             )}
           </div>
         </footer>
@@ -1038,43 +982,34 @@ const App = () => {
 
       {/* New Branch Modal */}
       {isNewBranchModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-5 md:p-6 rounded-lg shadow-xl w-full max-w-sm border border-gray-300">
-            <h3 className="text-lg md:text-xl font-semibold text-gray-700 mb-4 text-center">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-b from-gray-800 to-gray-900 p-5 rounded-xl shadow-xl w-full max-w-sm border border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-100 mb-4">
               Create New Branch
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label
-                  htmlFor="baseBranchModal"
-                  className="block text-xs font-medium text-gray-600 mb-1"
-                >
-                  Base Branch:
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Base Branch
                 </label>
                 <select
-                  id="baseBranchModal"
                   value={baseBranch}
                   onChange={(e) => setBaseBranch(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-md px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-purple-500"
                 >
                   {branches?.map((b) => (
                     <option key={b.name} value={b.name}>
-                      {" "}
-                      {b.name}{" "}
+                      {b.name}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label
-                  htmlFor="newBranchNameModal"
-                  className="block text-xs font-medium text-gray-600 mb-1"
-                >
-                  New Branch Name:
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  New Branch Name
                 </label>
                 <input
                   type="text"
-                  id="newBranchNameModal"
                   value={newBranchName}
                   onChange={(e) =>
                     setNewBranchName(
@@ -1083,34 +1018,29 @@ const App = () => {
                         .toLowerCase()
                     )
                   }
-                  placeholder="e.g., feature/new-login"
-                  className="w-full bg-gray-50 border border-gray-300 rounded-md px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-gray-400"
+                  placeholder="feature/new-login"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-purple-500"
                 />
               </div>
             </div>
-            <div className="mt-5 flex justify-end space-x-2">
+            <div className="mt-6 flex justify-end space-x-2">
               <button
                 onClick={() => setIsNewBranchModalOpen(false)}
-                className="px-3 py-1.5 text-sm rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium"
-                disabled={isCreatingBranch}
+                className="px-4 py-2 text-sm rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium border border-gray-600"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateNewBranch}
-                className="px-3 py-1.5 text-sm rounded-md bg-green-500 hover:bg-green-600 text-white font-medium flex items-center"
-                disabled={
-                  isCreatingBranch ||
-                  !newBranchName.trim() ||
-                  !baseBranch.trim()
-                }
+                className="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium flex items-center border border-purple-500"
+                disabled={!newBranchName.trim() || !baseBranch.trim()}
               >
                 {isCreatingBranch ? (
                   <Loader2 className="animate-spin h-4 w-4 mr-1.5" />
                 ) : (
-                  <GitFork size={14} className="mr-1" />
+                  <GitFork size={14} className="mr-1.5" />
                 )}
-                {isCreatingBranch ? "Creating..." : "Create"}
+                Create Branch
               </button>
             </div>
           </div>
@@ -1119,37 +1049,30 @@ const App = () => {
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-5 md:p-6 rounded-lg shadow-xl w-full max-w-sm border border-gray-300">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-b from-gray-800 to-gray-900 p-5 rounded-xl shadow-xl w-full max-w-sm border border-gray-700">
             <div className="text-center">
-              <ShieldAlert size={36} className="mx-auto mb-2 text-red-500" />
-              <h3 className="text-lg md:text-xl font-semibold text-gray-700 mb-1.5">
-                Confirm Deletion
+              <ShieldAlert size={36} className="mx-auto mb-3 text-red-400" />
+              <h3 className="text-lg font-semibold text-gray-100 mb-2">
+                Delete Chat Session?
               </h3>
-              <p className="text-xs md:text-sm text-gray-600 mb-4">
-                Delete this chat session and all messages? This cannot be
-                undone.
+              <p className="text-sm text-gray-400 mb-4">
+                This will permanently delete this chat and all its messages.
               </p>
             </div>
-            <div className="flex justify-center space-x-2">
+            <div className="flex justify-center space-x-3">
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="px-4 py-1.5 text-sm rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium"
-                disabled={isDeletingSession}
+                className="px-4 py-2 text-sm rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium border border-gray-600"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirmed}
-                className="px-4 py-1.5 text-sm rounded-md bg-red-600 hover:bg-red-700 text-white font-medium flex items-center"
-                disabled={isDeletingSession}
+                className="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium flex items-center border border-red-500"
               >
-                {isDeletingSession ? (
-                  <Loader2 className="animate-spin h-4 w-4 mr-1.5" />
-                ) : (
-                  <Trash2 size={14} className="mr-1" />
-                )}
-                {isDeletingSession ? "Deleting..." : "Delete"}
+                <Trash2 size={14} className="mr-1.5" />
+                Delete
               </button>
             </div>
           </div>
