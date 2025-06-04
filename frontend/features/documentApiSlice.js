@@ -3,7 +3,9 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const documentApi = createApi({
   reducerPath: "documentApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "https://gitgpt-v2.onrender.com/api/documents", // Ensure this matches your backend
+
+    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/documents`, // Ensure this matches your backend
+
     prepareHeaders: (headers, { getState }) => {
       // getState can be useful
       const token = localStorage.getItem("token"); // Or get from Redux state

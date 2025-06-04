@@ -1,25 +1,40 @@
-// app/[userId]/layout.js
 "use client";
 import React, { useEffect, useState } from "react";
-import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
-import { useParams, usePathname } from "next/navigation";
-import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
+import Header from "@/components/Header";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { HiMenu } from "react-icons/hi";
 
 export default function Layout({ children }) {
-  const { userId } = useParams(); // ✅ Correct way to get dynamic param in client layout
+  const { userId } = useParams();
   const pathname = usePathname();
+
+
+  const router = useRouter();
+
+
   const [activeTab, setActiveTab] = useState("dashboard");
-
   const [activeUrl, setActiveUrl] = useState([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const isCodeAnalysisPage = pathname.includes("/code-analysis");
+
+  // Update activeTab and activeUrl
   useEffect(() => {
-    // Split the pathname, filter out empty strings and numeric values
     const cleanSegments = pathname
       .split("/")
       .filter((segment) => segment && isNaN(segment));
 
     setActiveUrl(cleanSegments);
+    if (cleanSegments.length > 1) {
+      setActiveTab(cleanSegments[1]);
+    } else {
+      setActiveTab("dashboard");
+    }
+
+    // Close sidebar on route change (mobile)
+    setSidebarOpen(false);
   }, [pathname]);
 
   const handleBreadcrumbClick = (index) => {
@@ -29,20 +44,33 @@ export default function Layout({ children }) {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
-      <Sidebar
-        userId={userId}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header
-          activeTab={activeTab}
-          userId={userId}
-          activeUrl={activeUrl}
-          handleBreadcrumbClick={handleBreadcrumbClick}
-        />
-        <div className="flex-1 p-4  overflow-y-auto">{children}</div>
+
+      {/* Sidebar (hidden on Code Analysis page) */}
+      {!isCodeAnalysisPage && (
+        <>
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 z-20 bg-black/50 lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+          <Sidebar
+            userId={userId}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+          />
+        </>
+      )}
+        {/* Page content */}
+        <main className={`flex-1 ${isCodeAnalysisPage ? "" : "p-4"} overflow-y-auto`}>
+          {children}
+        </main>
+
       </div>
-    </div>
+    
   );
 }

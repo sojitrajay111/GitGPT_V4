@@ -55,6 +55,7 @@ import {
   useUpdatePullRequestMutation,
 } from "@/features/githubApiSlice";
 import { useGetCollaboratorsQuery } from "@/features/projectApiSlice"; // For reviewers
+import { ChevronLeft } from "lucide-react";
 
 // Define a theme or import your existing lightTheme
 const pageTheme = createTheme({
@@ -147,6 +148,7 @@ const ManagePrBranchesPage = () => {
   const params = useParams();
   const userId = params.userId;
   const projectId = params.projectId;
+  const router = useRouter();
 
   const [owner, setOwner] = useState(null);
   const [repo, setRepo] = useState(null);
@@ -373,6 +375,9 @@ const ManagePrBranchesPage = () => {
     } catch (err) {
       console.error("Failed to update PR:", err);
     }
+  };
+  const handleGoBack = () => {
+    router.back();
   };
 
   const handleClosePR = async (prNumber) => {
@@ -632,6 +637,9 @@ const ManagePrBranchesPage = () => {
           component="h1"
           sx={{ display: "flex", alignItems: "center", color: "text.primary" }}
         >
+          <Button onClick={handleGoBack} sx={{ color: "black" }}>
+            <ChevronLeft />
+          </Button>
           <AccountTreeIcon
             sx={{ mr: 1.5, fontSize: "2.2rem", color: "primary.main" }}
           />{" "}
