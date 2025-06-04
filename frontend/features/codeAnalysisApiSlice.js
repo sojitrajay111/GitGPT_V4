@@ -4,7 +4,9 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const codeAnalysisApiSlice = createApi({
   reducerPath: "codeAnalysisApi",
   baseQuery: fetchBaseQuery({
+
     baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/code-analysis`, // Base URL for code analysis APIs
+
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("token");
       if (token) {
