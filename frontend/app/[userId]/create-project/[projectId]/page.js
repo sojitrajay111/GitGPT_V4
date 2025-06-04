@@ -566,7 +566,15 @@ const ProjectDetailPage = () => {
           </ActionButton>
 
           <ActionButton
-            onClick={handleOpenCodeAnalysisTab}
+            // onClick={handleOpenCodeAnalysisTab}
+            onClick={() => {
+              if (
+                developerPermissions?.includes("Code analysis") ||
+                user_role === "manager"
+              ) {
+                handleButtonClick("codeAnalysis");
+              }
+            }}
             startIcon={<CodeIcon sx={{ color: "#38bdf8" }} />}
             disabled={
               !(
@@ -607,7 +615,7 @@ const ProjectDetailPage = () => {
                 developerPermissions?.includes("documentation") ||
                 user_role === "manager"
               ) {
-                handleButtonClick("codeAnalysis");
+                handleButtonClick("documentation");
               }
             }}
             startIcon={<DescriptionIcon sx={{ color: "#a3e635" }} />} // Lime

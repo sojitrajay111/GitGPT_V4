@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const developerApiSlice = createApi({
   reducerPath: "developerApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3001/api/developer",
+    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/developer`,
     credentials: "include",
   }),
   tagTypes: ["developer"],

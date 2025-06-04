@@ -39,6 +39,7 @@ import {
   useDeleteCodeAnalysisSessionMutation,
 } from "@/features/codeAnalysisApiSlice";
 import { useParams } from "next/navigation";
+import { Button } from "@mui/material";
 
 // Helper function to parse AI response for code blocks
 const parseAiCodeResponse = (aiResponseText) => {
@@ -675,6 +676,13 @@ const App = () => {
         {isSidebarOpen ? (
           <>
             <div className="flex justify-between items-center p-4 border-b border-gray-700">
+              <Button
+                onClick={handleGoBack}
+                className="flex items-center bg-gradient-to-r from-gray-600 to-gray-900  text-black"
+                sx={{ color: "white" }}
+              >
+                Go Back
+              </Button>
               <h2 className="text-lg font-semibold text-gray-200">
                 Chat History
               </h2>
@@ -796,11 +804,11 @@ const App = () => {
         {/* Header with improved layout */}
         <header className="bg-gray-800 p-3 shadow-md z-10 border-b border-gray-700">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 pl-3">
+            <div className="flex items-center space-x-3">
               {project && (
                 <div className="flex items-center">
                   <Github size={18} className="text-gray-300 mr-2" />
-                  <h1 className="text-sm font-semibold text-gray-100 truncate max-w-[160px] md:max-w-none">
+                  <h1 className="text-sm font-semibold text-gray-100 truncate max-w-[160px] md:max-w-none ">
                     {project.projectName || "Project Analysis"}
                   </h1>
                 </div>

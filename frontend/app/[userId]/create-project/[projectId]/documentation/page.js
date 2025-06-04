@@ -33,6 +33,8 @@ import {
   useUpdateDocumentMutation,
   useDeleteDocumentMutation,
 } from "@/features/documentApiSlice";
+import { useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 
 const PageContainer = styled(Box)(({ theme }) => ({
   fontFamily: "Inter, sans-serif",
@@ -93,6 +95,7 @@ const Alert = React.forwardRef(function Alert(props, ref) {
 const DocumentationPage = ({ projectIdFromProps, projectData }) => {
   const PLACEHOLDER_PROJECT_ID = "68380bcf206b1a77dce7a991";
   const currentProjectId = projectIdFromProps || PLACEHOLDER_PROJECT_ID;
+  const router = useRouter();
 
   const {
     data: documentsResponse,
@@ -177,7 +180,10 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
       // Create FormData object for file upload
       const formData = new FormData();
       formData.append("documentTitle", uploadForm.documentTitle);
-      formData.append("documentShortDescription", uploadForm.documentShortDescription);
+      formData.append(
+        "documentShortDescription",
+        uploadForm.documentShortDescription
+      );
       formData.append("projectId", currentProjectId);
       formData.append("documentFile", uploadForm.documentFile);
 
@@ -216,7 +222,7 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
       );
       return;
     }
-    
+
     try {
       await saveGeneratedDocument({
         ...generateForm,
@@ -282,17 +288,20 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
       // Create FormData object for file update
       const formData = new FormData();
       formData.append("documentTitle", editForm.documentTitle);
-      formData.append("documentShortDescription", editForm.documentShortDescription);
-      
+      formData.append(
+        "documentShortDescription",
+        editForm.documentShortDescription
+      );
+
       if (editForm.documentFile) {
         formData.append("documentFile", editForm.documentFile);
       }
 
       await updateDocument({
         documentId: editForm.id,
-        body: formData
+        body: formData,
       }).unwrap();
-      
+
       showSnackbar("Document updated successfully!");
       handleEditDialogClose();
       refetch();
@@ -319,7 +328,7 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
 
   const handleDeleteConfirm = async () => {
     if (!currentDocument) return;
-    
+
     try {
       await deleteDocument(currentDocument._id).unwrap();
       showSnackbar("Document deleted successfully!");
@@ -338,6 +347,10 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
   const handleSnackbarClose = (event, reason) => {
     if (reason === "clickaway") return;
     setSnackbarOpen(false);
+  };
+
+  const handleGoBack = () => {
+    router.back();
   };
 
   // Rest of the component remains the same as your original code...
@@ -405,14 +418,16 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
 
   return (
     <PageContainer>
-      <Header sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-        <Box sx={{
-          width: '100%',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 2,
-        }}>
+      <Header sx={{ flexDirection: "column", alignItems: "flex-start" }}>
+        <Box
+          sx={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
           <Typography
             variant="h4"
             component="h1"
@@ -420,19 +435,24 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
             sx={{
               fontWeight: "bold",
               color: "text.primary",
-              mb: 0
+              mb: 0,
             }}
           >
+            <Button onClick={handleGoBack} sx={{ color: "black" }}>
+              <ChevronLeft />
+            </Button>
             Project Documents{" "}
             <Typography component="span" variant="h4" color="primary.main">
               {/* {projectData?.name || "Selected Project"} */}
             </Typography>
           </Typography>
 
-          <Box sx={{
-              display: 'flex',
+          <Box
+            sx={{
+              display: "flex",
               gap: 1.5,
-          }}>
+            }}
+          >
             <StyledButton
               variant="contained"
               color="primary"
@@ -450,7 +470,11 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
           </Box>
         </Box>
 
-        <Typography variant="body1" color="text.secondary" sx={{ width: '100%' }}>
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{ width: "100%" }}
+        >
           Manage all project-related documents here.
         </Typography>
       </Header>
