@@ -59,16 +59,26 @@ const parseAiCodeResponse = (aiResponseText) => {
 const App = () => {
   const params = useParams();
   const router = useRouter();
-  const userId = params.userId;
+
   const projectId = params.projectId;
 
+  // IMPORTANT: This 'loggedInUserId' must come from your actual authentication system.
+  // It represents the ID of the user currently logged into the application.
+  // Example with a hypothetical useAuth hook:
+  // const { user } = useAuth();
+  // const loggedInUserId = user?.id;
+  // For this isolated component, we'll assume it's correctly provided,
+  // perhaps through a parent component or context that wraps this.
+  // If params.userId is *intended* to be the logged-in user's ID, then the routing needs to ensure that.
+  const loggedInUserId = params.userId; // Assuming params.userId is the ID of the currently logged-in user.
+
   const [githubData, setGithubData] = useState(null);
-  // eslint-disable-next-line no-unused-vars
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Refers to current user's GitHub auth status
 
   const [project, setProject] = useState(null);
   const [selectedBranch, setSelectedBranch] = useState("");
   const [branches, setBranches] = useState([]);
+  const [branchFetchError, setBranchFetchError] = useState(null); // New state for branch fetch errors
 
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -92,8 +102,9 @@ const App = () => {
     error: projectError,
   } = useGetProjectByIdQuery(projectId, { skip: !projectId });
 
-  const { data: statusResponse } = useGetGitHubStatusQuery(userId, {
-    skip: !userId,
+  // Fetch GitHub status for the *currently logged-in user* (loggedInUserId)
+  const { data: statusResponse } = useGetGitHubStatusQuery(loggedInUserId, {
+    skip: !loggedInUserId,
   });
 
   useEffect(() => {
@@ -109,11 +120,14 @@ const App = () => {
 
   const repolink = projectData?.project?.githubRepoLink;
   let repoName = "";
+  let repoOwner = ""; // Initialize repoOwner
   if (repolink && typeof repolink === "string" && repolink.startsWith("http")) {
     try {
       const url = new URL(repolink);
       const pathParts = url.pathname.split("/");
-      if (pathParts.length > 2) {
+      if (pathParts.length >= 3) {
+        // Ensure enough parts for owner and repo
+        repoOwner = pathParts[1]; // Extract owner
         repoName = pathParts[2].replace(/\.git$/, "");
       }
     } catch (e) {
@@ -121,13 +135,15 @@ const App = () => {
     }
   }
 
+  // Fetch branches using the *project's* owner and repo name,
+  // but only if the *current user* is GitHub authenticated.
   const {
     data: branchesData,
     isLoading: isLoadingBranches,
     error: branchesError,
   } = useGetGitHubRepoBranchesQuery(
-    { owner: githubData?.githubUsername, repo: repoName },
-    { skip: !githubData?.githubUsername || !repoName }
+    { owner: repoOwner, repo: repoName },
+    { skip: !repoOwner || !repoName || !isAuthenticated } // Crucial: skip if current user is not authenticated
   );
 
   const [
@@ -140,11 +156,14 @@ const App = () => {
     { isLoading: isStartingSession, error: startSessionError },
   ] = useStartCodeAnalysisSessionMutation();
 
+  // Fetch sessions for the *current project* and *current logged-in user*
   const {
     data: sessionsData,
     isLoading: isLoadingHistory,
     error: sessionsError,
-  } = useGetCodeAnalysisSessionsQuery(projectId, { skip: !projectId });
+  } = useGetCodeAnalysisSessionsQuery(projectId, {
+    skip: !projectId || !loggedInUserId,
+  });
 
   const {
     data: messagesData,
@@ -181,6 +200,7 @@ const App = () => {
         .filter((branch) => branch && typeof branch.name === "string")
         .sort((a, b) => a.name.localeCompare(b.name));
       setBranches(sortedBranchesByName);
+      setBranchFetchError(null); // Clear error on successful fetch
 
       if (sortedBranchesByName.length > 0 && !selectedBranch) {
         const mainBranch = sortedBranchesByName.find((b) => b.name === "main");
@@ -197,6 +217,27 @@ const App = () => {
       }
     } else if (branchesError) {
       console.error("Error fetching branches:", branchesError);
+      let errorMessage = "Failed to load branches. ";
+      // More robust error message extraction
+      if (branchesError.data?.message) {
+        errorMessage += branchesError.data.message;
+      } else if (branchesError.message) {
+        errorMessage += branchesError.message;
+      } else if (branchesError.status) {
+        errorMessage += `Status: ${branchesError.status}.`;
+        if (branchesError.status === 404) {
+          errorMessage +=
+            " The repository might not exist, or you might not have access to it.";
+        } else if (branchesError.status === 403) {
+          errorMessage +=
+            " You do not have permission to access this repository.";
+        }
+      } else {
+        errorMessage += "An unknown error occurred.";
+      }
+      errorMessage +=
+        " Please ensure you are a collaborator on the GitHub repository and your GitHub account is linked.";
+      setBranchFetchError(errorMessage);
       setBranches([]);
       setSelectedBranch("");
       setBaseBranch("");
@@ -226,14 +267,13 @@ const App = () => {
         messagesContainerRef.current;
       const isScrolledToBottom = scrollHeight - scrollTop <= clientHeight + 20;
       if (isScrolledToBottom || messages.length <= 2) {
-        // Scroll if near bottom or very few messages
         messagesContainerRef.current.scrollTo({
           top: scrollHeight,
           behavior: "smooth",
         });
       }
     }
-  }, [messages]); // Removed isSendingMessage as typing effect is removed
+  }, [messages]);
 
   const handleSessionChange = useCallback(
     async (sessionId = null) => {
@@ -246,13 +286,17 @@ const App = () => {
         if (
           !project ||
           !selectedBranch ||
-          !githubData?.githubUsername ||
+          !isAuthenticated || // Check current user's GitHub auth
+          !loggedInUserId || // Ensure logged-in user ID is available
+          !repoOwner || // Use repoOwner here
           !repoName
         ) {
           console.error("Cannot start new session: Missing critical data.", {
             projectExists: !!project,
             selectedBranch,
-            githubUser: githubData?.githubUsername,
+            isAuthenticated,
+            loggedInUserId,
+            repoOwner,
             repoName,
           });
           return;
@@ -260,7 +304,7 @@ const App = () => {
         try {
           const result = await startCodeAnalysisSession({
             projectId: projectId,
-            githubRepoName: `${githubData.githubUsername}/${repoName}`,
+            githubRepoName: `${repoOwner}/${repoName}`, // Use repoOwner
             selectedBranch,
           }).unwrap();
           if (result.session?._id) {
@@ -269,7 +313,14 @@ const App = () => {
             console.error("New session started but no ID returned:", result);
           }
         } catch (err) {
-          console.error("Failed to start new session:", err);
+          // Improved error logging for start session
+          console.error(
+            "Failed to start new session:",
+            err.data?.message || err.message || err // This should now show "Not authorized..."
+          );
+          // Optionally, display this error to the user in the UI
+          // For example, using a state variable like `sessionStartError`
+          // setSessionStartError(err.data?.message || err.message || "Failed to start session.");
         }
       }
     },
@@ -277,8 +328,10 @@ const App = () => {
       project,
       selectedBranch,
       startCodeAnalysisSession,
-      githubData,
+      isAuthenticated, // Added
+      loggedInUserId, // Added
       projectId,
+      repoOwner, // Added
       repoName,
       currentChatSessionId,
     ]
@@ -292,7 +345,9 @@ const App = () => {
       project &&
       selectedBranch &&
       sessionsData?.sessions &&
-      githubData?.githubUsername &&
+      isAuthenticated && // Check current user's GitHub auth
+      loggedInUserId && // Ensure logged-in user ID is available
+      repoOwner && // Use repoOwner
       repoName
     ) {
       if (!currentChatSessionId) {
@@ -300,8 +355,8 @@ const App = () => {
           (session) =>
             session.projectId === projectId &&
             session.selectedBranch === selectedBranch &&
-            session.githubRepoName ===
-              `${githubData.githubUsername}/${repoName}`
+            session.githubRepoName === `${repoOwner}/${repoName}` && // Use repoOwner
+            session.userId === loggedInUserId // Crucial: Match session to logged-in user
         );
         if (existingSessionForBranch) {
           setCurrentChatSessionId(existingSessionForBranch._id);
@@ -320,7 +375,9 @@ const App = () => {
     sessionsData,
     handleSessionChange,
     projectId,
-    githubData,
+    isAuthenticated, // Added
+    loggedInUserId, // Added
+    repoOwner, // Added
     repoName,
   ]);
 
@@ -372,7 +429,8 @@ const App = () => {
       !project ||
       !newBranchName.trim() ||
       !baseBranch.trim() ||
-      !githubData?.githubUsername ||
+      !isAuthenticated || // Check current user's GitHub auth
+      !repoOwner || // Use repoOwner
       !repoName
     ) {
       console.error("Missing data for creating branch.");
@@ -380,7 +438,7 @@ const App = () => {
     }
     try {
       const result = await createGitHubBranch({
-        owner: githubData.githubUsername,
+        owner: repoOwner, // Use repoOwner here
         repo: repoName,
         newBranchName: newBranchName.trim(),
         baseBranch,
@@ -421,7 +479,8 @@ const App = () => {
       !selectedBranch ||
       !lastAiResponseForCodePush ||
       !currentChatSessionId ||
-      !githubData?.githubUsername ||
+      !isAuthenticated || // Check current user's GitHub auth
+      !repoOwner || // Use repoOwner
       !repoName
     ) {
       console.error("Missing data for code push.");
@@ -519,7 +578,6 @@ const App = () => {
     router.back();
   };
 
-  // Simplified MessageDisplay without typing effect
   const MessageDisplay = React.memo(({ msg }) => {
     const isUser = msg.sender === "user";
     const isAI = msg.sender === "ai";
@@ -530,7 +588,7 @@ const App = () => {
     return (
       <div className={`flex mb-4 ${isUser ? "justify-end" : "justify-start"}`}>
         <div
-          className={`py-3 px-4 rounded-2xl max-w-[85%] md:max-w-[75%] lg:max-w-[65%] 
+          className={`py-3 px-4 rounded-2xl max-w-[85%] md:max-w-[75%] lg:max-w-[65%]
             ${
               isUser
                 ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-br-none shadow-md"
@@ -670,7 +728,7 @@ const App = () => {
             isSidebarOpen
               ? "w-64 translate-x-0"
               : "-translate-x-full md:translate-x-0 md:w-20"
-          } 
+          }
           ${isSidebarOpen ? "block" : "hidden"} md:flex`}
       >
         {isSidebarOpen ? (
@@ -768,7 +826,7 @@ const App = () => {
                 isStartingSession ||
                 !project ||
                 !selectedBranch ||
-                !githubData?.githubUsername
+                !isAuthenticated // Check current user's GitHub auth
               }
             >
               {isStartingSession ? (
@@ -842,7 +900,9 @@ const App = () => {
                     setIsNewBranchModalOpen(true);
                   }}
                   className="flex items-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-2 py-1 rounded-lg text-xs font-medium shadow-md transition-all"
-                  disabled={!branches || branches.length === 0}
+                  disabled={
+                    !branches || branches.length === 0 || !isAuthenticated
+                  } // Disable if not authenticated
                 >
                   <Plus size={14} className="mr-1" /> Branch
                 </button>
@@ -911,7 +971,9 @@ const App = () => {
               <button
                 onClick={handleGenerateAndPushCode}
                 className="flex items-center bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-md transition-all"
-                disabled={!currentChatSessionId || isSendingMessage}
+                disabled={
+                  !currentChatSessionId || isSendingMessage || !isAuthenticated
+                } // Disable if not authenticated
               >
                 <UploadCloud size={14} className="mr-1" /> Push AI Code
               </button>
@@ -940,9 +1002,11 @@ const App = () => {
               className="flex-1 bg-transparent px-3 py-2 text-sm text-gray-200 focus:outline-none placeholder-gray-400"
               disabled={
                 isSendingMessage ||
+                !inputMessage.trim() ||
                 !project ||
                 !selectedBranch ||
-                !currentChatSessionId
+                !currentChatSessionId ||
+                !isAuthenticated // Disable if not authenticated
               }
             />
             <button
@@ -952,7 +1016,8 @@ const App = () => {
                 !inputMessage.trim() ||
                 !project ||
                 !selectedBranch ||
-                !currentChatSessionId
+                !currentChatSessionId ||
+                !isAuthenticated // Disable if not authenticated
               }
               className="ml-2 p-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg disabled:opacity-50 shadow-md transition-all"
             >
@@ -971,8 +1036,15 @@ const App = () => {
             {project && !selectedBranch && !isLoadingBranches && (
               <p className="text-amber-400">Select a branch</p>
             )}
-            {project && !githubData?.githubUsername && (
-              <p className="text-red-400">GitHub not authenticated</p>
+            {project &&
+              !isAuthenticated && ( // More explicit check for current user's GitHub auth
+                <p className="text-red-400">
+                  Your GitHub account is not authenticated. Please link your
+                  GitHub account to use code analysis features.
+                </p>
+              )}
+            {branchFetchError && ( // Display specific branch fetch error
+              <p className="text-red-400">{branchFetchError}</p>
             )}
           </div>
         </footer>
@@ -1031,7 +1103,11 @@ const App = () => {
               <button
                 onClick={handleCreateNewBranch}
                 className="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium flex items-center border border-purple-500"
-                disabled={!newBranchName.trim() || !baseBranch.trim()}
+                disabled={
+                  !newBranchName.trim() ||
+                  !baseBranch.trim() ||
+                  !isAuthenticated
+                } // Disable if not authenticated
               >
                 {isCreatingBranch ? (
                   <Loader2 className="animate-spin h-4 w-4 mr-1.5" />
