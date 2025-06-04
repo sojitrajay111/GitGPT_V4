@@ -609,8 +609,6 @@ const App = () => {
     );
   });
 
-  // ... (keep all other existing functions the same)
-
   if (isLoadingProject && !projectData) {
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
@@ -798,15 +796,7 @@ const App = () => {
         {/* Header with improved layout */}
         <header className="bg-gray-800 p-3 shadow-md z-10 border-b border-gray-700">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={handleGoBack}
-                className="p-1.5 rounded-full hover:bg-gray-700"
-                title="Go Back"
-              >
-                <ChevronLeft size={20} className="text-gray-300" />
-              </button>
-
+            <div className="flex items-center space-x-3 pl-3">
               {project && (
                 <div className="flex items-center">
                   <Github size={18} className="text-gray-300 mr-2" />
