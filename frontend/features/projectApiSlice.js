@@ -5,7 +5,9 @@ export const projectApiSlice = createApi({
   reducerPath: "projectApi",
 
   baseQuery: fetchBaseQuery({
-    baseUrl: "https://gitgpt-v2.onrender.com/api",
+
+    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`,
+
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("token"); // Get the token from local storage
       if (token) {

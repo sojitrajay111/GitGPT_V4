@@ -14,37 +14,32 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Input, // Keep for file input styling if needed directly
   Link,
   CircularProgress,
   Snackbar,
-  IconButton, // For icons
-  Tooltip, // For icon hints
+  IconButton,
+  Tooltip,
 } from "@mui/material";
 import { styled } from "@mui/system";
 import MuiAlert from "@mui/material/Alert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import FileOpenIcon from "@mui/icons-material/FileOpen"; // For view document
+import FileOpenIcon from "@mui/icons-material/FileOpen";
 
 import {
   useGetProjectDocumentsQuery,
   useUploadDocumentMutation,
   useSaveGeneratedDocumentMutation,
-  useUpdateDocumentMutation, // Import new hook
-  useDeleteDocumentMutation, // Import new hook
-} from "@/features/documentApiSlice"; // Adjust path as needed
-import { useParams } from "next/navigation";
-
-// Placeholder values - REPLACE WITH ACTUAL DYNAMIC VALUES from props, context, or router
-const PLACEHOLDER_PROJECT_ID = "68380bcf206b1a77dce7a991";
-// const PLACEHOLDER_USER_ID = "683704365472a67600163678"; // Not directly used in this component if backend handles user auth
-// const PLACEHOLDER_USERNAME = "Raj";
+  useUpdateDocumentMutation,
+  useDeleteDocumentMutation,
+} from "@/features/documentApiSlice";
+import { useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 
 const PageContainer = styled(Box)(({ theme }) => ({
   fontFamily: "Inter, sans-serif",
-  padding: theme.spacing(3), // Adjusted padding
-  backgroundColor: "#f4f6f8", // Slightly lighter background
+  padding: theme.spacing(3),
+  backgroundColor: "#f4f6f8",
   minHeight: "100vh",
 }));
 
@@ -58,8 +53,8 @@ const Header = styled(Box)(({ theme }) => ({
 }));
 
 const DocumentCard = styled(Card)(({ theme }) => ({
-  borderRadius: theme.shape.borderRadius * 2, // 16px if default is 8px
-  boxShadow: "0 8px 16px rgba(0,0,0,0.05)", // Softer shadow
+  borderRadius: theme.shape.borderRadius * 2,
+  boxShadow: "0 8px 16px rgba(0,0,0,0.05)",
   transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
   "&:hover": {
     transform: "translateY(-4px)",
@@ -67,21 +62,21 @@ const DocumentCard = styled(Card)(({ theme }) => ({
   },
   display: "flex",
   flexDirection: "column",
-  height: "100%", // Ensure cards in a row have same height potential
+  height: "100%",
 }));
 
 const CardContentStyled = styled(CardContent)({
-  flexGrow: 1, // Allows content to expand
+  flexGrow: 1,
   display: "flex",
   flexDirection: "column",
   justifyContent: "space-between",
 });
 
 const StyledButton = styled(Button)(({ theme }) => ({
-  borderRadius: "20px", // Pill shape
+  borderRadius: "20px",
   textTransform: "none",
   fontWeight: 600,
-  padding: theme.spacing(1, 2.5), // Adjusted padding
+  padding: theme.spacing(1, 2.5),
   boxShadow: "none",
   transition: "background-color 0.2s ease, transform 0.1s ease",
   "&:hover": {
@@ -90,29 +85,26 @@ const StyledButton = styled(Button)(({ theme }) => ({
 }));
 
 const DialogContentStyled = styled(DialogContent)(({ theme }) => ({
-  padding: theme.spacing(2, 3), // Standard padding
+  padding: theme.spacing(2, 3),
 }));
 
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
-// Main Component
 const DocumentationPage = ({ projectIdFromProps, projectData }) => {
-  // Use projectId from props or fallback to placeholder
-
-  const params = useParams();
-  const projectId = params.projectId;
+  const PLACEHOLDER_PROJECT_ID = "68380bcf206b1a77dce7a991";
   const currentProjectId = projectIdFromProps || PLACEHOLDER_PROJECT_ID;
+  const router = useRouter();
 
   const {
-    data: documentsResponse, // Renamed to avoid conflict
+    data: documentsResponse,
     isLoading,
     isError,
     error,
     refetch,
-  } = useGetProjectDocumentsQuery(projectId, {
-    skip: !projectId, // Skip query if no projectId
+  } = useGetProjectDocumentsQuery(currentProjectId, {
+    skip: !currentProjectId,
   });
   const documents = documentsResponse?.documents;
 
@@ -130,8 +122,7 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  const [currentDocument, setCurrentDocument] = useState(null); // For edit/delete
-
+  const [currentDocument, setCurrentDocument] = useState(null);
   const [uploadForm, setUploadForm] = useState({
     documentTitle: "",
     documentShortDescription: "",
@@ -168,10 +159,13 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
       documentFile: null,
     });
   };
+
   const handleUploadChange = (e) =>
     setUploadForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
   const handleUploadFileChange = (e) =>
     setUploadForm((prev) => ({ ...prev, documentFile: e.target.files[0] }));
+
   const handleUploadSubmit = async () => {
     if (
       !uploadForm.documentTitle ||
@@ -181,11 +175,19 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
       showSnackbar("Please fill all fields and select a file.", "warning");
       return;
     }
+
     try {
-      await uploadDocument({
-        ...uploadForm,
-        projectId: currentProjectId,
-      }).unwrap();
+      // Create FormData object for file upload
+      const formData = new FormData();
+      formData.append("documentTitle", uploadForm.documentTitle);
+      formData.append(
+        "documentShortDescription",
+        uploadForm.documentShortDescription
+      );
+      formData.append("projectId", currentProjectId);
+      formData.append("documentFile", uploadForm.documentFile);
+
+      await uploadDocument(formData).unwrap();
       showSnackbar("Document uploaded successfully!");
       handleUploadDialogClose();
       refetch();
@@ -199,7 +201,7 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
     }
   };
 
-  // Handlers for Generate Dialog (similar structure)
+  // Handlers for Generate Dialog
   const handleGenerateDialogClose = () => {
     setGenerateDialogOpen(false);
     setGenerateForm({
@@ -208,17 +210,19 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
       documentFullDescription: "",
     });
   };
+
   const handleGenerateChange = (e) =>
     setGenerateForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
   const handleGenerateSubmit = async () => {
     if (!generateForm.documentTitle || !generateForm.documentShortDescription) {
-      // Full description might be optional
       showSnackbar(
         "Please fill at least title and short description.",
         "warning"
       );
       return;
     }
+
     try {
       await saveGeneratedDocument({
         ...generateForm,
@@ -244,10 +248,11 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
       id: doc._id,
       documentTitle: doc.documentTitle,
       documentShortDescription: doc.documentShortDescription,
-      documentFile: null, // Reset file input
+      documentFile: null,
     });
     setEditDialogOpen(true);
   };
+
   const handleEditDialogClose = () => {
     setEditDialogOpen(false);
     setCurrentDocument(null);
@@ -258,10 +263,13 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
       documentFile: null,
     });
   };
+
   const handleEditChange = (e) =>
     setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
   const handleEditFileChange = (e) =>
     setEditForm((prev) => ({ ...prev, documentFile: e.target.files[0] }));
+
   const handleEditSubmit = async () => {
     if (
       !editForm.documentTitle &&
@@ -275,13 +283,25 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
       showSnackbar("Title and short description cannot be empty.", "warning");
       return;
     }
+
     try {
+      // Create FormData object for file update
+      const formData = new FormData();
+      formData.append("documentTitle", editForm.documentTitle);
+      formData.append(
+        "documentShortDescription",
+        editForm.documentShortDescription
+      );
+
+      if (editForm.documentFile) {
+        formData.append("documentFile", editForm.documentFile);
+      }
+
       await updateDocument({
         documentId: editForm.id,
-        documentTitle: editForm.documentTitle,
-        documentShortDescription: editForm.documentShortDescription,
-        documentFile: editForm.documentFile, // Will be null if no new file selected
+        body: formData,
       }).unwrap();
+
       showSnackbar("Document updated successfully!");
       handleEditDialogClose();
       refetch();
@@ -300,12 +320,15 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
     setCurrentDocument(doc);
     setDeleteConfirmOpen(true);
   };
+
   const handleDeleteDialogClose = () => {
     setDeleteConfirmOpen(false);
     setCurrentDocument(null);
   };
+
   const handleDeleteConfirm = async () => {
     if (!currentDocument) return;
+
     try {
       await deleteDocument(currentDocument._id).unwrap();
       showSnackbar("Document deleted successfully!");
@@ -325,6 +348,13 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
     if (reason === "clickaway") return;
     setSnackbarOpen(false);
   };
+
+  const handleGoBack = () => {
+    router.back();
+  };
+
+  // Rest of the component remains the same as your original code...
+  // Only the handlers above were modified
 
   if (!currentProjectId) {
     return (
@@ -388,42 +418,66 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
 
   return (
     <PageContainer>
-      <Header>
-        <Box>
+      <Header sx={{ flexDirection: "column", alignItems: "flex-start" }}>
+        <Box
+          sx={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
           <Typography
             variant="h4"
             component="h1"
             gutterBottom
-            sx={{ fontWeight: "bold", color: "text.primary" }}
+            sx={{
+              fontWeight: "bold",
+              color: "text.primary",
+              mb: 0,
+            }}
           >
-            Project Documents:{" "}
+            <Button onClick={handleGoBack} sx={{ color: "black" }}>
+              <ChevronLeft />
+            </Button>
+            Project Documents{" "}
             <Typography component="span" variant="h4" color="primary.main">
-              {projectData?.name || "Selected Project"}
+              {/* {projectData?.name || "Selected Project"} */}
             </Typography>
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Manage all project-related documents here.
-          </Typography>
-        </Box>
-        <Box>
-          <StyledButton
-            variant="contained"
-            color="primary"
-            onClick={() => setUploadDialogOpen(true)}
-            sx={{ mr: 1.5 }}
-          >
-            Upload Document
-          </StyledButton>
-          <StyledButton
-            variant="contained"
-            color="secondary"
-            onClick={() => setGenerateDialogOpen(true)}
-          >
-            Generate Document
-          </StyledButton>
-        </Box>
-      </Header>
 
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1.5,
+            }}
+          >
+            <StyledButton
+              variant="contained"
+              color="primary"
+              onClick={() => setUploadDialogOpen(true)}
+            >
+              Upload Document
+            </StyledButton>
+            <StyledButton
+              variant="contained"
+              color="secondary"
+              onClick={() => setGenerateDialogOpen(true)}
+            >
+              Generate Document
+            </StyledButton>
+          </Box>
+        </Box>
+
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{ width: "100%" }}
+        >
+          Manage all project-related documents here.
+        </Typography>
+      </Header>
       <Grid container spacing={3}>
         {!documents || documents.length === 0 ? (
           <Grid item xs={12}>
@@ -458,7 +512,7 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
                     <Typography
                       variant="body2"
                       color="text.secondary"
-                      sx={{ mb: 2, minHeight: "40px" /* Ensure some space */ }}
+                      sx={{ mb: 2, minHeight: "40px" }}
                     >
                       {doc.documentShortDescription}
                     </Typography>
@@ -620,7 +674,7 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
         </DialogActions>
       </Dialog>
 
-      {/* Generate Document Dialog (similar styling) */}
+      {/* Generate Document Dialog */}
       <Dialog
         open={generateDialogOpen}
         onClose={handleGenerateDialogClose}
@@ -791,8 +845,6 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
           Confirm Deletion
         </DialogTitle>
         <DialogContent sx={{ pt: "20px !important" }}>
-          {" "}
-          {/* MUI DialogContent has default top padding we need to override sometimes */}
           <Typography>
             Are you sure you want to delete the document titled: <br />
             <strong>"{currentDocument?.documentTitle}"</strong>?
@@ -843,17 +895,3 @@ const DocumentationPage = ({ projectIdFromProps, projectData }) => {
 };
 
 export default DocumentationPage;
-
-// Example of how you might pass props in a Next.js page:
-// export async function getServerSideProps(context) {
-//   const { projectId } = context.params; // Assuming dynamic route like /project/[projectId]/docs
-//   // Fetch projectData if needed
-//   // const projectRes = await fetch(`http://localhost:3001/api/projects/${projectId}`);
-//   // const projectData = await projectRes.json();
-//   return {
-//     props: {
-//       projectIdFromProps: projectId,
-//       // projectData: projectData.project, // if you fetch project details
-//     },
-//   };
-// }

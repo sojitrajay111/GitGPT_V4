@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Button,
@@ -179,6 +180,7 @@ const ProjectDetailPage = () => {
   const userId = params.userId;
   const projectId = params.projectId;
   const router = useRouter();
+  const codeAnalysisTabRef = useRef(null);
 
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -436,6 +438,24 @@ const ProjectDetailPage = () => {
   const project = projectData?.project;
   const collaborators = collaboratorsData?.collaborators || [];
 
+  const handleOpenCodeAnalysisTab = () => {
+    const isAllowed =
+      user_role === "manager" ||
+      developerPermissions?.includes("Code analysis");
+
+    if (!isAllowed) return;
+
+    const url = `/${userId}/create-project/${projectId}/code-analysis`;
+
+    if (!codeAnalysisTabRef.current || codeAnalysisTabRef.current.closed) {
+      // Open new tab if not opened or closed
+      codeAnalysisTabRef.current = window.open(url, "_blank");
+    } else {
+      // Focus existing tab
+      codeAnalysisTabRef.current.focus();
+    }
+  };
+
   if (projectLoading) {
     return (
       <Box
@@ -546,6 +566,7 @@ const ProjectDetailPage = () => {
           </ActionButton>
 
           <ActionButton
+            // onClick={handleOpenCodeAnalysisTab}
             onClick={() => {
               if (
                 developerPermissions?.includes("Code analysis") ||
@@ -594,7 +615,7 @@ const ProjectDetailPage = () => {
                 developerPermissions?.includes("documentation") ||
                 user_role === "manager"
               ) {
-                handleButtonClick("codeAnalysis");
+                handleButtonClick("documentation");
               }
             }}
             startIcon={<DescriptionIcon sx={{ color: "#a3e635" }} />} // Lime

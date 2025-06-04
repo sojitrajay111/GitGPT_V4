@@ -47,6 +47,7 @@ import {
   useGetDeveloperUserStoriesQuery,
 } from "@/features/developerApiSlice";
 import { skipToken } from "@reduxjs/toolkit/query";
+import { ChevronLeft } from "lucide-react";
 
 // Custom light theme with professional palette
 const freshTheme = createTheme({
@@ -317,6 +318,10 @@ const UserStoryPage = () => {
     setOpenCreateDialog(false);
   };
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
   const handleCollaboratorChange = (event) => {
     const { value, checked } = event.target;
     setSelectedCollaboratorGithubIds((prev) =>
@@ -415,7 +420,7 @@ const UserStoryPage = () => {
 
   return (
     <ThemeProvider theme={freshTheme}>
-      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1100, margin: "0 auto" }}>
+      <Box sx={{ p: { xs: 2, sm: 3 }, margin: "0 auto" }}>
         {/* Header with gradient */}
         <HeaderCard>
           <Box
@@ -424,13 +429,18 @@ const UserStoryPage = () => {
             alignItems="center"
           >
             <Box>
-              <Typography
-                variant="h4"
-                component="h1"
-                sx={{ fontWeight: 700, mb: 1 }}
-              >
-                User Stories
-              </Typography>
+              <div className="flex items-center ">
+                <div onClick={handleGoBack} className="text-black mr-3">
+                  <ChevronLeft />
+                </div>
+                <Typography
+                  variant="h4"
+                  component="h1"
+                  sx={{ fontWeight: 700, mb: 1 }}
+                >
+                  User Stories
+                </Typography>
+              </div>
               <Typography
                 variant="body1"
                 sx={{ opacity: 0.9, maxWidth: "600px" }}

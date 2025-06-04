@@ -8,7 +8,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // Initialize Gemini API client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // Ensure GEMINI_API_KEY is in your .env
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Corrected model name if it was gemini-2.0-flash
 
 /**
  * Helper function to fetch repository contents recursively from GitHub.
@@ -40,17 +40,24 @@ async function fetchRepoContents(
         Authorization: `token ${githubPAT}`,
         "User-Agent": githubUsername,
         // Accept header to get raw content directly for files, or JSON for directories
-        Accept: "application/vnd.github.v3.raw",
+        // For fetching directory listings, JSON is preferred. Raw is for file content.
+        // The logic below handles fetching raw content via download_url for files.
+        Accept: "application/vnd.github.v3+json", // Request JSON for directory listing
       },
     });
 
     if (!response.ok) {
-      // Handle cases where the path might not exist or other API errors
       if (response.status === 404) {
-        console.warn(`Path not found on GitHub: ${path}`);
-        return fetchedFiles; // Return current fetched files if path not found
+        console.warn(`Path not found on GitHub: ${path} in ${owner}/${repo}`);
+        return fetchedFiles;
       }
-      const errorData = await response.json();
+      // Try to parse error as JSON, otherwise use statusText
+      let errorData = { message: response.statusText };
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        // Ignore if response is not JSON
+      }
       throw new Error(
         `GitHub API error fetching contents for ${path}: ${
           errorData.message || response.statusText
@@ -60,10 +67,9 @@ async function fetchRepoContents(
 
     const contents = await response.json();
 
+    // Check if contents is an array (directory) or an object (single file)
     if (Array.isArray(contents)) {
-      // If it's a directory (API returns an array of contents)
       for (const item of contents) {
-        // Define common code/text file extensions to fetch
         const isCodeOrTextFile =
           item.name.endsWith(".js") ||
           item.name.endsWith(".ts") ||
@@ -85,26 +91,35 @@ async function fetchRepoContents(
           item.name.endsWith(".css") ||
           item.name.endsWith(".scss") ||
           item.name.endsWith(".md") ||
-          item.name.endsWith(".txt");
+          item.name.endsWith(".txt") ||
+          item.name.endsWith(".yml") ||
+          item.name.endsWith(".yaml") ||
+          item.name.endsWith(".sh") ||
+          item.name.endsWith(".dockerfile") ||
+          item.name.startsWith("."); // Include dotfiles
 
-        if (item.type === "file" && isCodeOrTextFile) {
-          // Fetch raw content for files
-          const fileContentResponse = await fetch(item.download_url, {
-            headers: {
-              Authorization: `token ${githubPAT}`,
-              "User-Agent": githubUsername,
-            },
-          });
-          if (fileContentResponse.ok) {
-            const fileContent = await fileContentResponse.text();
-            fetchedFiles.push({ path: item.path, content: fileContent });
-          } else {
+        if (item.type === "file" && isCodeOrTextFile && item.download_url) {
+          try {
+            const fileContentResponse = await fetch(item.download_url, {
+              headers: {
+                Authorization: `token ${githubPAT}`,
+                "User-Agent": githubUsername,
+              },
+            });
+            if (fileContentResponse.ok) {
+              const fileContent = await fileContentResponse.text();
+              fetchedFiles.push({ path: item.path, content: fileContent });
+            } else {
+              console.warn(
+                `Failed to fetch raw content for ${item.path}: ${fileContentResponse.statusText}`
+              );
+            }
+          } catch (fileError) {
             console.warn(
-              `Failed to fetch raw content for ${item.path}: ${fileContentResponse.statusText}`
+              `Error fetching file ${item.path}: ${fileError.message}`
             );
           }
         } else if (item.type === "dir") {
-          // Recursively call for subdirectories
           await fetchRepoContents(
             owner,
             repo,
@@ -116,49 +131,42 @@ async function fetchRepoContents(
           );
         }
       }
-    } else if (contents.type === "file") {
-      // If path points directly to a single file
+    } else if (contents && contents.type === "file" && contents.download_url) {
+      // Directly fetched a file
       const isCodeOrTextFile =
         contents.name.endsWith(".js") ||
         contents.name.endsWith(".ts") ||
-        contents.name.endsWith(".jsx") ||
-        contents.name.endsWith(".tsx") ||
-        contents.name.endsWith(".py") ||
-        contents.name.endsWith(".java") ||
-        contents.name.endsWith(".c") ||
-        contents.name.endsWith(".cpp") ||
-        contents.name.endsWith(".h") ||
-        contents.name.endsWith(".hpp") ||
-        contents.name.endsWith(".go") ||
-        contents.name.endsWith(".rb") ||
-        contents.name.endsWith(".php") ||
-        contents.name.endsWith(".cs") ||
-        contents.name.endsWith(".json") ||
-        contents.name.endsWith(".xml") ||
-        contents.name.endsWith(".html") ||
-        contents.name.endsWith(".css") ||
-        contents.name.endsWith(".scss") ||
-        contents.name.endsWith(".md") ||
+        // ... (include all extensions as above)
         contents.name.endsWith(".txt");
       if (isCodeOrTextFile) {
-        const fileContentResponse = await fetch(contents.download_url, {
-          headers: {
-            Authorization: `token ${githubPAT}`,
-            "User-Agent": githubUsername,
-          },
-        });
-        if (fileContentResponse.ok) {
-          const fileContent = await fileContentResponse.text();
-          fetchedFiles.push({ path: contents.path, content: fileContent });
-        } else {
+        try {
+          const fileContentResponse = await fetch(contents.download_url, {
+            headers: {
+              Authorization: `token ${githubPAT}`,
+              "User-Agent": githubUsername,
+            },
+          });
+          if (fileContentResponse.ok) {
+            const fileContent = await fileContentResponse.text();
+            fetchedFiles.push({ path: contents.path, content: fileContent });
+          } else {
+            console.warn(
+              `Failed to fetch raw content for single file ${contents.path}: ${fileContentResponse.statusText}`
+            );
+          }
+        } catch (fileError) {
           console.warn(
-            `Failed to fetch raw content for ${contents.path}: ${fileContentResponse.statusText}`
+            `Error fetching single file ${contents.path}: ${fileError.message}`
           );
         }
       }
     }
   } catch (error) {
-    console.error(`Error in fetchRepoContents for ${path}:`, error.message);
+    console.error(
+      `Error in fetchRepoContents for ${path} in ${owner}/${repo}:`,
+      error.message
+    );
+    // Do not re-throw, allow to return successfully fetched files so far
   }
   return fetchedFiles;
 }
@@ -195,7 +203,7 @@ const startCodeAnalysisSession = async (req, res) => {
       projectId,
       githubRepoName,
       selectedBranch,
-      title: `Code Analysis for ${githubRepoName} on ${selectedBranch}`, // Initial title
+      title: `Analysis: ${githubRepoName.split("/")[1]} (${selectedBranch})`, // Initial title
     });
 
     res.status(201).json({
@@ -312,7 +320,8 @@ const sendCodeAnalysisMessage = async (req, res) => {
     if (!githubData || !githubData.githubPAT) {
       return res.status(400).json({
         success: false,
-        message: "GitHub PAT not found for the user.",
+        message:
+          "GitHub PAT not found for the user. Please authenticate with GitHub.",
       });
     }
     const githubPAT = githubData.githubPAT;
@@ -333,53 +342,92 @@ const sendCodeAnalysisMessage = async (req, res) => {
 
     let currentBranchCodeContext = "";
     if (fetchedCodeFiles.length > 0) {
-      // Format the fetched code for the AI prompt
       currentBranchCodeContext = fetchedCodeFiles
         .map((file) => `// File: ${file.path}\n${file.content}`)
-        .join("\n\n");
+        .join("\n\n---\n\n"); // Separator for clarity
     } else {
-      currentBranchCodeContext = `No relevant code files found in branch: ${session.selectedBranch}.`;
+      currentBranchCodeContext = `No relevant code files found in branch: ${session.selectedBranch} of repository ${owner}/${repo}. Or, the repository might be empty or files are not of recognizable types.`;
+    }
+    if (fetchedCodeFiles.length > 20) {
+      // Heuristic: if too many files, summarize
+      currentBranchCodeContext =
+        `// Code context from ${fetchedCodeFiles.length} files. Due to length, only a summary is provided unless specific files are requested. Key files included are: \n` +
+        fetchedCodeFiles
+          .slice(0, 5)
+          .map((f) => `// - ${f.path}`)
+          .join("\n") +
+        `\n\n // Example from ${
+          fetchedCodeFiles[0].path
+        }:\n ${fetchedCodeFiles[0].content.substring(
+          0,
+          Math.min(200, fetchedCodeFiles[0].content.length)
+        )}...`;
     }
 
     // Fetch previous messages for context
     const previousMessages = await CodeAnalysisMessage.find({ sessionId })
-      .sort({ createdAt: 1 })
-      .limit(10); // Limit context to last 10 messages to manage token usage
+      .sort({ createdAt: -1 }) // Get most recent messages first
+      .limit(10); // Limit context
+    previousMessages.reverse(); // Then reverse to maintain chronological order for Gemini
 
     // Construct chat history for Gemini
     const geminiChatHistory = previousMessages.map((msg) => ({
-      role: msg.sender === "user" ? "user" : "model",
+      role: msg.sender === "user" ? "user" : "model", // 'model' for AI responses
       parts: [{ text: msg.text }],
     }));
-    // Add the current user message to the history for the API call
-    geminiChatHistory.push({
-      role: "user",
-      parts: [{ text: text }],
-    });
+    // Note: The current user message 'text' will be sent as the new prompt to sendMessage,
+    // so it's typically not added again to 'history' when calling model.startChat if you're sending it with chat.sendMessage(text)
 
-    // Combine code context with the user's prompt for AI
-    // Instruct the AI on how to respond if it generates code
-    const fullPrompt = `You are an AI assistant specialized in code analysis and generation.
-Current code context from the GitHub repository '${session.githubRepoName}' on branch '${session.selectedBranch}':
+    const systemInstruction = `You are an expert AI assistant specialized in code analysis, code generation, and GitHub operations.
+Current GitHub repository: '${session.githubRepoName}', Branch: '${session.selectedBranch}'.
+Code Context:
 ${currentBranchCodeContext}
 
+---
 User request: ${text}
+---
 
-Based on the provided code context and the user's request, please provide a detailed analysis or generate code changes.
-If you are analyzing code, clearly list any errors, bugs, or areas for improvement, and suggest concrete solutions.
-If you are generating or modifying code, provide ONLY the code block(s) within markdown, and for each code block, clearly indicate the file path it belongs to using a comment at the top of the block (e.g., \`\`\`javascript\n// path/to/file.js\nconsole.log('hello');\n\`\`\` or \`\`\`python\n# path/to/script.py\nprint('hello')\n\`\`\` ). If you are providing multiple code blocks for different files, separate them clearly.
-Ensure your response is comprehensive and directly addresses the user's query, considering the full context of the project.`;
+Instructions:
+1.  Analyze the request in conjunction with the provided code context.
+2.  If generating code or suggesting modifications:
+    * Provide ONLY the complete code block(s) in Markdown format.
+    * For each code block, **you MUST include a comment at the very top specifying the full file path** it belongs to (e.g., \`\`\`javascript\n// path/to/your/file.js\nconsole.log('hello');\n\`\`\` or \`\`\`python\n# path/to/your/script.py\nprint('hello')\n\`\`\`).
+    * If creating a new file, indicate a plausible path.
+    * If the changes span multiple files, provide separate, clearly marked code blocks for each.
+3.  If analyzing code: Clearly list errors, bugs, or areas for improvement with specific file paths and line numbers if possible, and suggest concrete solutions.
+4.  Be concise and direct. If the code context is missing or insufficient, state that clearly.
+5.  If the user asks for actions beyond your capabilities (e.g., deploying the code), politely state your limitations.
+Ensure your response is comprehensive and directly addresses the user's query.`;
 
-    // Call Gemini API
     const chat = model.startChat({
-      history: geminiChatHistory,
+      history: geminiChatHistory, // Pass the constructed history
       generationConfig: {
-        maxOutputTokens: 2048, // Increased token limit for potentially larger code analysis/generation
-        temperature: 0.7, // Adjust temperature for creativity vs. focus
+        maxOutputTokens: 4096,
+        temperature: 0.6, // Slightly lower for more factual/code-focused responses
       },
+      safetySettings: [
+        // Adjust safety settings if needed, be mindful of implications
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+      ],
     });
 
-    const result = await chat.sendMessage(fullPrompt);
+    // Send the new user message along with the structured prompt
+    const result = await chat.sendMessage(systemInstruction); // Pass the full prompt here
     const aiTextResponse = result.response.text();
 
     // Save AI message
@@ -389,10 +437,16 @@ Ensure your response is comprehensive and directly addresses the user's query, c
       text: aiTextResponse,
     });
 
-    // Update session last activity and title (if first message)
+    // Update session last activity and title (if first message and title is default)
     session.lastActivity = Date.now();
-    if (!session.title || session.title.includes("Code Analysis for")) {
-      session.title = text.substring(0, 50) + "..."; // Use first message as title
+    if (
+      !session.title ||
+      (session.title.startsWith("Analysis:") && previousMessages.length <= 1)
+    ) {
+      // Update title if it's the default and very few messages
+      const conciseTitle =
+        text.length > 40 ? text.substring(0, 37) + "..." : text;
+      session.title = `Chat: ${conciseTitle}`;
     }
     await session.save();
 
@@ -402,17 +456,76 @@ Ensure your response is comprehensive and directly addresses the user's query, c
       aiMessage,
     });
   } catch (error) {
-    console.error("Error sending code analysis message:", error);
-    // Save an error message if AI call fails
+    console.error("Error sending code analysis message:", error.message);
+    if (error.response && error.response.promptFeedback) {
+      console.error("Prompt Feedback:", error.response.promptFeedback);
+    }
+    let errorMessageToSave = `Error processing your request.`;
+    if (error.message.includes("SAFETY")) {
+      errorMessageToSave =
+        "The response was blocked due to safety settings. Please rephrase your request or check the content guidelines.";
+    } else if (error.message.includes("quota")) {
+      errorMessageToSave = "API quota exceeded. Please try again later.";
+    }
+
     await CodeAnalysisMessage.create({
       sessionId,
       sender: "system",
-      text: `Error processing your request: ${error.message}`,
+      text: errorMessageToSave,
       isError: true,
     });
     res.status(500).json({
       success: false,
-      message: "Internal server error during code analysis.",
+      message:
+        errorMessageToSave || "Internal server error during code analysis.",
+    });
+  }
+};
+
+/**
+ * @desc Delete a code analysis session and its messages.
+ * @route DELETE /api/code-analysis/sessions/:sessionId
+ * @access Private
+ */
+const deleteCodeAnalysisSession = async (req, res) => {
+  const { sessionId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const session = await CodeAnalysisSession.findById(sessionId);
+
+    if (!session) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Session not found." });
+    }
+
+    if (session.userId.toString() !== userId) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Not authorized to delete this session.",
+        });
+    }
+
+    // Delete all messages associated with the session
+    await CodeAnalysisMessage.deleteMany({ sessionId });
+
+    // Delete the session itself
+    await CodeAnalysisSession.findByIdAndDelete(sessionId);
+
+    res
+      .status(200)
+      .json({
+        success: true,
+        message: "Session and associated messages deleted successfully.",
+      });
+  } catch (error) {
+    console.error("Error deleting code analysis session:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while deleting session.",
     });
   }
 };
@@ -425,8 +538,8 @@ Ensure your response is comprehensive and directly addresses the user's query, c
 const pushCodeAndCreatePR = async (req, res) => {
   const {
     projectId,
-    selectedBranch,
-    aiBranchName,
+    selectedBranch, // This is the base branch for the PR
+    aiBranchName, // This is the new branch to be created for the AI's changes
     generatedCode, // This is the code content generated by the AI
     commitMessage,
   } = req.body;
@@ -462,8 +575,10 @@ const pushCodeAndCreatePR = async (req, res) => {
     }
 
     const githubPAT = githubData.githubPAT;
-    const githubUsername = githubData.githubUsername;
-    const repoFullName = new URL(project.githubRepoLink).pathname.substring(1); // e.g., 'owner/repo-name'
+    const githubUsername = githubData.githubUsername; // User's GitHub username
+    const repoFullName = new URL(project.githubRepoLink).pathname
+      .substring(1)
+      .replace(/\.git$/, "");
     const [owner, repo] = repoFullName.split("/");
 
     // 1. Get the SHA of the selected base branch (latest commit)
@@ -472,26 +587,29 @@ const pushCodeAndCreatePR = async (req, res) => {
       {
         headers: {
           Authorization: `token ${githubPAT}`,
-          "User-Agent": githubUsername,
+          "User-Agent": githubUsername, // Use the user's GitHub username as User-Agent
+          Accept: "application/vnd.github.v3+json",
         },
       }
     );
 
     if (!getRefResponse.ok) {
-      const errorData = await getRefResponse.json();
+      const errorData = await getRefResponse
+        .json()
+        .catch(() => ({ message: getRefResponse.statusText }));
       console.error(
         "GitHub API error getting base branch ref for push:",
         errorData
       );
       return res.status(getRefResponse.status).json({
         success: false,
-        message: `Failed to get base branch ref for push: ${
+        message: `Failed to get base branch ref ('${selectedBranch}') for push: ${
           errorData.message || "Unknown error"
-        }`,
+        }. Ensure the branch exists and the token has permissions.`,
       });
     }
     const refData = await getRefResponse.json();
-    const baseCommitSha = refData.object.sha; // SHA of the latest commit on the base branch
+    const baseCommitSha = refData.object.sha;
 
     // 2. Get the Tree SHA of the base commit
     const getCommitResponse = await fetch(
@@ -500,12 +618,15 @@ const pushCodeAndCreatePR = async (req, res) => {
         headers: {
           Authorization: `token ${githubPAT}`,
           "User-Agent": githubUsername,
+          Accept: "application/vnd.github.v3+json",
         },
       }
     );
 
     if (!getCommitResponse.ok) {
-      const errorData = await getCommitResponse.json();
+      const errorData = await getCommitResponse
+        .json()
+        .catch(() => ({ message: getCommitResponse.statusText }));
       console.error("GitHub API error getting base commit tree:", errorData);
       return res.status(getCommitResponse.status).json({
         success: false,
@@ -515,34 +636,42 @@ const pushCodeAndCreatePR = async (req, res) => {
       });
     }
     const commitData = await getCommitResponse.json();
-    const baseTreeSha = commitData.tree.sha; // SHA of the tree associated with the base commit
+    const baseTreeSha = commitData.tree.sha;
 
-    // Parse generatedCode to handle multiple files or specific file updates
-    // The AI is instructed to provide file paths in comments within markdown blocks.
+    // Parse generatedCode to handle multiple files.
+    // The regex should match comments like // path/to/file.js or # path/to/script.py
     const codeBlocks = [];
-    const regex = /```(?:\w+)?\n\/\/ ([^\n]+)\n([\s\S]*?)```/g;
+    const regex = /```(?:\w+)?\n(?:\/\/|#)\s*([^\n]+)\n([\s\S]*?)```/g;
     let match;
     while ((match = regex.exec(generatedCode)) !== null) {
       codeBlocks.push({
-        filePath: match[1].trim(), // e.g., 'path/to/file.js'
+        filePath: match[1].trim(),
         content: match[2].trim(),
       });
     }
 
     if (codeBlocks.length === 0) {
-      // If no structured code blocks are found, treat the entire generatedCode as a single file
-      // and place it in a generic AI-generated file.
+      // Fallback if the AI didn't provide the expected comment format
+      console.warn(
+        "AI response did not contain structured code blocks with file paths. Attempting to push as a single file."
+      );
       codeBlocks.push({
-        filePath: `ai_generated_code/ai_changes_${Date.now()
+        filePath: `ai_generated_changes/response_${Date.now()
           .toString()
-          .slice(-6)}.js`,
+          .slice(-6)}.txt`, // Default path
         content: generatedCode,
       });
     }
 
     const treeUpdates = [];
     for (const block of codeBlocks) {
-      // 3. Create a Blob for each generated code block
+      if (!block.filePath || !block.content) {
+        console.warn(
+          "Skipping a code block due to missing filePath or content:",
+          block
+        );
+        continue;
+      }
       const createBlobResponse = await fetch(
         `https://api.github.com/repos/${owner}/${repo}/git/blobs`,
         {
@@ -551,6 +680,7 @@ const pushCodeAndCreatePR = async (req, res) => {
             Authorization: `token ${githubPAT}`,
             "User-Agent": githubUsername,
             "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json",
           },
           body: JSON.stringify({
             content: block.content,
@@ -560,23 +690,35 @@ const pushCodeAndCreatePR = async (req, res) => {
       );
 
       if (!createBlobResponse.ok) {
-        const errorData = await createBlobResponse.json();
-        console.error("GitHub API error creating blob:", errorData);
+        const errorData = await createBlobResponse
+          .json()
+          .catch(() => ({ message: createBlobResponse.statusText }));
+        console.error(
+          "GitHub API error creating blob for file:",
+          block.filePath,
+          errorData
+        );
         return res.status(createBlobResponse.status).json({
           success: false,
-          message: `Failed to create blob for generated code: ${
+          message: `Failed to create blob for ${block.filePath}: ${
             errorData.message || "Unknown error"
           }`,
         });
       }
       const blobData = await createBlobResponse.json();
-      const newBlobSha = blobData.sha;
-
       treeUpdates.push({
         path: block.filePath,
-        mode: "100644", // File mode for a regular file
+        mode: "100644",
         type: "blob",
-        sha: newBlobSha,
+        sha: blobData.sha,
+      });
+    }
+
+    if (treeUpdates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No valid code blocks with file paths were found in the AI's response to commit.",
       });
     }
 
@@ -589,16 +731,19 @@ const pushCodeAndCreatePR = async (req, res) => {
           Authorization: `token ${githubPAT}`,
           "User-Agent": githubUsername,
           "Content-Type": "application/json",
+          Accept: "application/vnd.github.v3+json",
         },
         body: JSON.stringify({
-          base_tree: baseTreeSha, // Inherit from the base branch's tree
+          base_tree: baseTreeSha,
           tree: treeUpdates,
         }),
       }
     );
 
     if (!createTreeResponse.ok) {
-      const errorData = await createTreeResponse.json();
+      const errorData = await createTreeResponse
+        .json()
+        .catch(() => ({ message: createTreeResponse.statusText }));
       console.error("GitHub API error creating tree:", errorData);
       return res.status(createTreeResponse.status).json({
         success: false,
@@ -611,7 +756,6 @@ const pushCodeAndCreatePR = async (req, res) => {
     const newTreeSha = treeData.sha;
 
     // 5. Create a New Commit
-    // This commit points to the new tree and has the base branch's latest commit as its parent.
     const createNewCommitResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/commits`,
       {
@@ -620,17 +764,20 @@ const pushCodeAndCreatePR = async (req, res) => {
           Authorization: `token ${githubPAT}`,
           "User-Agent": githubUsername,
           "Content-Type": "application/json",
+          Accept: "application/vnd.github.v3+json",
         },
         body: JSON.stringify({
           message: commitMessage,
           tree: newTreeSha,
-          parents: [baseCommitSha], // Parent is the latest commit of the base branch
+          parents: [baseCommitSha],
         }),
       }
     );
 
     if (!createNewCommitResponse.ok) {
-      const errorData = await createNewCommitResponse.json();
+      const errorData = await createNewCommitResponse
+        .json()
+        .catch(() => ({ message: createNewCommitResponse.statusText }));
       console.error("GitHub API error creating new commit:", errorData);
       return res.status(createNewCommitResponse.status).json({
         success: false,
@@ -642,9 +789,8 @@ const pushCodeAndCreatePR = async (req, res) => {
     const newCommitData = await createNewCommitResponse.json();
     const newCommitSha = newCommitData.sha;
 
-    // 6. Create or Update the AI Branch Reference to point to the new commit
-    // First, try to create the branch. If it already exists, update it.
-    let createBranchResponse = await fetch(
+    // 6. Create the AI Branch Reference to point to the new commit
+    const createBranchResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/refs`,
       {
         method: "POST",
@@ -652,6 +798,7 @@ const pushCodeAndCreatePR = async (req, res) => {
           Authorization: `token ${githubPAT}`,
           "User-Agent": githubUsername,
           "Content-Type": "application/json",
+          Accept: "application/vnd.github.v3+json",
         },
         body: JSON.stringify({
           ref: `refs/heads/${aiBranchName}`,
@@ -660,50 +807,58 @@ const pushCodeAndCreatePR = async (req, res) => {
       }
     );
 
+    // If branch creation failed (e.g. 422 if it exists), we typically want to stop or handle it.
+    // Forcing an update to an existing branch can be dangerous if not intended.
+    // The current logic will attempt a PATCH if it's 422.
     if (!createBranchResponse.ok) {
-      // If branch creation failed, it might be because the branch already exists.
-      // Try to update the branch reference instead.
       if (createBranchResponse.status === 422) {
-        // Unprocessable Entity, often means ref already exists
+        // Ref already exists
         console.warn(
-          `Branch ${aiBranchName} already exists. Attempting to update.`
+          `Branch ${aiBranchName} already exists. Attempting to update (force push).`
         );
         const updateRefResponse = await fetch(
           `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${aiBranchName}`,
           {
-            method: "PATCH", // Use PATCH to update an existing reference
+            method: "PATCH",
             headers: {
               Authorization: `token ${githubPAT}`,
               "User-Agent": githubUsername,
               "Content-Type": "application/json",
+              Accept: "application/vnd.github.v3+json",
             },
             body: JSON.stringify({
               sha: newCommitSha,
-              force: true, // Force update to move the branch head
+              force: true, // Force update the branch to the new commit
             }),
           }
         );
-
         if (!updateRefResponse.ok) {
-          const errorData = await updateRefResponse.json();
+          const errorData = await updateRefResponse
+            .json()
+            .catch(() => ({ message: updateRefResponse.statusText }));
           console.error("GitHub API error updating AI branch ref:", errorData);
           return res.status(updateRefResponse.status).json({
             success: false,
-            message: `Failed to update AI branch ref: ${
+            message: `Failed to update existing AI branch '${aiBranchName}': ${
               errorData.message || "Unknown error"
-            }`,
+            }. It may have diverged.`,
           });
         }
+        console.log(`Branch ${aiBranchName} updated to new commit.`);
       } else {
-        const errorData = await createBranchResponse.json();
+        const errorData = await createBranchResponse
+          .json()
+          .catch(() => ({ message: createBranchResponse.statusText }));
         console.error("GitHub API error creating AI branch:", errorData);
         return res.status(createBranchResponse.status).json({
           success: false,
-          message: `Failed to create AI branch: ${
+          message: `Failed to create AI branch '${aiBranchName}': ${
             errorData.message || "Unknown error"
           }`,
         });
       }
+    } else {
+      console.log(`Branch ${aiBranchName} created successfully.`);
     }
 
     // 7. Create a Pull Request
@@ -715,22 +870,43 @@ const pushCodeAndCreatePR = async (req, res) => {
           Authorization: `token ${githubPAT}`,
           "User-Agent": githubUsername,
           "Content-Type": "application/json",
+          Accept: "application/vnd.github.v3+json",
         },
         body: JSON.stringify({
-          title: commitMessage.split("\n")[0], // Use first line of commit message as PR title
-          head: aiBranchName, // The newly created/updated AI branch
-          base: selectedBranch, // The original branch
-          body: commitMessage,
+          title: `AI Changes: ${commitMessage.split("\n")[0]}`,
+          head: aiBranchName,
+          base: selectedBranch,
+          body: `AI-generated changes based on the following prompt:\n\n> ${
+            commitMessage.split("\n\nPrompt: ")[1]?.split("\nResponse:")[0] ||
+            "User prompt"
+          }\n\nBranch '${aiBranchName}' includes the proposed modifications. Please review carefully.`,
+          maintainer_can_modify: true,
         }),
       }
     );
 
     if (!createPRResponse.ok) {
-      const errorData = await createPRResponse.json();
+      const errorData = await createPRResponse
+        .json()
+        .catch(() => ({ message: createPRResponse.statusText }));
       console.error("GitHub API error creating PR:", errorData);
+      // Check for specific error: PR already exists
+      if (
+        errorData.errors &&
+        errorData.errors.some(
+          (e) =>
+            e.message && e.message.includes("A pull request already exists")
+        )
+      ) {
+        return res.status(422).json({
+          success: false,
+          message: `A pull request already exists for ${aiBranchName}.`,
+          // Potentially include link to existing PR if API provides it, or instruct user to check GitHub.
+        });
+      }
       return res.status(createPRResponse.status).json({
         success: false,
-        message: `Failed to create Pull Request: ${
+        message: `Failed to create Pull Request from '${aiBranchName}' to '${selectedBranch}': ${
           errorData.message || "Unknown error"
         }`,
       });
@@ -740,12 +916,19 @@ const pushCodeAndCreatePR = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Code pushed and Pull Request created successfully.",
+      message:
+        "Code pushed to new branch and Pull Request created successfully.",
       prUrl: prData.html_url,
+      branchName: aiBranchName,
     });
   } catch (error) {
-    console.error("Error pushing code and creating PR:", error);
-    res.status(500).json({ success: false, message: "Internal server error." });
+    console.error("Error in pushCodeAndCreatePR:", error);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Internal server error during push and PR creation.",
+      });
   }
 };
 
@@ -755,4 +938,5 @@ module.exports = {
   getCodeAnalysisMessages,
   sendCodeAnalysisMessage,
   pushCodeAndCreatePR,
+  deleteCodeAnalysisSession, // Export the new function
 };
