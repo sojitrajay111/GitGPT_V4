@@ -77,8 +77,9 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
 
         {/* Header */}
         <div
-          className={`p-6 border-b border-gray-200 flex items-center justify-between ${collapsed ? "justify-center" : ""
-            }`}
+          className={`p-6 border-b border-gray-200 flex items-center justify-between ${
+            collapsed ? "justify-center" : ""
+          }`}
         >
           <div className="flex items-center space-x-3">
             {!collapsed && (
@@ -135,8 +136,9 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
             {/* Main Nav */}
             <div>
               <h3
-                className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${collapsed ? "sr-only" : ""
-                  }`}
+                className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${
+                  collapsed ? "sr-only" : ""
+                }`}
               >
                 Main
               </h3>
@@ -146,15 +148,15 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
                     <button
                       onClick={() => handleNavigate(id)}
                       className={`flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors
-                        ${activeTab === id
-                          ? "bg-indigo-100 text-indigo-700 font-medium"
-                          : "hover:bg-gray-100 text-gray-700"
+                        ${
+                          activeTab === id
+                            ? "bg-indigo-100 text-indigo-700 font-medium"
+                            : "hover:bg-gray-100 text-gray-700"
                         }`}
                       title={label}
                     >
                       <Icon
-                        className={`w-5 h-5 ${!collapsed ? "mr-3" : "mx-auto"
-                          }`}
+                        className={`w-5 h-5 ${!collapsed ? "mr-3" : "mx-auto"}`}
                       />
                       {!collapsed && label}
                     </button>
@@ -166,8 +168,9 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
             {/* Account Nav */}
             <div className="mt-4">
               <h3
-                className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${collapsed ? "sr-only" : ""
-                  }`}
+                className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${
+                  collapsed ? "sr-only" : ""
+                }`}
               >
                 Account
               </h3>
@@ -180,8 +183,7 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
                       title={label}
                     >
                       <Icon
-                        className={`w-5 h-5 ${!collapsed ? "mr-3" : "mx-auto"
-                          }`}
+                        className={`w-5 h-5 ${!collapsed ? "mr-3" : "mx-auto"}`}
                       />
                       {!collapsed && label}
                     </button>
@@ -190,13 +192,6 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
               </ul>
             </div>
           </div>
-
-          {/* Footer */}
-          {!collapsed && (
-            <div className="p-4 border-t border-gray-200 text-xs text-center text-gray-500 bg-gray-50">
-              v2.1.0 • GitGPT © 2023
-            </div>
-          )}
         </div>
       </div>
     </>
