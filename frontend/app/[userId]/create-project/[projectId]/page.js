@@ -595,7 +595,13 @@ const ProjectDetailPage = () => {
               )
                 ? "none"
                 : "auto",
-              backgroundColor: "#f5f5f5", // light gray background for disabled
+              // backgroundColor: "#f5f5f5",
+              backgroundColor: !(
+                user_role === "manager" ||
+                developerPermissions?.includes("Code analysis")
+              )
+                ? "#f5f5f5"
+                : "#ffffff",
             }}
           >
             <Typography
@@ -610,36 +616,34 @@ const ProjectDetailPage = () => {
           </ActionButton>
 
           <ActionButton
-            onClick={() => {
-              if (
-                developerPermissions?.includes("documentation") ||
-                user_role === "manager"
-              ) {
-                handleButtonClick("documentation");
-              }
-            }}
+            onClick={() => handleButtonClick("documentation")}
             startIcon={<DescriptionIcon sx={{ color: "#a3e635" }} />} // Lime
-            disabled={
-              !(
-                user_role === "manager" ||
-                developerPermissions?.includes("documentation")
-              )
-            } // disables if permission not present
-            sx={{
-              opacity: !(
-                user_role === "manager" ||
-                developerPermissions?.includes("documentation")
-              )
-                ? 0.5
-                : 1,
-              pointerEvents: !(
-                user_role === "manager" ||
-                developerPermissions?.includes("documentation")
-              )
-                ? "none"
-                : "auto",
-              backgroundColor: "#f5f5f5", // light gray background for disabled
-            }}
+            // disabled={
+            //   !(
+            //     user_role === "manager" ||
+            //     developerPermissions?.includes("Documentation upload")
+            //   )
+            // } // disables if permission not present
+            // sx={{
+            //   opacity: !(
+            //     user_role === "manager" ||
+            //     developerPermissions?.includes("Documentation upload")
+            //   )
+            //     ? 0.5
+            //     : 1,
+            //   pointerEvents: !(
+            //     user_role === "manager" ||
+            //     developerPermissions?.includes("Documentation upload")
+            //   )
+            //     ? "none"
+            //     : "auto",
+            //   backgroundColor: !(
+            //     user_role === "manager" ||
+            //     developerPermissions?.includes("Code analysis")
+            //   )
+            //     ? "#f5f5f5"
+            //     : "#ffffff",
+            // }}
           >
             <Typography
               variant="subtitle1"

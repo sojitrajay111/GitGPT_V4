@@ -61,7 +61,6 @@ const uploadDocument = async (req, res) => {
 
     const project = await Project.findOne({
       _id: projectId,
-      userId: creatorId,
     });
     if (!project) {
       return res.status(404).json({
@@ -130,7 +129,7 @@ const getDocumentsByProjectId = async (req, res) => {
     const { projectId } = req.params;
     const userId = req.user.id;
 
-    const project = await Project.findOne({ _id: projectId, userId: userId });
+    const project = await Project.findOne({ _id: projectId });
     if (!project) {
       return res.status(404).json({
         success: false,
@@ -262,12 +261,10 @@ const updateDocument = async (req, res) => {
 
     // Check if the user is the creator of the document
     if (document.creatorId.toString() !== userId) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "User not authorized to update this document.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "User not authorized to update this document.",
+      });
     }
 
     const updateData = {};
@@ -363,12 +360,10 @@ const deleteDocument = async (req, res) => {
 
     // Check if the user is the creator of the document
     if (document.creatorId.toString() !== userId) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "User not authorized to delete this document.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "User not authorized to delete this document.",
+      });
     }
 
     // Delete file from Cloudinary if it exists and has a public ID

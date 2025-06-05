@@ -1002,7 +1002,6 @@ const App = () => {
               className="flex-1 bg-transparent px-3 py-2 text-sm text-gray-200 focus:outline-none placeholder-gray-400"
               disabled={
                 isSendingMessage ||
-                !inputMessage.trim() ||
                 !project ||
                 !selectedBranch ||
                 !currentChatSessionId ||
