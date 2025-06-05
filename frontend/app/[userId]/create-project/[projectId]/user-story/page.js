@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Button,
@@ -28,6 +28,7 @@ import {
   Snackbar,
   IconButton,
   Divider,
+  Grid, // Import Grid for responsive layout
 } from "@mui/material";
 import { ThemeProvider, createTheme, styled } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
@@ -35,6 +36,8 @@ import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import DescriptionIcon from "@mui/icons-material/Description";
+import AccessTimeIcon from "@mui/icons-material/AccessTime"; // Icon for created at time
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline"; // Generic person icon
 import {
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
@@ -155,16 +158,17 @@ const HeaderCard = styled(Card)(({ theme }) => ({
 }));
 
 const StoryCard = styled(Card)(({ theme }) => ({
-  borderLeft: "4px solid #5e72e4",
+  borderLeft: `5px solid ${theme.palette.primary.main}`, // Stronger accent border
   marginBottom: theme.spacing(3),
   "&:hover": {
-    borderLeftColor: "#11cdef",
+    borderLeftColor: theme.palette.secondary.main, // Change color on hover
   },
+  padding: theme.spacing(2), // Add padding within the card content
 }));
 
 const AIContentBox = styled(Box)(({ theme }) => ({
   background: "linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)",
-  border: "1px solid #e0e7ff",
+  border: `1px solid ${theme.palette.primary.light}`, // Use lighter primary color
   borderRadius: "12px",
   padding: theme.spacing(2),
   marginTop: theme.spacing(2),
@@ -175,6 +179,8 @@ const AIContentBox = styled(Box)(({ theme }) => ({
     top: "-12px",
     left: "20px",
     fontSize: "1.5rem",
+    backgroundColor: theme.palette.background.default, // Match background for cutoff effect
+    padding: "0 5px",
   },
 }));
 
@@ -190,6 +196,60 @@ const CollaboratorChip = styled(Chip)(({ theme }) => ({
     fontSize: "0.75rem",
   },
 }));
+
+// New component for truncated text with "Read More"
+const TruncatedText = ({
+  content,
+  maxLines = 5,
+  title,
+  isAIContent = false,
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const lines = content ? content.split("\n") : [];
+  const needsTruncation = lines.length > maxLines;
+
+  const displayedContent =
+    expanded || !needsTruncation
+      ? content
+      : lines.slice(0, maxLines).join("\n") + (needsTruncation ? "..." : "");
+
+  return (
+    <Box mb={needsTruncation ? 0 : 1.5}>
+      {" "}
+      {/* Add margin bottom only if not truncated */}
+      {title && (
+        <Typography
+          variant="body2"
+          color="text.primary"
+          fontWeight={500}
+          mb={0.5}
+        >
+          {title}
+        </Typography>
+      )}
+      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+        {displayedContent}
+      </Typography>
+      {needsTruncation && (
+        <Button
+          onClick={() => setExpanded(!expanded)}
+          size="small"
+          sx={{
+            mt: 1,
+            textTransform: "none",
+            fontWeight: 600,
+            color: freshTheme.palette.primary.main,
+            minWidth: "unset",
+            paddingLeft: 0,
+          }}
+        >
+          {expanded ? "Show Less" : "Read More"}
+        </Button>
+      )}
+    </Box>
+  );
+};
+
 const UserStoryPage = () => {
   const params = useParams();
   const userId = params.userId;
@@ -516,139 +576,128 @@ const UserStoryPage = () => {
             </Button>
           </Box>
         ) : (
-          <List disablePadding>
+          <Grid container spacing={3}>
+            {" "}
+            {/* Use Grid for responsive story cards */}
             {userStories.map((story) => (
-              <StoryCard key={story._id}>
-                <CardContent>
-                  <Box display="flex" alignItems="flex-start">
-                    <CheckCircleOutlineIcon
-                      sx={{
-                        color: "#2dce89",
-                        mr: 2,
-                        mt: 0.5,
-                        fontSize: "1.8rem",
-                      }}
-                    />
-                    <Box flexGrow={1}>
-                      <Typography variant="h6" component="h3" gutterBottom>
-                        {story.userStoryTitle}
-                      </Typography>
+              <Grid item xs={12} md={6} lg={4} key={story._id}>
+                {" "}
+                {/* Responsive grid items */}
+                <StoryCard>
+                  <CardContent>
+                    {/* Story Title */}
+                    <Typography
+                      variant="h6"
+                      component="h3"
+                      sx={{ mb: 1, color: "text.primary", fontWeight: 700 }}
+                    >
+                      {story.userStoryTitle}
+                    </Typography>
 
-                      <Box mb={1.5}>
-                        <Typography
-                          variant="body2"
-                          color="text.primary"
-                          fontWeight={500}
-                        >
-                          Description
+                    {/* Assigned Developer(s) */}
+                    {story.collaborators && story.collaborators.length > 0 && (
+                      <Box display="flex" alignItems="center" mb={1}>
+                        <PeopleAltIcon
+                          sx={{
+                            color: freshTheme.palette.secondary.main,
+                            mr: 1,
+                            fontSize: "1.2rem",
+                          }}
+                        />
+                        <Typography variant="body2" fontWeight={500} mr={1}>
+                          Assigned:
                         </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{ whiteSpace: "pre-wrap" }}
-                        >
-                          {story.description}
-                        </Typography>
-                      </Box>
-
-                      <Box display="flex" flexWrap="wrap" gap={2} mb={1.5}>
-                        <Box flex="1" minWidth="200px">
-                          <Typography
-                            variant="body2"
-                            color="text.primary"
-                            fontWeight={500}
-                          >
-                            Acceptance Criteria
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            sx={{ whiteSpace: "pre-wrap" }}
-                          >
-                            {story.acceptanceCriteria}
-                          </Typography>
-                        </Box>
-
-                        <Box flex="1" minWidth="200px">
-                          <Typography
-                            variant="body2"
-                            color="text.primary"
-                            fontWeight={500}
-                          >
-                            Testing Scenarios
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            sx={{ whiteSpace: "pre-wrap" }}
-                          >
-                            {story.testingScenarios}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      {story.aiEnhancedUserStory && (
-                        <AIContentBox>
-                          <Typography
-                            variant="subtitle2"
-                            color="primary"
-                            fontWeight={600}
-                            gutterBottom
-                          >
-                            AI ENHANCED SUGGESTIONS
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            sx={{ whiteSpace: "pre-wrap" }}
-                          >
-                            {story.aiEnhancedUserStory}
-                          </Typography>
-                        </AIContentBox>
-                      )}
-
-                      {story.collaborators &&
-                        story.collaborators.length > 0 && (
-                          <Box mt={2}>
-                            <Box display="flex" alignItems="center" mb={1}>
-                              <PeopleAltIcon
-                                sx={{
-                                  color: "#5e72e4",
-                                  mr: 1,
-                                  fontSize: "1.2rem",
-                                }}
-                              />
-                              <Typography variant="body2" fontWeight={500}>
-                                Assigned Collaborators
-                              </Typography>
-                            </Box>
-                            <Stack direction="row" flexWrap="wrap">
-                              {story.collaborators.map((collab) => (
-                                <CollaboratorChip
-                                  key={collab.githubId}
-                                  avatar={
-                                    <Avatar
-                                      src={collab.avatarUrl}
-                                      alt={collab.username}
-                                    />
-                                  }
-                                  label={collab.username}
+                        <Stack direction="row" flexWrap="wrap">
+                          {story.collaborators.map((collab) => (
+                            <CollaboratorChip
+                              key={collab.githubId}
+                              avatar={
+                                <Avatar
+                                  src={collab.avatarUrl}
+                                  alt={collab.username}
                                 />
-                              ))}
-                            </Stack>
-                          </Box>
-                        )}
+                              }
+                              label={collab.username}
+                            />
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+                    {(!story.collaborators ||
+                      story.collaborators.length === 0) && (
+                      <Box display="flex" alignItems="center" mb={1}>
+                        <PersonOutlineIcon
+                          sx={{
+                            color: freshTheme.palette.text.secondary,
+                            mr: 1,
+                            fontSize: "1.2rem",
+                          }}
+                        />
+                        <Typography variant="body2" color="text.secondary">
+                          No developer assigned
+                        </Typography>
+                      </Box>
+                    )}
 
-                      <Divider sx={{ my: 2 }} />
-
+                    {/* Created At */}
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <AccessTimeIcon
+                        sx={{
+                          color: freshTheme.palette.text.secondary,
+                          mr: 1,
+                          fontSize: "1.2rem",
+                        }}
+                      />
                       <Typography variant="caption" color="textSecondary">
                         Created:{" "}
-                        {new Date(story.createdAt).toLocaleDateString()} •
-                        Updated:{" "}
-                        {new Date(story.updatedAt).toLocaleDateString()}
+                        {new Date(story.createdAt).toLocaleDateString()}
                       </Typography>
                     </Box>
-                  </Box>
-                </CardContent>
-              </StoryCard>
+
+                    <Divider sx={{ my: 1.5 }} />
+
+                    {/* AI Enhanced Content or Description */}
+                    {story.aiEnhancedUserStory ? (
+                      <AIContentBox>
+                        <Typography
+                          variant="subtitle2"
+                          color="primary"
+                          fontWeight={600}
+                          gutterBottom
+                          sx={{ mb: 1 }}
+                        >
+                          AI ENHANCED SUGGESTIONS
+                        </Typography>
+                        <TruncatedText
+                          content={story.aiEnhancedUserStory}
+                          maxLines={5}
+                          isAIContent={true}
+                        />
+                      </AIContentBox>
+                    ) : (
+                      <>
+                        <TruncatedText
+                          content={story.description}
+                          maxLines={5}
+                          title="Description"
+                        />
+                        <TruncatedText
+                          content={story.acceptanceCriteria}
+                          maxLines={3}
+                          title="Acceptance Criteria"
+                        />
+                        <TruncatedText
+                          content={story.testingScenarios}
+                          maxLines={3}
+                          title="Testing Scenarios"
+                        />
+                      </>
+                    )}
+                  </CardContent>
+                </StoryCard>
+              </Grid>
             ))}
-          </List>
+          </Grid>
         )}
 
         {/* Create User Story Dialog */}
