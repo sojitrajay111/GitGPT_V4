@@ -3,6 +3,7 @@ const CodeAnalysisSession = require("../models/CodeAnalysisSession");
 const CodeAnalysisMessage = require("../models/CodeAnalysisMessage");
 const GitHubData = require("../models/GithubData");
 const Project = require("../models/Project");
+const ProjectCollaborator = require("../models/ProjectCollaborator"); // Import ProjectCollaborator
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -172,13 +173,122 @@ async function fetchRepoContents(
 }
 
 /**
+ * Helper function to check if a user is authorized for code analysis on a project.
+ * A user is authorized if they are the project owner or a collaborator with "Code analysis" permission.
+ * @param {string} userId - The MongoDB _id of the user to check (from req.user.id).
+ * @param {string} projectId - The ID of the project.
+ * @returns {Promise<boolean>} True if authorized, false otherwise.
+ */
+const isUserAuthorizedForCodeAnalysis = async (userId, projectId) => {
+  console.log(
+    `[Auth Check] Initiating authorization check for userId: ${userId}, projectId: ${projectId}`
+  );
+
+  const project = await Project.findById(projectId);
+  if (!project) {
+    console.log(
+      `[Auth Check] Project not found for ID: ${projectId}. Returning false.`
+    );
+    return false;
+  }
+  console.log(
+    `[Auth Check] Project found: ${project.projectName} (Owner: ${project.userId})`
+  );
+
+  // Check if the user is the project owner
+  if (project.userId.toString() === userId) {
+    console.log(
+      `[Auth Check] User ${userId} is project owner for project ${projectId}. Authorized.`
+    );
+    return true;
+  }
+  console.log(`[Auth Check] User ${userId} is NOT the project owner.`);
+
+  // If not owner, check if the user is an accepted collaborator with "Code analysis" permission
+  const projectCollaboratorEntry = await ProjectCollaborator.findOne({
+    project_id: projectId,
+  });
+  if (projectCollaboratorEntry) {
+    console.log(
+      `[Auth Check] ProjectCollaborator entry found for project ${projectId}. Collaborators: ${JSON.stringify(
+        projectCollaboratorEntry.collaborators.map((c) => ({
+          username: c.username,
+          githubId: c.githubId,
+          status: c.status,
+          permissions: c.permissions,
+        }))
+      )}`
+    );
+
+    // Get the GitHub ID of the requesting user
+    const userGithubData = await GitHubData.findOne({ userId });
+    if (!userGithubData) {
+      console.log(
+        `[Auth Check] GitHubData not found for user ${userId}. Cannot verify collaborator status. Returning false.`
+      );
+      return false;
+    }
+    const requestingUserGithubId = userGithubData.githubId;
+    console.log(
+      `[Auth Check] Requesting user ${userId} has GitHub ID: ${requestingUserGithubId}`
+    );
+
+    const collaborator = projectCollaboratorEntry.collaborators.find(
+      (collab) =>
+        collab.githubId === requestingUserGithubId && // Match by GitHub ID
+        collab.status === "accepted" &&
+        collab.permissions.includes("Code analysis")
+    );
+
+    if (collaborator) {
+      console.log(
+        `[Auth Check] User ${userId} (GitHub ID: ${requestingUserGithubId}) is an accepted collaborator with 'Code analysis' permission for project ${projectId}. Authorized.`
+      );
+      return true;
+    } else {
+      console.log(
+        `[Auth Check] User ${userId} (GitHub ID: ${requestingUserGithubId}) is NOT an authorized collaborator for project ${projectId}.`
+      );
+      console.log(`[Auth Check] Reasons for not being authorized:`);
+      const foundCollab = projectCollaboratorEntry.collaborators.find(
+        (c) => c.githubId === requestingUserGithubId
+      );
+      if (!foundCollab) {
+        console.log(
+          `  - Collaborator with GitHub ID ${requestingUserGithubId} not found in project's collaborator list.`
+        );
+      } else {
+        if (foundCollab.status !== "accepted") {
+          console.log(
+            `  - Collaborator status is '${foundCollab.status}', not 'accepted'.`
+          );
+        }
+        if (!foundCollab.permissions.includes("Code analysis")) {
+          console.log(
+            `  - Collaborator does not have 'Code analysis' permission. Current permissions: ${JSON.stringify(
+              foundCollab.permissions
+            )}`
+          );
+        }
+      }
+    }
+  } else {
+    console.log(
+      `[Auth Check] No ProjectCollaborator entry found for project ${projectId}. Returning false.`
+    );
+  }
+
+  return false;
+};
+
+/**
  * @desc Start a new code analysis session.
  * @route POST /api/code-analysis/sessions
  * @access Private
  */
 const startCodeAnalysisSession = async (req, res) => {
   const { projectId, githubRepoName, selectedBranch } = req.body;
-  const userId = req.user.id;
+  const userId = req.user.id; // This is the MongoDB _id of the logged-in user
 
   try {
     // Basic validation
@@ -190,12 +300,16 @@ const startCodeAnalysisSession = async (req, res) => {
       });
     }
 
-    // Optional: Verify project ownership if strict access control is needed
-    const project = await Project.findById(projectId);
-    if (!project || project.userId.toString() !== userId) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Not authorized to start session." });
+    // Authorization check: User must be project owner or an authorized collaborator
+    const authorized = await isUserAuthorizedForCodeAnalysis(userId, projectId);
+    if (!authorized) {
+      console.warn(
+        `User ${userId} attempted to start session for project ${projectId} but is not authorized.`
+      );
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to start session for this project.",
+      });
     }
 
     const newSession = await CodeAnalysisSession.create({
@@ -230,9 +344,11 @@ const getCodeAnalysisSessions = async (req, res) => {
   const userId = req.user.id;
 
   try {
+    // Sessions are filtered by userId on the frontend, but here we ensure
+    // that only sessions belonging to the requesting user for that project are returned.
     const sessions = await CodeAnalysisSession.find({
       projectId,
-      userId,
+      userId, // Crucial: Filter by the logged-in user's ID
     }).sort({ lastActivity: -1 }); // Sort by most recent activity
 
     res.status(200).json({
@@ -261,9 +377,10 @@ const getCodeAnalysisMessages = async (req, res) => {
     // Verify session ownership
     const session = await CodeAnalysisSession.findById(sessionId);
     if (!session || session.userId.toString() !== userId) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Not authorized to view messages." });
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to view messages for this session.",
+      });
     }
 
     const messages = await CodeAnalysisMessage.find({ sessionId }).sort({
@@ -316,6 +433,7 @@ const sendCodeAnalysisMessage = async (req, res) => {
     });
 
     // Fetch GitHub data for PAT and username
+    // This will fetch the PAT of the *currently authenticated user* (developer or manager)
     const githubData = await GitHubData.findOne({ userId });
     if (!githubData || !githubData.githubPAT) {
       return res.status(400).json({
@@ -501,12 +619,10 @@ const deleteCodeAnalysisSession = async (req, res) => {
     }
 
     if (session.userId.toString() !== userId) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Not authorized to delete this session.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to delete this session.",
+      });
     }
 
     // Delete all messages associated with the session
@@ -515,12 +631,10 @@ const deleteCodeAnalysisSession = async (req, res) => {
     // Delete the session itself
     await CodeAnalysisSession.findByIdAndDelete(sessionId);
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Session and associated messages deleted successfully.",
-      });
+    res.status(200).json({
+      success: true,
+      message: "Session and associated messages deleted successfully.",
+    });
   } catch (error) {
     console.error("Error deleting code analysis session:", error);
     res.status(500).json({
@@ -559,11 +673,24 @@ const pushCodeAndCreatePR = async (req, res) => {
       });
     }
 
+    // Authorization check: User must be project owner or an authorized collaborator
+    const authorized = await isUserAuthorizedForCodeAnalysis(userId, projectId);
+    if (!authorized) {
+      console.warn(
+        `User ${userId} attempted to push code/create PR for project ${projectId} but is not authorized.`
+      );
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to push code or create PR for this project.",
+      });
+    }
+
     const project = await Project.findById(projectId);
-    if (!project || project.userId.toString() !== userId) {
+    if (!project) {
+      // Redundant check, but good for clarity if auth check is bypassed
       return res
-        .status(403)
-        .json({ success: false, message: "Not authorized for this project." });
+        .status(404)
+        .json({ success: false, message: "Project not found." });
     }
 
     const githubData = await GitHubData.findOne({ userId });
@@ -603,7 +730,7 @@ const pushCodeAndCreatePR = async (req, res) => {
       );
       return res.status(getRefResponse.status).json({
         success: false,
-        message: `Failed to get base branch ref ('${selectedBranch}') for push: ${
+        message: `Failed to get base branch ref ('${selectedBranch}'): ${
           errorData.message || "Unknown error"
         }. Ensure the branch exists and the token has permissions.`,
       });
@@ -923,12 +1050,10 @@ const pushCodeAndCreatePR = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in pushCodeAndCreatePR:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error during push and PR creation.",
-      });
+    res.status(500).json({
+      success: false,
+      message: "Internal server error during push and PR creation.",
+    });
   }
 };
 
