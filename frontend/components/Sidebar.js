@@ -22,6 +22,7 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
   const username = data?.user?.username || "Loading...";
   const email = data?.user?.email || "Loading...";
   const avatar_url = data?.githubData?.avatarUrl || "/default-avatar.png";
+  const githubUsername = data?.githubData?.githubUsername || "Loading...";
 
   const getActiveTab = () => {
     const segments = pathname.split("/");
@@ -123,7 +124,7 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
                   {username}
                 </span>
                 <span className="text-xs text-gray-600 truncate max-w-[160px]">
-                  {email}
+                  {githubUsername}
                 </span>
               </div>
             </div>
