@@ -168,12 +168,10 @@ const getGitHubData = async (req, res) => {
       "-githubPAT"
     );
     if (!githubData) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "GitHub data not found for this user",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "GitHub data not found for this user",
+      });
     }
     res.status(200).json({ success: true, data: githubData });
   } catch (error) {
@@ -192,12 +190,10 @@ const checkGitHubAuthStatus = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
     }
-    res
-      .status(200)
-      .json({
-        success: true,
-        isAuthenticatedToGithub: user.isAuthenticatedToGithub,
-      });
+    res.status(200).json({
+      success: true,
+      isAuthenticatedToGithub: user.isAuthenticatedToGithub,
+    });
   } catch (error) {
     console.error("Check GitHub auth status error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
@@ -247,13 +243,11 @@ const getUserGithubRepos = async (req, res) => {
         full_name: repo.full_name,
       }));
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        isAuthenticatedToGithub: true,
-        repos: privateRepos,
-      });
+    res.status(200).json({
+      success: true,
+      isAuthenticatedToGithub: true,
+      repos: privateRepos,
+    });
   } catch (error) {
     console.error("Error fetching GitHub repositories:", error);
     res.status(error.status || 500).json({
@@ -283,14 +277,12 @@ const searchGithubUsers = async (req, res) => {
     );
     if (!githubResponse.ok) {
       const errorData = await githubResponse.json().catch(() => ({}));
-      return res
-        .status(githubResponse.status)
-        .json({
-          success: false,
-          message: `Failed to search GitHub users: ${
-            errorData.message || githubResponse.statusText
-          }`,
-        });
+      return res.status(githubResponse.status).json({
+        success: false,
+        message: `Failed to search GitHub users: ${
+          errorData.message || githubResponse.statusText
+        }`,
+      });
     }
     const data = await githubResponse.json();
     res.status(200).json({ success: true, users: data.items });
@@ -330,14 +322,12 @@ const addCollaborator = async (req, res) => {
     );
     if (!searchUserResponse.ok) {
       const errorData = await searchUserResponse.json().catch(() => ({}));
-      return res
-        .status(searchUserResponse.status)
-        .json({
-          success: false,
-          message: `Failed to find GitHub user '${githubUsername}': ${
-            errorData.message || "User not found"
-          }`,
-        });
+      return res.status(searchUserResponse.status).json({
+        success: false,
+        message: `Failed to find GitHub user '${githubUsername}': ${
+          errorData.message || "User not found"
+        }`,
+      });
     }
     const collaboratorGitHubInfo = await searchUserResponse.json();
 
@@ -369,14 +359,12 @@ const addCollaborator = async (req, res) => {
           `User ${githubUsername} is already a collaborator on GitHub. Proceeding to update database.`
         );
       } else {
-        return res
-          .status(addCollaboratorResponse.status)
-          .json({
-            success: false,
-            message: `Failed to add collaborator to GitHub repository: ${
-              errorData.message || addCollaboratorResponse.statusText
-            }`,
-          });
+        return res.status(addCollaboratorResponse.status).json({
+          success: false,
+          message: `Failed to add collaborator to GitHub repository: ${
+            errorData.message || addCollaboratorResponse.statusText
+          }`,
+        });
       }
     }
     const invitationData =
@@ -413,20 +401,16 @@ const addCollaborator = async (req, res) => {
         collaborators: [newCollaboratorData],
       });
     }
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Collaborator added/updated successfully.",
-      });
+    res.status(200).json({
+      success: true,
+      message: "Collaborator added/updated successfully.",
+    });
   } catch (error) {
     console.error("Error adding collaborator:", error);
-    res
-      .status(error.status || 500)
-      .json({
-        success: false,
-        message: error.message || "Internal server error.",
-      });
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error.",
+    });
   }
 };
 
@@ -488,14 +472,12 @@ const deleteCollaborator = async (req, res) => {
       const errorData = await removeCollaboratorResponse
         .json()
         .catch(() => ({}));
-      return res
-        .status(removeCollaboratorResponse.status)
-        .json({
-          success: false,
-          message: `Failed to remove collaborator from GitHub: ${
-            errorData.message || removeCollaboratorResponse.statusText
-          }`,
-        });
+      return res.status(removeCollaboratorResponse.status).json({
+        success: false,
+        message: `Failed to remove collaborator from GitHub: ${
+          errorData.message || removeCollaboratorResponse.statusText
+        }`,
+      });
     }
 
     const projectCollaboratorDoc = await ProjectCollaborator.findOne({
@@ -513,12 +495,10 @@ const deleteCollaborator = async (req, res) => {
       .json({ success: true, message: "Collaborator removed successfully." });
   } catch (error) {
     console.error("Error deleting collaborator:", error);
-    res
-      .status(error.status || 500)
-      .json({
-        success: false,
-        message: error.message || "Internal server error.",
-      });
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error.",
+    });
   }
 };
 
@@ -546,33 +526,27 @@ const updateCollaboratorPermissions = async (req, res) => {
       project_id: projectId,
     });
     if (!projectCollaboratorDoc)
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Project collaborator data not found.",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Project collaborator data not found.",
+      });
 
     const collaboratorIndex = projectCollaboratorDoc.collaborators.findIndex(
       (c) => c.username === githubUsername
     );
     if (collaboratorIndex === -1)
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Collaborator not found for this project.",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Collaborator not found for this project.",
+      });
 
     projectCollaboratorDoc.collaborators[collaboratorIndex].permissions =
       permissions;
     await projectCollaboratorDoc.save();
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Collaborator permissions updated successfully.",
-      });
+    res.status(200).json({
+      success: true,
+      message: "Collaborator permissions updated successfully.",
+    });
   } catch (error) {
     console.error("Error updating collaborator permissions:", error);
     res.status(500).json({ success: false, message: "Internal server error." });
@@ -715,12 +689,10 @@ const getUserAndGithubData = async (req, res) => {
     const { userId: requestedUserId } = req.params;
     const authenticatedUserId = req.user.id;
     if (requestedUserId !== authenticatedUserId) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Unauthorized: You can only access your own data.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: You can only access your own data.",
+      });
     }
     const user = await User.findById(requestedUserId).select("-password");
     if (!user)
@@ -730,14 +702,12 @@ const getUserAndGithubData = async (req, res) => {
     const githubData = await GitHubData.findOne({
       userId: requestedUserId,
     }).select("-githubPAT");
-    res
-      .status(200)
-      .json({
-        success: true,
-        user,
-        githubData,
-        message: "User and GitHub data fetched successfully.",
-      });
+    res.status(200).json({
+      success: true,
+      user,
+      githubData,
+      message: "User and GitHub data fetched successfully.",
+    });
   } catch (error) {
     console.error("Error fetching user and GitHub data:", error);
     res.status(500).json({ success: false, message: "Internal server error." });
@@ -753,420 +723,388 @@ const getUserAndGithubData = async (req, res) => {
  * @access Private
  */
 const listRepoBranches = async (req, res) => {
-  // Renamed to avoid conflict if keeping old one
   const { owner, repo } = req.params;
-  const userId = req.user.id;
+  const userId = req.user.id; // User making the request
+
+  console.log(
+    `[listRepoBranches] Request to list branches for ${owner}/${repo} by userId: ${userId}`
+  );
 
   try {
-    const { pat, username } = await getGitHubAuthDetails(userId);
-    const branchesResponse = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/branches?per_page=100`,
+    const { pat: githubPAT, username: githubUsername } =
+      await getGitHubAuthDetails(userId);
+
+    // Mask PAT for logging, never log full PAT
+    const maskedPAT = githubPAT.substring(0, 5) + "...";
+    console.log(
+      `[listRepoBranches] Using PAT: ${maskedPAT} for username: ${githubUsername}`
+    );
+
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/branches`,
       {
         headers: {
-          Authorization: `token ${pat}`,
-          "User-Agent": username || "GitGPT-App",
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
           Accept: "application/vnd.github.v3+json",
         },
       }
     );
 
-    if (!branchesResponse.ok) {
-      const errorData = await branchesResponse.json().catch(() => ({}));
-      return res.status(branchesResponse.status).json({
+    if (!response.ok) {
+      let errorData = { message: response.statusText };
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        // Ignore if response is not JSON
+      }
+      console.error(
+        `[listRepoBranches] GitHub API error listing branches for ${owner}/${repo}:`,
+        errorData
+      );
+      return res.status(response.status).json({
         success: false,
-        message: `Failed to fetch branches: ${
-          errorData.message || branchesResponse.statusText
+        message: `Failed to list branches for ${owner}/${repo}: ${
+          errorData.message || "Unknown GitHub API error."
         }`,
+        errorDetails: errorData, // Include error details for better debugging
       });
     }
-    const branchesData = await branchesResponse.json(); // Array of branch objects
-    res.status(200).json({ success: true, branches: branchesData });
+
+    const branches = await response.json();
+    console.log(
+      `[listRepoBranches] Successfully fetched ${branches.length} branches for ${owner}/${repo}.`
+    );
+    res.status(200).json({ success: true, branches });
   } catch (error) {
-    console.error("Error in listRepoBranches:", error);
-    res
-      .status(error.status || 500)
-      .json({
-        success: false,
-        message: error.message || "Internal server error.",
-      });
+    console.error("[listRepoBranches] Error in listRepoBranches:", error);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error while listing branches.",
+    });
   }
 };
 
-/**
- * @desc Create a new branch in a GitHub repository.
- * (Your existing createBranch is fine, this is just to ensure it's here and integrated)
- * @route POST /api/github/repos/:owner/:repo/branches
- * @access Private
- */
+// Create a new branch
 const createNewBranch = async (req, res) => {
-  // Renamed to avoid conflict if keeping old one
-  const { owner, repo } = req.params;
-  const { newBranchName, baseBranch } = req.body;
+  const { owner, repo, newBranchName, baseBranch } = req.body;
   const userId = req.user.id;
 
   try {
-    if (!newBranchName || !baseBranch) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "New branch name and base branch are required.",
-        });
-    }
-    const { pat, username } = await getGitHubAuthDetails(userId);
+    const { pat: githubPAT, username: githubUsername } =
+      await getGitHubAuthDetails(userId);
 
+    // 1. Get the SHA of the base branch
     const getRefResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${baseBranch}`,
       {
         headers: {
-          Authorization: `token ${pat}`,
-          "User-Agent": username || "GitGPT-App",
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
           Accept: "application/vnd.github.v3+json",
         },
       }
     );
+
     if (!getRefResponse.ok) {
-      const errorData = await getRefResponse.json().catch(() => ({}));
-      return res
-        .status(getRefResponse.status)
-        .json({
-          success: false,
-          message: `Failed to get base branch ref '${baseBranch}': ${
-            errorData.message || getRefResponse.statusText
-          }`,
-        });
+      const errorData = await getRefResponse
+        .json()
+        .catch(() => ({ message: getRefResponse.statusText }));
+      console.error("GitHub API error getting base branch ref:", errorData);
+      return res.status(getRefResponse.status).json({
+        success: false,
+        message: `Failed to get base branch ref ('${baseBranch}'): ${
+          errorData.message || "Unknown error."
+        }`,
+      });
     }
     const refData = await getRefResponse.json();
-    const sha = refData.object.sha;
+    const baseBranchSha = refData.object.sha;
 
+    // 2. Create the new branch
     const createBranchResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/refs`,
       {
         method: "POST",
         headers: {
-          Authorization: `token ${pat}`,
-          "User-Agent": username || "GitGPT-App",
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
           "Content-Type": "application/json",
           Accept: "application/vnd.github.v3+json",
         },
-        body: JSON.stringify({ ref: `refs/heads/${newBranchName}`, sha: sha }),
+        body: JSON.stringify({
+          ref: `refs/heads/${newBranchName}`,
+          sha: baseBranchSha,
+        }),
       }
     );
 
     if (!createBranchResponse.ok) {
-      const errorData = await createBranchResponse.json().catch(() => ({}));
-      if (
-        createBranchResponse.status === 422 &&
-        errorData.message?.includes("Reference already exists")
-      ) {
-        return res
-          .status(422)
-          .json({
-            success: false,
-            message: `Branch '${newBranchName}' already exists.`,
-          });
-      }
-      return res
-        .status(createBranchResponse.status)
-        .json({
-          success: false,
-          message: `Failed to create new branch '${newBranchName}': ${
-            errorData.message || createBranchResponse.statusText
-          }`,
-        });
-    }
-    const newBranchData = await createBranchResponse.json();
-    res
-      .status(201)
-      .json({
-        success: true,
-        message: `Branch '${newBranchName}' created successfully.`,
-        branch: newBranchData,
-      });
-  } catch (error) {
-    console.error("Error creating GitHub branch:", error);
-    res
-      .status(error.status || 500)
-      .json({
+      const errorData = await createBranchResponse
+        .json()
+        .catch(() => ({ message: createBranchResponse.statusText }));
+      console.error("GitHub API error creating new branch:", errorData);
+      return res.status(createBranchResponse.status).json({
         success: false,
-        message: error.message || "Internal server error.",
+        message: `Failed to create branch '${newBranchName}': ${
+          errorData.message || "Unknown error."
+        }`,
       });
+    }
+
+    const branchData = await createBranchResponse.json();
+    res.status(201).json({
+      success: true,
+      message: "Branch created successfully.",
+      branch: branchData,
+    });
+  } catch (error) {
+    console.error("Error in createNewBranch:", error);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error while creating branch.",
+    });
   }
 };
 
-/**
- * @desc Delete a branch from a GitHub repository.
- * @route DELETE /api/github/repos/:owner/:repo/branches/:branchNameEncoded
- * @access Private
- */
+// Delete an existing branch
 const deleteExistingBranch = async (req, res) => {
-  // Renamed
-  const { owner, repo } = req.params;
-  const branchName = decodeURIComponent(req.params.branchNameEncoded);
+  const { owner, repo, branchNameEncoded } = req.params;
+  const branchName = decodeURIComponent(branchNameEncoded); // Decode the branch name
   const userId = req.user.id;
 
   try {
-    const { pat, username } = await getGitHubAuthDetails(userId);
-    const deleteBranchResponse = await fetch(
+    const { pat: githubPAT, username: githubUsername } =
+      await getGitHubAuthDetails(userId);
+
+    const response = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branchName}`,
       {
         method: "DELETE",
         headers: {
-          Authorization: `token ${pat}`,
-          "User-Agent": username || "GitGPT-App",
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
           Accept: "application/vnd.github.v3+json",
         },
       }
     );
 
-    if (deleteBranchResponse.status === 204) {
-      res
-        .status(200)
-        .json({
-          success: true,
-          message: `Branch '${branchName}' deleted successfully.`,
-        });
-    } else {
-      const errorData = await deleteBranchResponse
+    if (!response.ok) {
+      const errorData = await response
         .json()
-        .catch(() => ({ message: "Failed to parse error from GitHub" }));
-      return res
-        .status(deleteBranchResponse.status)
-        .json({
-          success: false,
-          message: `Failed to delete branch '${branchName}': ${
-            errorData.message || deleteBranchResponse.statusText
-          }. It might be protected or default.`,
-        });
-    }
-  } catch (error) {
-    console.error("Error deleting GitHub branch:", error);
-    res
-      .status(error.status || 500)
-      .json({
+        .catch(() => ({ message: response.statusText }));
+      console.error("GitHub API error deleting branch:", errorData);
+      return res.status(response.status).json({
         success: false,
-        message: error.message || "Internal server error.",
+        message: `Failed to delete branch '${branchName}': ${
+          errorData.message || "Unknown error."
+        }`,
       });
+    }
+
+    res
+      .status(204)
+      .json({ success: true, message: "Branch deleted successfully." }); // 204 No Content for successful deletion
+  } catch (error) {
+    console.error("Error in deleteExistingBranch:", error);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error while deleting branch.",
+    });
   }
 };
 
-/**
- * @desc Get all pull requests for a repository.
- * @route GET /api/github/repos/:owner/:repo/pulls
- * @access Private
- */
+// List Pull Requests for a repository
 const listPullRequests = async (req, res) => {
   const { owner, repo } = req.params;
-  const { state = "all", per_page = 30, page = 1 } = req.query;
   const userId = req.user.id;
 
   try {
-    const { pat, username } = await getGitHubAuthDetails(userId);
-    const prsResponse = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/pulls?state=${state}&per_page=${per_page}&page=${page}&sort=created&direction=desc`,
+    const { pat: githubPAT, username: githubUsername } =
+      await getGitHubAuthDetails(userId);
+
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/pulls`,
       {
         headers: {
-          Authorization: `token ${pat}`,
-          "User-Agent": username || "GitGPT-App",
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
           Accept: "application/vnd.github.v3+json",
         },
       }
     );
-    if (!prsResponse.ok) {
-      const errorData = await prsResponse.json().catch(() => ({}));
-      return res
-        .status(prsResponse.status)
-        .json({
-          success: false,
-          message: `Failed to fetch pull requests: ${
-            errorData.message || prsResponse.statusText
-          }`,
-        });
-    }
-    const pullRequestsData = await prsResponse.json();
-    res.status(200).json({ success: true, pullRequests: pullRequestsData });
-  } catch (error) {
-    console.error("Error fetching pull requests:", error);
-    res
-      .status(error.status || 500)
-      .json({
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ message: response.statusText }));
+      console.error("GitHub API error listing pull requests:", errorData);
+      return res.status(response.status).json({
         success: false,
-        message: error.message || "Internal server error.",
+        message: `Failed to list pull requests for ${owner}/${repo}: ${
+          errorData.message || "Unknown error."
+        }`,
       });
+    }
+
+    const pullRequests = await response.json();
+    res.status(200).json({ success: true, pullRequests });
+  } catch (error) {
+    console.error("Error in listPullRequests:", error);
+    res.status(error.status || 500).json({
+      success: false,
+      message:
+        error.message || "Internal server error while listing pull requests.",
+    });
   }
 };
 
-/**
- * @desc Create a new pull request.
- * @route POST /api/github/repos/:owner/:repo/pulls
- * @access Private
- */
+// Create a new Pull Request
 const createNewPullRequest = async (req, res) => {
-  // Renamed
-  const { owner, repo } = req.params;
-  const { title, body, head, base, reviewers } = req.body;
+  const { owner, repo, title, head, base, body } = req.body;
   const userId = req.user.id;
 
   try {
-    if (!title || !head || !base)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Title, head branch, and base branch are required.",
-        });
-    if (head === base)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Head and base branches cannot be the same.",
-        });
+    const { pat: githubPAT, username: githubUsername } =
+      await getGitHubAuthDetails(userId);
 
-    const { pat, username } = await getGitHubAuthDetails(userId);
-    const payload = { title, head, base, body: body || undefined };
-
-    const createPrResponse = await fetch(
+    const response = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/pulls`,
       {
         method: "POST",
         headers: {
-          Authorization: `token ${pat}`,
-          "User-Agent": username || "GitGPT-App",
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
           "Content-Type": "application/json",
           Accept: "application/vnd.github.v3+json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ title, head, base, body }),
       }
     );
 
-    if (!createPrResponse.ok) {
-      const errorData = await createPrResponse.json().catch(() => ({}));
-      if (
-        createPrResponse.status === 422 &&
-        errorData.errors?.some((e) =>
-          e.message?.includes("A pull request already exists")
-        )
-      ) {
-        return res
-          .status(422)
-          .json({
-            success: false,
-            message: errorData.errors.find((e) =>
-              e.message.includes("A pull request already exists")
-            ).message,
-          });
-      }
-      return res
-        .status(createPrResponse.status)
-        .json({
-          success: false,
-          message: `Failed to create pull request: ${
-            errorData.message || createPrResponse.statusText
-          }`,
-        });
-    }
-    const newPR = await createPrResponse.json();
-
-    if (reviewers && reviewers.length > 0 && newPR.number) {
-      const validReviewers = reviewers.filter(
-        (r) => typeof r === "string" && r.trim() !== ""
-      );
-      if (validReviewers.length > 0) {
-        const addReviewersPayload = { reviewers: validReviewers };
-        const addReviewersResponse = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/pulls/${newPR.number}/requested_reviewers`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `token ${pat}`,
-              "User-Agent": username || "GitGPT-App",
-              "Content-Type": "application/json",
-              Accept: "application/vnd.github.v3+json",
-            },
-            body: JSON.stringify(addReviewersPayload),
-          }
-        );
-        if (!addReviewersResponse.ok) {
-          const errorData = await addReviewersResponse.json().catch(() => ({}));
-          console.warn(
-            `PR #${newPR.number} created, but failed to add reviewers: ${errorData.message}`
-          );
-        } else console.log(`Reviewers added to PR #${newPR.number}`);
-      }
-    }
-    res.status(201).json({ success: true, pullRequest: newPR });
-  } catch (error) {
-    console.error("Error creating pull request:", error);
-    res
-      .status(error.status || 500)
-      .json({
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ message: response.statusText }));
+      console.error("GitHub API error creating pull request:", errorData);
+      return res.status(response.status).json({
         success: false,
-        message: error.message || "Internal server error.",
+        message: `Failed to create pull request: ${
+          errorData.message || "Unknown error."
+        }`,
       });
+    }
+
+    const prData = await response.json();
+    res.status(201).json({
+      success: true,
+      message: "Pull Request created successfully.",
+      pr: prData,
+    });
+  } catch (error) {
+    console.error("Error in createNewPullRequest:", error);
+    res.status(error.status || 500).json({
+      success: false,
+      message:
+        error.message || "Internal server error while creating pull request.",
+    });
   }
 };
 
-/**
- * @desc Update a pull request (e.g., title, body, state).
- * @route PATCH /api/github/repos/:owner/:repo/pulls/:pullNumber
- * @access Private
- */
-const updateExistingPullRequest = async (req, res) => {
-  // Renamed
-  const { owner, repo, pullNumber } = req.params;
-  const updateData = req.body;
+// Get a single Pull Request
+const getPullRequest = async (req, res) => {
+  const { owner, repo, pull_number } = req.params;
   const userId = req.user.id;
 
   try {
-    const { pat, username } = await getGitHubAuthDetails(userId);
-    const filteredUpdateData = Object.entries(updateData).reduce(
-      (acc, [key, value]) => {
-        if (value !== undefined) acc[key] = value;
-        return acc;
-      },
-      {}
-    );
-    if (Object.keys(filteredUpdateData).length === 0)
-      return res
-        .status(400)
-        .json({ success: false, message: "No update data provided." });
+    const { pat: githubPAT, username: githubUsername } =
+      await getGitHubAuthDetails(userId);
 
-    const updatePrResponse = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}`,
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/pulls/${pull_number}`,
       {
-        method: "PATCH",
         headers: {
-          Authorization: `token ${pat}`,
-          "User-Agent": username || "GitGPT-App",
-          "Content-Type": "application/json",
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
           Accept: "application/vnd.github.v3+json",
         },
-        body: JSON.stringify(filteredUpdateData),
       }
     );
 
-    if (!updatePrResponse.ok) {
-      const errorData = await updatePrResponse.json().catch(() => ({}));
-      return res
-        .status(updatePrResponse.status)
-        .json({
-          success: false,
-          message: `Failed to update pull request #${pullNumber}: ${
-            errorData.message || updatePrResponse.statusText
-          }`,
-        });
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ message: response.statusText }));
+      console.error("GitHub API error getting pull request:", errorData);
+      return res.status(response.status).json({
+        success: false,
+        message: `Failed to get pull request #${pull_number}: ${
+          errorData.message || "Unknown error."
+        }`,
+      });
     }
-    const updatedPR = await updatePrResponse.json();
-    res.status(200).json({ success: true, pullRequest: updatedPR });
+
+    const prData = await response.json();
+    res.status(200).json({ success: true, pr: prData });
+  } catch (error) {
+    console.error("Error in getPullRequest:", error);
+    res.status(error.status || 500).json({
+      success: false,
+      message:
+        error.message || "Internal server error while getting pull request.",
+    });
+  }
+};
+
+// Update an existing Pull Request
+const updateExistingPullRequest = async (req, res) => {
+  const { owner, repo, pull_number } = req.params;
+  const { title, body, state } = req.body; // Can update title, body, or state (open/closed)
+  const userId = req.user.id;
+
+  try {
+    const { pat: githubPAT, username: githubUsername } =
+      await getGitHubAuthDetails(userId);
+
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/pulls/${pull_number}`,
+      {
+        method: "PATCH", // PATCH for partial updates
+        headers: {
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
+          "Content-Type": "application/json",
+          Accept: "application/vnd.github.v3+json",
+        },
+        body: JSON.stringify({ title, body, state }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ message: response.statusText }));
+      console.error("GitHub API error updating pull request:", errorData);
+      return res.status(response.status).json({
+        success: false,
+        message: `Failed to update pull request #${pull_number}: ${
+          errorData.message || "Unknown error."
+        }`,
+      });
+    }
+
+    const updatedPrData = await response.json();
+    res.status(200).json({
+      success: true,
+      message: "Pull Request updated successfully.",
+      pr: updatedPrData,
+    });
   } catch (error) {
     console.error("Error updating pull request:", error);
-    res
-      .status(error.status || 500)
-      .json({
-        success: false,
-        message: error.message || "Internal server error.",
-      });
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error.",
+    });
   }
 };
 

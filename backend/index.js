@@ -18,7 +18,6 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-
     origin: "https://git-gpt-v2.vercel.app",
 
     credentials: true,
