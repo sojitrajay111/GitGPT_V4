@@ -19,7 +19,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <head>
         <title>GitGPT</title>
-        <link rel="icon" href="/logo.png" />
+        <link rel="icon" href="/logo.png" type="image/png" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

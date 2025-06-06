@@ -7,6 +7,7 @@ export async function middleware(request) {
   const isPublicPath = publicPaths.includes(path);
   const token = request.cookies.get("token")?.value || "";
 
+
   console.log("Middleware Path:", path); // Add this
   console.log("Middleware Token:", token ? "Exists" : "Does not exist"); // Add this
   console.log(
@@ -18,6 +19,7 @@ export async function middleware(request) {
 
   if (!isPublicPath && !token) {
     console.log("Redirecting to / because no token on protected path");
+
     return NextResponse.redirect(new URL("/", request.nextUrl));
   }
 
@@ -25,6 +27,7 @@ export async function middleware(request) {
     try {
       const secret = new TextEncoder().encode(process.env.JWT_SECRET);
       const { payload } = await jwtVerify(token, secret);
+
       console.log("Token verified, payload:", payload); // Add this
 
       if (isPublicPath) {
@@ -33,6 +36,7 @@ export async function middleware(request) {
           "Redirecting public path user to dashboard:",
           `/${userId}/dashboard`
         );
+
         return NextResponse.redirect(
           new URL(`/${userId}/dashboard`, request.nextUrl)
         );
@@ -48,7 +52,9 @@ export async function middleware(request) {
     }
   }
 
+
   console.log("Allowing access to:", path);
+
   return NextResponse.next();
 }
 
