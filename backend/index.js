@@ -18,7 +18,7 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    origin: "https://git-gpt-v2.vercel.app",
+    origin: "http://localhost:3000", // Update with your frontend URL
 
     credentials: true,
   })
