@@ -7,12 +7,12 @@ const JWT_SECRET = process.env.JWT_SECRET; // Ensure this is loaded correctly fr
 
 exports.register = async (req, res) => {
   try {
-    const { username, email, password, role } = req.body; // Destructure role from req.body
+    const { username, password, role } = req.body; // Destructure username, password, and role
 
-    // Check if the user already exists
-    const existingUser = await User.findOne({ email });
+    // Check if the username already exists
+    const existingUser = await User.findOne({ username });
     if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
+      return res.status(400).json({ message: "Username already exists" });
     }
 
     // Hash password
@@ -22,7 +22,6 @@ exports.register = async (req, res) => {
     // Create user with hashed password and role
     const user = new User({
       username,
-      email,
       password: hashedPassword,
       role: role, // Assign the role from the request body
     });
@@ -31,27 +30,31 @@ exports.register = async (req, res) => {
 
     res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    // Log the actual error for debugging purposes
+    console.error("Registration Error:", error);
+    res
+      .status(400)
+      .json({ message: error.message || "User registration failed" });
   }
 };
 
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body; // Expect username instead of email
 
-    // Find user by email
-    const user = await User.findOne({ email });
+    // Find user by username
+    const user = await User.findOne({ username });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: "Invalid username" }); // Generic message for security
     }
 
-    // **FIX:** Compare the provided password with the stored hashed password
+    // Compare the provided password with the stored hashed password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid password" }); // Generic message for security
     }
 
-    // **FIX:** Check if JWT_SECRET is loaded
+    // Check if JWT_SECRET is loaded
     if (!JWT_SECRET) {
       console.error("JWT_SECRET is not defined. Check your .env file.");
       return res.status(500).json({ message: "Server configuration error" });
@@ -66,8 +69,7 @@ exports.login = async (req, res) => {
       token,
       user: {
         id: user._id,
-        username: user.username,
-        email: user.email,
+        username: user.username, // Only send username, not email
         role: user.role,
       },
     });

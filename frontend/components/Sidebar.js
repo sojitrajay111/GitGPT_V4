@@ -10,10 +10,10 @@ import {
   Sparkles,
   X,
   ChevronLeft,
-  Menu, // Using Menu for collapsed state toggle if HiMenu is for mobile open
+  Menu,
 } from "lucide-react";
-// import { HiMenu } from "react-icons/hi"; // Keep if you prefer this icon, but Lucide-React's Menu is also good
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
+import Cookies from "js-cookie";
 
 const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
   const router = useRouter();
@@ -21,13 +21,12 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
   const { data } = useGetUserAndGithubDataQuery(userId);
 
   const username = data?.user?.username || "Loading...";
-  const email = data?.user?.email || "Loading...";
+  const email = data?.githubData?.githubEmail || "Loading...";
   const avatar_url = data?.githubData?.avatarUrl || "/default-avatar.png";
   const githubUsername = data?.githubData?.githubUsername || "Loading...";
 
   const getActiveTab = () => {
     const segments = pathname.split("/");
-    // Adjust index based on your routing structure, assuming /userId/tabName
     return segments.length > 2 ? segments[2] : "dashboard";
   };
 
@@ -38,15 +37,20 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("userid");
-    router.push("/login");
+    // Remove token from both localStorage and cookies
+    localStorage.removeItem("token");
+    Cookies.remove("token");
+
+    // Redirect to login page
+    router.push("/");
+    router.refresh(); // Ensures the page reloads and middleware runs
   };
 
   const mainNavItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "create-project", label: "Projects", icon: FolderOpen },
     { id: "report", label: "Reports", icon: BarChart },
-    { id: "ai-features", label: "AI Features", icon: Sparkles }, // New AI features item
+    { id: "ai-features", label: "AI Features", icon: Sparkles },
   ];
 
   const accountNavItems = [
@@ -89,10 +93,10 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
           <div className="flex items-center">
             {/* Logo */}
             <img
-              src="/logo.png" // Path to your logo.png in the public folder
+              src="/logo.png"
               alt="GitGPT Logo"
               className={`transition-all duration-300 ease-in-out ${
-                collapsed ? "w-10 h-10" : "w-10 h-10 mr-3" // Adjust size as needed
+                collapsed ? "w-10 h-10" : "w-10 h-10 mr-3"
               }`}
             />
             {/* GitGPT Text */}
@@ -158,7 +162,7 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
             <div>
               <h3
                 className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${
-                  collapsed ? "sr-only" : "px-3" // Hide text when collapsed
+                  collapsed ? "sr-only" : "px-3"
                 }`}
               >
                 Main
@@ -168,15 +172,13 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
                   <li key={id}>
                     <button
                       onClick={() => handleNavigate(id)}
-                      className={
-                        `flex items-center w-full p-3 text-sm rounded-lg transition-colors duration-200
+                      className={`flex items-center w-full p-3 text-sm rounded-lg transition-colors duration-200
                         ${
                           activeTab === id
                             ? "bg-indigo-50 text-indigo-700 font-medium shadow-sm"
                             : "hover:bg-gray-100 text-gray-700"
                         }
-                        ${collapsed ? "justify-center" : ""}` // Center icon when collapsed
-                      }
+                        ${collapsed ? "justify-center" : ""}`}
                       title={label}
                     >
                       <Icon className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
@@ -189,11 +191,9 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
 
             {/* Account Nav */}
             <div className="mt-4 border-t border-gray-100 pt-4">
-              {" "}
-              {/* Added border-top for separation */}
               <h3
                 className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${
-                  collapsed ? "sr-only" : "px-3" // Hide text when collapsed
+                  collapsed ? "sr-only" : "px-3"
                 }`}
               >
                 Account
@@ -203,11 +203,9 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
                   <li key={id}>
                     <button
                       onClick={() => (action ? action() : handleNavigate(id))}
-                      className={
-                        `flex items-center w-full p-3 text-sm rounded-lg transition-colors duration-200
+                      className={`flex items-center w-full p-3 text-sm rounded-lg transition-colors duration-200
                         hover:bg-gray-100 text-gray-700
-                        ${collapsed ? "justify-center" : ""}` // Center icon when collapsed
-                      }
+                        ${collapsed ? "justify-center" : ""}`}
                       title={label}
                     >
                       <Icon className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
