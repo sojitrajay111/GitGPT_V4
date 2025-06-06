@@ -2,15 +2,10 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 // Create a base query that will inject the token into the headers
 const baseQueryWithAuth = fetchBaseQuery({
-
-  baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`, // Explicit base URL
-
-  credentials: "include", // Still include credentials for cookies if any
+  baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`,
+  credentials: "include",
   prepareHeaders: (headers, { getState }) => {
-    // Retrieve the token from local storage using the key 'token'
-    const token = localStorage.getItem("token"); // Corrected: Using 'token' as per your githubApiSlice.js
-
-    // If a token exists, set the Authorization header
+    const token = localStorage.getItem("token");
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
     }
@@ -19,14 +14,14 @@ const baseQueryWithAuth = fetchBaseQuery({
 });
 
 export const userStoryApiSlice = createApi({
-  reducerPath: "userStoryApi", // Unique reducer path for this slice
-  baseQuery: baseQueryWithAuth, // Use the custom base query with auth headers
-  tagTypes: ["UserStory"], // Specific tag type for user stories
+  reducerPath: "userStoryApi",
+  baseQuery: baseQueryWithAuth,
+  tagTypes: ["UserStory"],
   endpoints: (builder) => ({
-    // Endpoint to get all user stories for a project
+    // Query to get all user stories for a project
     getUserStories: builder.query({
       query: (projectId) => `/user-stories/${projectId}`,
-      providesTags: (result, error, projectId) =>
+      providesTags: (result) =>
         result
           ? [
               ...result.userStories.map(({ _id }) => ({
@@ -37,7 +32,8 @@ export const userStoryApiSlice = createApi({
             ]
           : [{ type: "UserStory", id: "LIST" }],
     }),
-    // Endpoint to create a new user story
+
+    // Mutation to create a new user story
     createUserStory: builder.mutation({
       query: (data) => ({
         url: "/user-stories",
@@ -46,14 +42,39 @@ export const userStoryApiSlice = createApi({
       }),
       invalidatesTags: [{ type: "UserStory", id: "LIST" }],
     }),
+
+    // Mutation to update a user story
+    updateUserStory: builder.mutation({
+      query: ({ userStoryId, ...data }) => ({
+        url: `/user-stories/${userStoryId}`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: (result, error, { userStoryId }) => [
+        { type: "UserStory", id: userStoryId },
+        { type: "UserStory", id: "LIST" },
+      ],
+    }),
+
+    // Mutation to delete a user story
+    deleteUserStory: builder.mutation({
+      query: (userStoryId) => ({
+        url: `/user-stories/${userStoryId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, userStoryId) => [
+        { type: "UserStory", id: userStoryId },
+        { type: "UserStory", id: "LIST" },
+      ],
+    }),
+
+    // Mutation for AI content generation
     generateAiStory: builder.mutation({
       query: (data) => ({
         url: "/user-stories/generate-ai-story",
         method: "POST",
-        body: data, // { userStoryTitle, description, acceptanceCriteria, testingScenarios }
+        body: data,
       }),
-      // No invalidation needed here as it doesn't change existing user stories directly,
-      // it just provides content to be used in the create/update flow.
     }),
   }),
 });
@@ -61,5 +82,7 @@ export const userStoryApiSlice = createApi({
 export const {
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
+  useUpdateUserStoryMutation, // Export new hook
+  useDeleteUserStoryMutation, // Export new hook
   useGenerateAiStoryMutation,
 } = userStoryApiSlice;
