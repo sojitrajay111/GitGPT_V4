@@ -5,7 +5,6 @@ export const projectApiSlice = createApi({
   reducerPath: "projectApi",
 
   baseQuery: fetchBaseQuery({
-
     baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`,
 
     prepareHeaders: (headers) => {
@@ -59,6 +58,25 @@ export const projectApiSlice = createApi({
         { type: "ProjectCollaborators", id: projectId },
       ],
     }),
+    // New: Mutation for updating a project
+    updateProject: builder.mutation({
+      query: ({ projectId, projectName, projectDescription }) => ({
+        url: `/projects/${projectId}`,
+        method: "PUT",
+        body: { projectName, projectDescription },
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "Project", id: projectId },
+      ],
+    }),
+    // New: Mutation for deleting a project
+    deleteProject: builder.mutation({
+      query: (projectId) => ({
+        url: `/projects/${projectId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Project"], // Invalidate the general 'Project' tag to refetch project lists
+    }),
   }),
 });
 
@@ -70,4 +88,6 @@ export const {
   useGetGitHubAuthStatusQuery,
   useGetProjectByIdQuery,
   useGetCollaboratorsQuery,
+  useUpdateProjectMutation, // New: Export update project hook
+  useDeleteProjectMutation, // New: Export delete project hook
 } = projectApiSlice;

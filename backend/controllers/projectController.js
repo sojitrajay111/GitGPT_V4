@@ -1,6 +1,7 @@
 const Project = require("../models/Project");
 const GitHubData = require("../models/GithubData"); // To get PAT for repo creation
 const User = require("../models/User"); // To update isAuthenticatedToGithub if PAT becomes invalid
+const ProjectCollaborator = require("../models/ProjectCollaborator"); // Import ProjectCollaborator
 
 const createProject = async (req, res) => {
   try {
@@ -164,8 +165,112 @@ const getProjectById = async (req, res) => {
   }
 };
 
+/**
+ * @desc Update an existing project.
+ * @route PUT /api/projects/:projectId
+ * @access Private (requires project ownership)
+ */
+const updateProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user.id; // User initiating the update
+    const { projectName, projectDescription } = req.body;
+
+    if (!projectName || !projectDescription) {
+      return res.status(400).json({
+        success: false,
+        message: "Project name and description are required for update.",
+      });
+    }
+
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found.",
+      });
+    }
+
+    // Ensure the user updating the project is the owner
+    if (project.userId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to update this project.",
+      });
+    }
+
+    // Update project fields
+    project.projectName = projectName;
+    project.projectDescription = projectDescription;
+    // Note: githubRepoLink is intentionally not updatable via this route as per requirements.
+
+    await project.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Project updated successfully!",
+      project,
+    });
+  } catch (error) {
+    console.error("Error updating project:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while updating the project.",
+    });
+  }
+};
+
+/**
+ * @desc Delete a project.
+ * @route DELETE /api/projects/:projectId
+ * @access Private (requires project ownership)
+ */
+const deleteProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user.id; // User initiating the delete
+
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found.",
+      });
+    }
+
+    // Ensure the user deleting the project is the owner
+    if (project.userId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to delete this project.",
+      });
+    }
+
+    await project.deleteOne(); // Use deleteOne() or remove()
+
+    // Optionally, also delete associated collaborators data from ProjectCollaborator collection
+    await ProjectCollaborator.deleteOne({ project_id: projectId });
+
+    res.status(200).json({
+      success: true,
+      message: "Project deleted successfully from the database.",
+      githubRepoLink: project.githubRepoLink, // Return repo link for potential GitHub deletion in frontend
+    });
+  } catch (error) {
+    console.error("Error deleting project:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while deleting the project.",
+    });
+  }
+};
+
 module.exports = {
   createProject,
   getProjectsByUserId,
   getProjectById,
+  updateProject, // Export new update function
+  deleteProject, // Export new delete function
 };
