@@ -15,20 +15,19 @@ import {
   Typography,
   Card,
   CardContent,
+  List,
+  ListItem,
+  ListItemText,
   Checkbox,
   FormControlLabel,
   FormGroup,
   Avatar,
+  ListItemAvatar,
   Chip,
   Stack,
   Snackbar,
   IconButton,
   Divider,
-  Grid,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
 } from "@mui/material";
 import { ThemeProvider, createTheme, styled } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
@@ -36,16 +35,9 @@ import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import DescriptionIcon from "@mui/icons-material/Description";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
 import {
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
-  useUpdateUserStoryMutation,
-  useDeleteUserStoryMutation,
   useGenerateAiStoryMutation,
 } from "@/features/userStoryApiSlice";
 import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
@@ -57,20 +49,46 @@ import {
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ChevronLeft } from "lucide-react";
 
-// Professional theme
+// Custom light theme with professional palette
 const freshTheme = createTheme({
   palette: {
-    primary: { main: "#5e72e4" },
-    secondary: { main: "#11cdef" },
-    success: { main: "#2dce89" },
-    error: { main: "#f5365c" },
-    background: { default: "#f8f9fe", paper: "#ffffff" },
-    text: { primary: "#32325d", secondary: "#525f7f" },
+    primary: {
+      main: "#5e72e4", // Soft indigo
+      contrastText: "#ffffff",
+    },
+    secondary: {
+      main: "#11cdef", // Cyan
+    },
+    success: {
+      main: "#2dce89", // Mint green
+    },
+    background: {
+      default: "#f8f9fe", // Very light purple
+      paper: "#ffffff",
+    },
+    text: {
+      primary: "#32325d", // Dark blue-gray
+      secondary: "#525f7f", // Medium blue-gray
+    },
   },
   typography: {
     fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
-    h4: { fontWeight: 700, fontSize: "1.8rem" },
-    h6: { fontWeight: 600, fontSize: "1.1rem" },
+    h4: {
+      fontWeight: 700,
+      fontSize: "1.8rem",
+      letterSpacing: "-0.5px",
+    },
+    h6: {
+      fontWeight: 600,
+      fontSize: "1.1rem",
+    },
+    body1: {
+      fontSize: "0.95rem",
+    },
+    body2: {
+      fontSize: "0.85rem",
+      color: "#525f7f",
+    },
   },
   components: {
     MuiButton: {
@@ -80,6 +98,16 @@ const freshTheme = createTheme({
           padding: "8px 20px",
           fontWeight: 600,
           textTransform: "none",
+          boxShadow: "none",
+          transition: "all 0.2s ease",
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow:
+              "0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08)",
+          },
+        },
+        contained: {
+          boxShadow: "none",
         },
       },
     },
@@ -98,191 +126,200 @@ const freshTheme = createTheme({
         },
       },
     },
-    MuiDialog: {
-      styleOverrides: { paper: { borderRadius: "16px" } },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "12px",
+            "& fieldset": {
+              borderColor: "#e9ecef",
+            },
+            "&:hover fieldset": {
+              borderColor: "#5e72e4",
+            },
+          },
+        },
+      },
     },
   },
 });
 
-// Styled components
+// Custom styled components
 const HeaderCard = styled(Card)(({ theme }) => ({
   background: "linear-gradient(87deg, #5e72e4 0, #825ee4 100%)",
   color: "white",
+  borderRadius: "16px",
   padding: theme.spacing(3),
   marginBottom: theme.spacing(4),
+  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
 }));
 
 const StoryCard = styled(Card)(({ theme }) => ({
-  borderLeft: `5px solid ${theme.palette.primary.main}`,
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
+  borderLeft: "4px solid #5e72e4",
+  marginBottom: theme.spacing(3),
+  "&:hover": {
+    borderLeftColor: "#11cdef",
+  },
 }));
 
 const AIContentBox = styled(Box)(({ theme }) => ({
   background: "linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)",
-  border: `1px solid #dee2e6`,
+  border: "1px solid #e0e7ff",
   borderRadius: "12px",
   padding: theme.spacing(2),
   marginTop: theme.spacing(2),
+  position: "relative",
+  "&:before": {
+    content: '"✨"',
+    position: "absolute",
+    top: "-12px",
+    left: "20px",
+    fontSize: "1.5rem",
+  },
 }));
 
-const TruncatedText = ({ content, maxLines = 5, title }) => {
-  const [expanded, setExpanded] = useState(false);
-  const lines = content ? content.split("\n") : [];
-  const needsTruncation = lines.length > maxLines;
-
-  const displayedContent =
-    expanded || !needsTruncation
-      ? content
-      : lines.slice(0, maxLines).join("\n") + (needsTruncation ? "..." : "");
-
-  return (
-    <Box mb={1.5}>
-      {title && (
-        <Typography
-          variant="body2"
-          color="text.primary"
-          fontWeight={500}
-          mb={0.5}
-        >
-          {title}
-        </Typography>
-      )}
-      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-        {displayedContent}
-      </Typography>
-      {needsTruncation && (
-        <Button
-          onClick={() => setExpanded(!expanded)}
-          size="small"
-          sx={{ mt: 1, p: 0 }}
-        >
-          {expanded ? "Show Less" : "Read More"}
-        </Button>
-      )}
-    </Box>
-  );
-};
-
+const CollaboratorChip = styled(Chip)(({ theme }) => ({
+  backgroundColor: "#f0f5ff",
+  color: "#5e72e4",
+  fontWeight: 500,
+  marginRight: theme.spacing(0.5),
+  marginBottom: theme.spacing(0.5),
+  "& .MuiAvatar-root": {
+    width: 24,
+    height: 24,
+    fontSize: "0.75rem",
+  },
+}));
 const UserStoryPage = () => {
   const params = useParams();
+  const userId = params.userId;
+  const projectId = params.projectId;
   const router = useRouter();
-  const { userId, projectId } = params;
 
-  // State for dialogs and forms
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editingStory, setEditingStory] = useState(null);
-  const [storyToDelete, setStoryToDelete] = useState(null);
-
-  // Form fields state
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [userStoryTitle, setUserStoryTitle] = useState("");
   const [description, setDescription] = useState("");
   const [acceptanceCriteria, setAcceptanceCriteria] = useState("");
   const [testingScenarios, setTestingScenarios] = useState("");
   const [selectedCollaboratorGithubIds, setSelectedCollaboratorGithubIds] =
     useState([]);
-  const [generatedStoryContent, setGeneratedStoryContent] = useState("");
+  const [generatedStoryContent, setGeneratedStoryContent] = useState(""); // This will store the AI enhanced text
+  const [isGeneratingStory, setIsGeneratingStory] = useState(false);
 
-  // State for menus and notifications
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [currentStoryId, setCurrentStoryId] = useState(null);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
+  // Snackbar state for notifications
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success"); // 'success', 'error', 'warning', 'info'
 
-  // RTK Query Hooks
   const { data: userData } = useGetUserAndGithubDataQuery(userId);
-  const userRole = userData?.user?.role;
+
+  const user_role = userData?.user?.role;
   const githubId = userData?.githubData?.githubId;
 
   const { data: developerPermissions } = useGetCollaboratorPermissionsQuery(
-    { projectId, githubId },
-    { skip: !projectId || !githubId || userRole !== "developer" }
+    projectId && githubId && user_role === "developer"
+      ? { projectId, githubId }
+      : skipToken
   );
-  const { data: developerUserStories } = useGetDeveloperUserStoriesQuery(
-    githubId,
-    { skip: !githubId }
-  );
+
+  const { data: developerUserStories } =
+    useGetDeveloperUserStoriesQuery(githubId);
+
   const {
     data: userStoriesData,
-    isLoading: storiesLoading,
+    isLoading: userStoriesLoading,
+    isError: userStoriesIsError,
+    error: userStoriesError,
     refetch: refetchUserStories,
   } = useGetUserStoriesQuery(projectId, { skip: !projectId });
-  const { data: collaboratorsData, isLoading: collaboratorsLoading } =
-    useGetCollaboratorsQuery(projectId, { skip: !projectId });
 
-  const [createUserStory, { isLoading: isCreating }] =
-    useCreateUserStoryMutation();
-  const [updateUserStory, { isLoading: isUpdating }] =
-    useUpdateUserStoryMutation();
-  const [deleteUserStory, { isLoading: isDeleting }] =
-    useDeleteUserStoryMutation();
-  const [generateAiStory, { isLoading: isGenerating }] =
-    useGenerateAiStoryMutation();
+  const {
+    data: collaboratorsData,
+    isLoading: collaboratorsLoading,
+    isError: collaboratorsIsError,
+    error: collaboratorsError,
+  } = useGetCollaboratorsQuery(projectId, { skip: !projectId });
 
-  const canManageStories =
-    userRole === "manager" ||
-    developerPermissions?.includes("User story creation");
+  const [
+    createUserStory,
+    {
+      isLoading: createUserStoryLoading,
+      isSuccess: createUserStorySuccess,
+      isError: createUserStoryIsError,
+      error: createUserStoryError,
+      reset: resetCreateUserStoryMutation,
+    },
+  ] = useCreateUserStoryMutation();
 
-  const showSnackbar = (message, severity = "success") =>
-    setSnackbar({ open: true, message, severity });
+  // Mutation for generating AI story
+  const [
+    generateAiStory,
+    {
+      isLoading: generateAiStoryLoading, // Separate loading state for AI generation
+      isError: generateAiStoryIsError,
+      error: generateAiStoryError,
+    },
+  ] = useGenerateAiStoryMutation();
 
-  // Handlers for story actions menu
-  const handleMenuClick = (event, storyId) => {
-    setAnchorEl(event.currentTarget);
-    setCurrentStoryId(storyId);
+  const handleShowSnackbar = (message, severity = "success") => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
   };
-  const handleMenuClose = () => setAnchorEl(null);
 
-  const resetForm = () => {
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
+
+  useEffect(() => {
+    if (createUserStorySuccess) {
+      handleShowSnackbar("User story created successfully!", "success");
+      setOpenCreateDialog(false);
+      setUserStoryTitle("");
+      setDescription("");
+      setAcceptanceCriteria("");
+      setTestingScenarios("");
+      setSelectedCollaboratorGithubIds([]);
+      setGeneratedStoryContent(""); // Clear AI content after successful save
+      resetCreateUserStoryMutation();
+      refetchUserStories();
+    }
+    if (createUserStoryIsError) {
+      handleShowSnackbar(
+        `Failed to create user story: ${
+          createUserStoryError?.data?.message || "Unknown error"
+        }`,
+        "error"
+      );
+    }
+  }, [
+    createUserStorySuccess,
+    createUserStoryIsError,
+    createUserStoryError,
+    refetchUserStories,
+    resetCreateUserStoryMutation,
+  ]);
+
+  const handleOpenCreateDialog = () => {
+    setOpenCreateDialog(true);
     setUserStoryTitle("");
     setDescription("");
     setAcceptanceCriteria("");
     setTestingScenarios("");
     setSelectedCollaboratorGithubIds([]);
-    setGeneratedStoryContent("");
-    setEditingStory(null);
+    setGeneratedStoryContent(""); // Clear AI content when opening dialog
+    if (createUserStoryIsError) resetCreateUserStoryMutation(); // Reset error state if any
   };
 
-  // Open dialog for creating
-  const handleOpenCreateDialog = () => {
-    resetForm();
-    setDialogOpen(true);
+  const handleCloseCreateDialog = () => {
+    setOpenCreateDialog(false);
   };
 
-  // Open dialog for editing
-  const handleOpenEditDialog = () => {
-    const story = userStories.find((s) => s._id === currentStoryId);
-    if (story) {
-      setEditingStory(story);
-      setUserStoryTitle(story.userStoryTitle);
-      setDescription(story.description);
-      setAcceptanceCriteria(story.acceptanceCriteria);
-      setTestingScenarios(story.testingScenarios);
-      setSelectedCollaboratorGithubIds(
-        story.collaborators.map((c) => c.githubId)
-      );
-      setGeneratedStoryContent(story.aiEnhancedUserStory || "");
-      setDialogOpen(true);
-    }
-    handleMenuClose();
-  };
-
-  // Open dialog for deleting
-  const handleOpenDeleteDialog = () => {
-    const story = userStories.find((s) => s._id === currentStoryId);
-    setStoryToDelete(story);
-    setDeleteDialogOpen(true);
-    handleMenuClose();
-  };
-
-  const handleCloseDialogs = () => {
-    setDialogOpen(false);
-    setDeleteDialogOpen(false);
+  const handleGoBack = () => {
+    router.back();
   };
 
   const handleCollaboratorChange = (event) => {
@@ -293,80 +330,98 @@ const UserStoryPage = () => {
   };
 
   const handleGenerateStory = async () => {
-    if (!userStoryTitle || !description) {
-      showSnackbar(
-        "Please fill in Title and Description before generating AI content.",
+    if (
+      !userStoryTitle ||
+      !description ||
+      !acceptanceCriteria ||
+      !testingScenarios
+    ) {
+      handleShowSnackbar(
+        "Please fill in Title, Description, Acceptance Criteria, and Testing Scenarios before generating AI content.",
         "warning"
       );
       return;
     }
+    setIsGeneratingStory(true); // Use this for button's loading state
+    setGeneratedStoryContent("");
+
     try {
       const result = await generateAiStory({
         userStoryTitle,
         description,
         acceptanceCriteria,
         testingScenarios,
-      }).unwrap();
-      setGeneratedStoryContent(result.aiEnhancedText);
-      showSnackbar("AI content generated successfully!");
+      }).unwrap(); // unwrap() to get the actual response or throw an error
+
+      if (result.success && result.aiEnhancedText) {
+        setGeneratedStoryContent(result.aiEnhancedText);
+        handleShowSnackbar(
+          "AI story content generated successfully!",
+          "success"
+        );
+      } else {
+        throw new Error(
+          result.message || "Failed to get AI content from server."
+        );
+      }
     } catch (err) {
-      showSnackbar(
-        err.data?.message || "Failed to generate AI content.",
+      console.error("Error calling generateAiStory mutation:", err);
+      setGeneratedStoryContent(
+        "Error generating story. Please check console or try again."
+      );
+      handleShowSnackbar(
+        `Error generating AI story: ${
+          err.data?.message || err.message || "Unknown error"
+        }`,
         "error"
       );
+    } finally {
+      setIsGeneratingStory(false);
     }
   };
 
-  const handleSubmit = async () => {
-    const storyData = {
-      userStoryTitle,
-      description,
-      acceptanceCriteria,
-      testingScenarios,
-      collaboratorGithubIds: selectedCollaboratorGithubIds,
-      aiEnhancedUserStory: generatedStoryContent,
-    };
-
-    try {
-      if (editingStory) {
-        await updateUserStory({
-          userStoryId: editingStory._id,
-          ...storyData,
-        }).unwrap();
-        showSnackbar("User story updated successfully!");
-      } else {
-        await createUserStory({ projectId, ...storyData }).unwrap();
-        showSnackbar("User story created successfully!");
-      }
-      handleCloseDialogs();
-      refetchUserStories();
-    } catch (err) {
-      showSnackbar(err.data?.message || "An error occurred.", "error");
+  const handleSubmitUserStory = async () => {
+    if (
+      !userStoryTitle ||
+      !description ||
+      !acceptanceCriteria ||
+      !testingScenarios ||
+      !projectId
+    ) {
+      handleShowSnackbar("Please fill all required fields.", "warning");
+      return;
     }
-  };
 
-  const handleDelete = async () => {
     try {
-      await deleteUserStory(storyToDelete._id).unwrap();
-      showSnackbar("User story deleted successfully!");
-      handleCloseDialogs();
-      refetchUserStories();
+      await createUserStory({
+        projectId,
+        userStoryTitle,
+        description,
+        acceptanceCriteria,
+        testingScenarios,
+        collaboratorGithubIds: selectedCollaboratorGithubIds,
+        aiEnhancedUserStory: generatedStoryContent, // Include the AI generated content
+      }).unwrap();
+      // Success is handled by the useEffect hook
     } catch (err) {
-      showSnackbar(
-        err.data?.message || "Failed to delete user story.",
-        "error"
+      // Error is handled by the useEffect hook, but log for debugging
+      console.error(
+        "Failed to create user story (handleSubmitUserStory):",
+        err
       );
     }
   };
 
   const userStories =
-    userRole === "developer"
+    user_role === "developer"
       ? developerUserStories
       : userStoriesData?.userStories || [];
+  const availableCollaborators = collaboratorsData?.collaborators || [];
 
   return (
     <ThemeProvider theme={freshTheme}>
-      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1200, margin: "0 auto" }}>
+      <Box sx={{ p: { xs: 2, sm: 3 }, margin: "0 auto" }}>
+        {/* Header with gradient */}
         <HeaderCard>
           <Box
             display="flex"
@@ -374,306 +429,422 @@ const UserStoryPage = () => {
             alignItems="center"
           >
             <Box>
-              <Typography variant="h4" component="h1" gutterBottom>
-                User Stories
-              </Typography>
-              <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                Create, manage, and track user stories for your project.
+              <div className="flex items-center ">
+                <div onClick={handleGoBack} className="text-black mr-3">
+                  <ChevronLeft />
+                </div>
+                <Typography
+                  variant="h4"
+                  component="h1"
+                  sx={{ fontWeight: 700, mb: 1 }}
+                >
+                  User Stories
+                </Typography>
+              </div>
+              <Typography
+                variant="body1"
+                sx={{ opacity: 0.9, maxWidth: "600px" }}
+              >
+                Create and manage user stories to define project requirements
+                and features
               </Typography>
             </Box>
-            {canManageStories && (
+            {user_role === "developer" &&
+            developerPermissions?.includes("User story creation") ? (
               <Button
                 variant="contained"
                 onClick={handleOpenCreateDialog}
                 startIcon={<AddIcon />}
                 sx={{
                   backgroundColor: "white",
-                  color: "primary.main",
-                  "&:hover": { backgroundColor: "grey.100" },
+                  color: "#5e72e4",
+                  "&:hover": {
+                    backgroundColor: "#f8f9fe",
+                  },
                 }}
               >
-                Create Story
+                Create User Story
               </Button>
-            )}
+            ) : user_role === "manager" ? (
+              <Button
+                variant="contained"
+                onClick={handleOpenCreateDialog}
+                startIcon={<AddIcon />}
+                sx={{
+                  backgroundColor: "white",
+                  color: "#5e72e4",
+                  "&:hover": {
+                    backgroundColor: "#f8f9fe",
+                  },
+                }}
+              >
+                Create User Story
+              </Button>
+            ) : null}
           </Box>
         </HeaderCard>
 
-        {storiesLoading ? (
-          <Box display="flex" justifyContent="center" py={5}>
-            <CircularProgress />
+        {/* User Stories List */}
+        {userStoriesLoading ? (
+          <Box display="flex" justifyContent="center" py={6}>
+            <CircularProgress size={50} thickness={4} />
           </Box>
-        ) : userStories?.length === 0 ? (
-          <Box textAlign="center" py={5}>
-            <Typography color="text.secondary">
-              No user stories found.
+        ) : userStoriesIsError ? (
+          <Alert severity="error" sx={{ borderRadius: "12px" }}>
+            {userStoriesError?.data?.message || "Failed to load user stories"}
+          </Alert>
+        ) : userStories.length === 0 ? (
+          <Box
+            textAlign="center"
+            py={4}
+            sx={{ backgroundColor: "#f8f9fe", borderRadius: "16px" }}
+          >
+            <DescriptionIcon sx={{ fontSize: 60, color: "#cad0e0", mb: 2 }} />
+            <Typography variant="h6" color="textSecondary" gutterBottom>
+              No user stories created yet
             </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+              Start by creating your first user story
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleOpenCreateDialog}
+              startIcon={<AddIcon />}
+            >
+              Create First Story
+            </Button>
           </Box>
         ) : (
-          <Grid container spacing={3}>
-            {userStories?.map((story) => (
-              <Grid item xs={12} sm={6} md={4} key={story._id}>
-                <StoryCard>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="flex-start"
-                    >
-                      <Typography variant="h6" sx={{ pr: 1, flexGrow: 1 }}>
+          <List disablePadding>
+            {userStories.map((story) => (
+              <StoryCard key={story._id}>
+                <CardContent>
+                  <Box display="flex" alignItems="flex-start">
+                    <CheckCircleOutlineIcon
+                      sx={{
+                        color: "#2dce89",
+                        mr: 2,
+                        mt: 0.5,
+                        fontSize: "1.8rem",
+                      }}
+                    />
+                    <Box flexGrow={1}>
+                      <Typography variant="h6" component="h3" gutterBottom>
                         {story.userStoryTitle}
                       </Typography>
-                      {canManageStories && (
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuClick(e, story._id)}
+
+                      <Box mb={1.5}>
+                        <Typography
+                          variant="body2"
+                          color="text.primary"
+                          fontWeight={500}
                         >
-                          <MoreVertIcon />
-                        </IconButton>
+                          Description
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ whiteSpace: "pre-wrap" }}
+                        >
+                          {story.description}
+                        </Typography>
+                      </Box>
+
+                      <Box display="flex" flexWrap="wrap" gap={2} mb={1.5}>
+                        <Box flex="1" minWidth="200px">
+                          <Typography
+                            variant="body2"
+                            color="text.primary"
+                            fontWeight={500}
+                          >
+                            Acceptance Criteria
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ whiteSpace: "pre-wrap" }}
+                          >
+                            {story.acceptanceCriteria}
+                          </Typography>
+                        </Box>
+
+                        <Box flex="1" minWidth="200px">
+                          <Typography
+                            variant="body2"
+                            color="text.primary"
+                            fontWeight={500}
+                          >
+                            Testing Scenarios
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ whiteSpace: "pre-wrap" }}
+                          >
+                            {story.testingScenarios}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {story.aiEnhancedUserStory && (
+                        <AIContentBox>
+                          <Typography
+                            variant="subtitle2"
+                            color="primary"
+                            fontWeight={600}
+                            gutterBottom
+                          >
+                            AI ENHANCED SUGGESTIONS
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ whiteSpace: "pre-wrap" }}
+                          >
+                            {story.aiEnhancedUserStory}
+                          </Typography>
+                        </AIContentBox>
                       )}
-                    </Box>
-                    <Box display="flex" alignItems="center" my={1}>
-                      <AccessTimeIcon
-                        sx={{
-                          color: "text.secondary",
-                          mr: 1,
-                          fontSize: "1.1rem",
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary">
+
+                      {story.collaborators &&
+                        story.collaborators.length > 0 && (
+                          <Box mt={2}>
+                            <Box display="flex" alignItems="center" mb={1}>
+                              <PeopleAltIcon
+                                sx={{
+                                  color: "#5e72e4",
+                                  mr: 1,
+                                  fontSize: "1.2rem",
+                                }}
+                              />
+                              <Typography variant="body2" fontWeight={500}>
+                                Assigned Collaborators
+                              </Typography>
+                            </Box>
+                            <Stack direction="row" flexWrap="wrap">
+                              {story.collaborators.map((collab) => (
+                                <CollaboratorChip
+                                  key={collab.githubId}
+                                  avatar={
+                                    <Avatar
+                                      src={collab.avatarUrl}
+                                      alt={collab.username}
+                                    />
+                                  }
+                                  label={collab.username}
+                                />
+                              ))}
+                            </Stack>
+                          </Box>
+                        )}
+
+                      <Divider sx={{ my: 2 }} />
+
+                      <Typography variant="caption" color="textSecondary">
                         Created:{" "}
-                        {new Date(story.createdAt).toLocaleDateString()}
+                        {new Date(story.createdAt).toLocaleDateString()} •
+                        Updated:{" "}
+                        {new Date(story.updatedAt).toLocaleDateString()}
                       </Typography>
                     </Box>
-
-                    <Divider sx={{ my: 2 }} />
-
-                    {story.aiEnhancedUserStory ? (
-                      <AIContentBox>
-                        <Typography
-                          variant="subtitle2"
-                          color="primary"
-                          fontWeight={600}
-                          gutterBottom
-                        >
-                          AI ENHANCED SUGGESTIONS
-                        </Typography>
-                        <TruncatedText
-                          content={story.aiEnhancedUserStory}
-                          maxLines={5}
-                        />
-                      </AIContentBox>
-                    ) : (
-                      <>
-                        <TruncatedText
-                          content={story.description}
-                          maxLines={5}
-                          title="Description"
-                        />
-                        <TruncatedText
-                          content={story.acceptanceCriteria}
-                          maxLines={3}
-                          title="Acceptance Criteria"
-                        />
-                      </>
-                    )}
-                  </CardContent>
-                  {story.collaborators && story.collaborators.length > 0 && (
-                    <CardContent sx={{ pt: 0 }}>
-                      <Stack direction="row" spacing={1} flexWrap="wrap">
-                        {story.collaborators.map((c) => (
-                          <Chip
-                            key={c.githubId}
-                            avatar={<Avatar src={c.avatarUrl} />}
-                            label={c.username}
-                            size="small"
-                          />
-                        ))}
-                      </Stack>
-                    </CardContent>
-                  )}
-                </StoryCard>
-              </Grid>
+                  </Box>
+                </CardContent>
+              </StoryCard>
             ))}
-          </Grid>
+          </List>
         )}
 
-        {/* Action Menu */}
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-        >
-          <MenuItem onClick={handleOpenEditDialog}>
-            <ListItemIcon>
-              <EditIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Edit</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={handleOpenDeleteDialog}>
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" color="error" />
-            </ListItemIcon>
-            <ListItemText primaryTypographyProps={{ color: "error" }}>
-              Delete
-            </ListItemText>
-          </MenuItem>
-        </Menu>
-
-        {/* Create / Edit Dialog */}
+        {/* Create User Story Dialog */}
         <Dialog
-          open={dialogOpen}
-          onClose={handleCloseDialogs}
+          open={openCreateDialog}
+          onClose={handleCloseCreateDialog}
           fullWidth
           maxWidth="md"
+          PaperProps={{ sx: { borderRadius: "16px" } }}
         >
-          <DialogTitle>
-            {editingStory ? "Edit User Story" : "Create New User Story"}
+          <DialogTitle
+            sx={{
+              backgroundColor: "#f8f9fe",
+              borderBottom: "1px solid #e9ecef",
+              fontWeight: 600,
+              color: "#5e72e4",
+            }}
+          >
+            <Box display="flex" alignItems="center">
+              <AddIcon sx={{ mr: 1.5 }} />
+              Create New User Story
+            </Box>
           </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ pt: 1 }}>
-              <Grid item xs={12}>
+          <DialogContent sx={{ py: 3 }}>
+            <Box
+              display="grid"
+              gridTemplateColumns={{ sm: "1fr", md: "1fr 1fr" }}
+              gap={3}
+              sx={{ paddingTop: 5 }}
+            >
+              <Box>
                 <TextField
+                  autoFocus
                   fullWidth
                   label="User Story Title"
+                  variant="outlined"
                   value={userStoryTitle}
                   onChange={(e) => setUserStoryTitle(e.target.value)}
+                  sx={{ mb: 2 }}
                 />
-              </Grid>
-              <Grid item xs={12}>
+
                 <TextField
                   fullWidth
+                  label="Description"
                   multiline
                   rows={4}
-                  label="Description"
+                  variant="outlined"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  sx={{ mb: 2 }}
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
+              </Box>
+
+              <Box>
                 <TextField
                   fullWidth
+                  label="Acceptance Criteria (one per line)"
                   multiline
                   rows={3}
-                  label="Acceptance Criteria"
+                  variant="outlined"
                   value={acceptanceCriteria}
                   onChange={(e) => setAcceptanceCriteria(e.target.value)}
+                  sx={{ mb: 2 }}
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
+
                 <TextField
                   fullWidth
+                  label="Testing Scenarios (one per line)"
                   multiline
                   rows={3}
-                  label="Testing Scenarios"
+                  variant="outlined"
                   value={testingScenarios}
                   onChange={(e) => setTestingScenarios(e.target.value)}
+                  sx={{ mb: 2 }}
                 />
-              </Grid>
+              </Box>
+            </Box>
 
-              <Grid item xs={12}>
-                <Typography variant="h6" mt={2}>
-                  Assign Collaborators
-                </Typography>
-                {collaboratorsLoading ? (
-                  <CircularProgress size={24} />
-                ) : (
-                  <FormGroup sx={{ display: "flex", flexDirection: "row" }}>
-                    {collaboratorsData?.collaborators.map((c) => (
-                      <FormControlLabel
-                        key={c.githubId}
-                        control={
-                          <Checkbox
-                            checked={selectedCollaboratorGithubIds.includes(
-                              c.githubId
-                            )}
-                            onChange={handleCollaboratorChange}
-                            value={c.githubId}
+            {/* Collaborator Section */}
+            <Box sx={{ mt: 3, mb: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Assign Collaborators
+              </Typography>
+              {collaboratorsLoading ? (
+                <CircularProgress size={20} />
+              ) : collaboratorsIsError ? (
+                <Alert severity="error">
+                  Failed to load collaborators:{" "}
+                  {collaboratorsError?.data?.message || "Error"}
+                </Alert>
+              ) : availableCollaborators.length > 0 ? (
+                <FormGroup>
+                  {availableCollaborators.map((collab) => (
+                    <FormControlLabel
+                      key={collab.githubId}
+                      control={
+                        <Checkbox
+                          value={collab.githubId}
+                          checked={selectedCollaboratorGithubIds.includes(
+                            collab.githubId
+                          )}
+                          onChange={handleCollaboratorChange}
+                        />
+                      }
+                      label={
+                        <Box display="flex" alignItems="center">
+                          <Avatar
+                            src={collab.avatarUrl}
+                            alt={collab.username}
+                            sx={{ width: 24, height: 24, mr: 1 }}
                           />
-                        }
-                        label={
-                          <Box display="flex" alignItems="center">
-                            <Avatar
-                              src={c.avatarUrl}
-                              sx={{ width: 24, height: 24, mr: 1 }}
-                            />
-                            {c.username}
-                          </Box>
-                        }
-                      />
-                    ))}
-                  </FormGroup>
-                )}
-              </Grid>
-
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="flex-end" my={1}>
-                  <Button
-                    variant="outlined"
-                    onClick={handleGenerateStory}
-                    disabled={isGenerating}
-                    startIcon={<AutoFixHighIcon />}
-                  >
-                    {isGenerating
-                      ? "Generating..."
-                      : editingStory
-                      ? "Regenerate with AI"
-                      : "Enhance with AI"}
-                  </Button>
-                </Box>
-                {generatedStoryContent && (
-                  <AIContentBox>
-                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                      {generatedStoryContent}
-                    </Typography>
-                  </AIContentBox>
-                )}
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseDialogs}>Cancel</Button>
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
-              disabled={isCreating || isUpdating}
-            >
-              {isCreating || isUpdating ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : editingStory ? (
-                "Save Changes"
+                          {collab.username}
+                        </Box>
+                      }
+                    />
+                  ))}
+                </FormGroup>
               ) : (
-                "Create Story"
+                <Typography variant="body2" color="text.secondary">
+                  No accepted collaborators found for this project.
+                </Typography>
               )}
-            </Button>
-          </DialogActions>
-        </Dialog>
+            </Box>
 
-        {/* Delete Confirmation Dialog */}
-        <Dialog
-          open={deleteDialogOpen}
-          onClose={handleCloseDialogs}
-          maxWidth="xs"
-        >
-          <DialogTitle>Confirm Deletion</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to delete the story "
-              <strong>{storyToDelete?.userStoryTitle}</strong>"? This action
-              cannot be undone.
-            </Typography>
+            {/* AI Generation Section */}
+            <Box display="flex" justifyContent="flex-end" mb={2}>
+              <Button
+                variant="outlined"
+                onClick={handleGenerateStory}
+                disabled={isGeneratingStory || generateAiStoryLoading}
+                startIcon={<AutoFixHighIcon />}
+                sx={{
+                  borderWidth: "2px",
+                  "&:hover": {
+                    borderWidth: "2px",
+                  },
+                }}
+              >
+                {isGeneratingStory || generateAiStoryLoading ? (
+                  <>Generating AI Content...</>
+                ) : (
+                  "Enhance with AI"
+                )}
+              </Button>
+            </Box>
+
+            {generatedStoryContent && (
+              <AIContentBox>
+                <Typography
+                  variant="subtitle2"
+                  color="primary"
+                  fontWeight={600}
+                  gutterBottom
+                >
+                  AI ENHANCED SUGGESTIONS
+                </Typography>
+                <Typography variant="body2">{generatedStoryContent}</Typography>
+              </AIContentBox>
+            )}
+
+            {generateAiStoryIsError && (
+              <Alert severity="error" sx={{ mt: 2, borderRadius: "8px" }}>
+                {generateAiStoryError?.data?.message || "AI generation failed"}
+              </Alert>
+            )}
           </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseDialogs}>Cancel</Button>
+          <DialogActions
+            sx={{ p: "16px 24px", borderTop: "1px solid #e9ecef" }}
+          >
             <Button
-              onClick={handleDelete}
-              variant="contained"
-              color="error"
-              disabled={isDeleting}
+              onClick={handleCloseCreateDialog}
+              variant="outlined"
+              sx={{
+                borderColor: "#e9ecef",
+                "&:hover": {
+                  borderColor: "#5e72e4",
+                },
+              }}
             >
-              {isDeleting ? (
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitUserStory}
+              variant="contained"
+              disabled={createUserStoryLoading}
+              sx={{
+                backgroundColor: "#5e72e4",
+                "&:hover": {
+                  backgroundColor: "#4a5bd9",
+                },
+              }}
+            >
+              {createUserStoryLoading ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
-                "Delete"
+                "Save User Story"
               )}
             </Button>
           </DialogActions>
@@ -681,17 +852,25 @@ const UserStoryPage = () => {
 
         {/* Snackbar for notifications */}
         <Snackbar
-          open={snackbar.open}
+          open={snackbarOpen}
           autoHideDuration={6000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          onClose={handleCloseSnackbar}
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         >
           <Alert
-            onClose={() => setSnackbar({ ...snackbar, open: false })}
-            severity={snackbar.severity}
-            sx={{ width: "100%" }}
+            onClose={handleCloseSnackbar}
+            severity={snackbarSeverity}
+            sx={{
+              width: "100%",
+              borderRadius: "12px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+              alignItems: "center",
+            }}
+            iconMapping={{
+              success: <CheckCircleOutlineIcon fontSize="inherit" />,
+            }}
           >
-            {snackbar.message}
+            {snackbarMessage}
           </Alert>
         </Snackbar>
       </Box>
