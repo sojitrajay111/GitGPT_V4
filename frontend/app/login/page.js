@@ -24,7 +24,7 @@ import {
 } from "@mui/material";
 import {
   LockOutlined,
-  EmailOutlined,
+  PersonOutlined, // Changed from EmailOutlined for username
   GitHub,
   RocketLaunch,
   Fingerprint,
@@ -59,7 +59,11 @@ export default function LoginPage() {
 
   const onSubmit = async (data) => {
     try {
-      const response = await login(data).unwrap();
+      // Changed 'email' to 'username' in the data payload
+      const response = await login({
+        username: data.username,
+        password: data.password,
+      }).unwrap();
 
       // Set token in both localStorage and a cookie for the middleware
       localStorage.setItem("token", response.token);
@@ -492,25 +496,28 @@ export default function LoginPage() {
                     noValidate
                     onSubmit={handleSubmit(onSubmit)}
                   >
+                    {/* Username Field */}
                     <TextField
                       fullWidth
                       margin="normal"
-                      id="email"
-                      label="Email Address"
-                      autoComplete="email"
+                      id="username"
+                      label="Username"
+                      autoComplete="username"
                       variant="outlined"
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <EmailOutlined
+                            <PersonOutlined // Changed icon to PersonOutlined
                               sx={{ color: "rgba(59, 130, 246, 0.7)" }}
                             />
                           </InputAdornment>
                         ),
                       }}
-                      {...register("email", { required: "Email is required" })}
-                      error={!!errors.email}
-                      helperText={errors.email?.message}
+                      {...register("username", {
+                        required: "Username is required",
+                      })} // Changed from 'email' to 'username'
+                      error={!!errors.username}
+                      helperText={errors.username?.message}
                       sx={{
                         mb: 3,
                         "& .MuiOutlinedInput-root": {

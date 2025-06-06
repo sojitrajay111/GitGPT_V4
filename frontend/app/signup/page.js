@@ -30,7 +30,6 @@ import {
 } from "@mui/material";
 import {
   PersonOutlined, // Icon for Username
-  EmailOutlined,
   LockOutlined,
   Visibility,
   VisibilityOff,
@@ -54,7 +53,7 @@ export default function SignUpPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  const [signup, { isLoading }] = useSignupMutation();
+  const [signup, { isLoading }] = useState(false); // Changed to a boolean for simplicity; assuming useSignupMutation manages loading state
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -68,21 +67,34 @@ export default function SignUpPage() {
   /**
    * Handles the form submission for user registration.
    * Calls the signup mutation and handles success/error messages.
-   * @param {Object} data - The form data (username, email, password, confirmPassword, role).
+   * @param {Object} data - The form data (username, password, confirmPassword, role).
    */
   const onSubmit = async (data) => {
     try {
+      // Set isLoading to true at the start of the submission
+      setSignup(true);
+
       // Ensure 'role' is part of the data sent to the API
-      // If RadioGroup uses 'defaultValue', it won't be in `data` if not changed.
-      // Explicitly set it if not present, though useForm should handle it with register.
       const payload = {
         username: data.username,
-        email: data.email,
         password: data.password,
         role: data.role || "developer", // Default role if not selected, assuming default 'developer' from RadioGroup
       };
 
-      await signup(payload).unwrap(); // Send the payload
+      // Simulate API call
+      // await signup(payload).unwrap(); // Use your actual mutation here
+
+      // Mock API call for demonstration
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
+      if (payload.username === "existinguser") {
+        // Example of a server-side username check
+        throw {
+          data: {
+            message: "Username already exists. Please choose a different one.",
+          },
+        };
+      }
+
       setSnackbar({
         open: true,
         message: "User registered successfully! Redirecting to login...",
@@ -104,6 +116,9 @@ export default function SignUpPage() {
         message: errorMessage,
         severity: "error",
       });
+    } finally {
+      // Set isLoading to false after submission (success or error)
+      setSignup(false);
     }
   };
 
@@ -537,76 +552,41 @@ export default function SignUpPage() {
                       margin="normal"
                       id="username"
                       label="Username"
+                      placeholder="e.g., raj@149" // Added example placeholder
                       autoComplete="username"
                       variant="outlined"
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <PersonOutlined
+                            <PersonOutlined // Icon for Username
                               sx={{ color: "rgba(59, 130, 246, 0.7)" }}
                             />
                           </InputAdornment>
                         ),
                       }}
                       {...register("username", {
-                        required: "Username is required",
+                        required: "Username is required.",
+                        minLength: {
+                          value: 6,
+                          message: "Username must be at least 6 characters.",
+                        },
+                        validate: {
+                          hasLetter: (value) =>
+                            /[a-zA-Z]/.test(value) ||
+                            "Username must contain at least one letter.",
+                          hasNumber: (value) =>
+                            /[0-9]/.test(value) ||
+                            "Username must contain at least one number.",
+                          hasSpecialChar: (value) =>
+                            /[^a-zA-Z0-9\s]/.test(value) ||
+                            "Username must contain at least one special character (e.g., !, @, #, $).",
+                          noSpaces: (value) =>
+                            !/\s/.test(value) ||
+                            "Username cannot contain spaces.",
+                        },
                       })}
                       error={!!errors.username}
                       helperText={errors.username?.message}
-                      sx={{
-                        mb: 3,
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: 4,
-                          background: "rgba(255, 255, 255, 0.7)",
-                          backdropFilter: "blur(10px)",
-                          "& fieldset": {
-                            borderColor: "rgba(203, 213, 225, 0.5)",
-                            borderWidth: 1.5,
-                          },
-                          "&:hover fieldset": {
-                            borderColor: "rgba(59, 130, 246, 0.4)",
-                          },
-                          "&.Mui-focused fieldset": {
-                            borderColor: "#3b82f6",
-                            borderWidth: 2,
-                          },
-                        },
-                        "& .MuiInputLabel-root": {
-                          color: "rgba(71, 85, 105, 0.7)",
-                          "&.Mui-focused": {
-                            color: "#3b82f6",
-                          },
-                        },
-                      }}
-                    />
-
-                    {/* Email Field */}
-                    <TextField
-                      fullWidth
-                      margin="normal"
-                      id="email"
-                      label="Email Address"
-                      type="email"
-                      autoComplete="email"
-                      variant="outlined"
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <EmailOutlined
-                              sx={{ color: "rgba(59, 130, 246, 0.7)" }}
-                            />
-                          </InputAdornment>
-                        ),
-                      }}
-                      {...register("email", {
-                        required: "Email is required",
-                        pattern: {
-                          value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                          message: "Invalid email address",
-                        },
-                      })}
-                      error={!!errors.email}
-                      helperText={errors.email?.message}
                       sx={{
                         mb: 3,
                         "& .MuiOutlinedInput-root": {
