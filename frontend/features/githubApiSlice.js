@@ -23,6 +23,7 @@ export const githubApiSlice = createApi({
     "GitHubBranches",
     "GitHubPullRequests",
     "UserAndGitHubData",
+    "Project", // Added for invalidating projects upon repo deletion if needed
   ],
 
   endpoints: (builder) => ({
@@ -204,6 +205,14 @@ export const githubApiSlice = createApi({
         "GitHubData", // Also provides these general tags if data is related
       ],
     }),
+    // New: Mutation for deleting a GitHub repository
+    deleteGithubRepo: builder.mutation({
+      query: ({ owner, repo }) => ({
+        url: `/repos/${owner}/${repo}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["GitHubRepo", "Project"], // Invalidate relevant caches if project view depends on GitHub repos
+    }),
   }),
 });
 
@@ -225,4 +234,5 @@ export const {
   useCreatePullRequestMutation,
   useUpdatePullRequestMutation,
   useGetUserAndGithubDataQuery,
+  useDeleteGithubRepoMutation, // New: Export delete GitHub repo hook
 } = githubApiSlice;

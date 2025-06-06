@@ -4,6 +4,8 @@ const {
   createProject,
   getProjectsByUserId,
   getProjectById,
+  updateProject, // New: Import updateProject
+  deleteProject, // New: Import deleteProject
 } = require("../controllers/projectController"); // Import project controller functions
 const {
   getCollaboratorsByProjectId,
@@ -27,7 +29,27 @@ router.post("/", authMiddleware, createProject);
  * @access Private
  */
 router.get("/user/:userId", authMiddleware, getProjectsByUserId);
-router.get("/:projectId", authMiddleware, getProjectById); // New: Get a specific project by its ID
+
+/**
+ * @route GET /:projectId
+ * @desc Get a specific project by its ID.
+ * @access Private
+ */
+router.get("/:projectId", authMiddleware, getProjectById); // Existing: Get a specific project by its ID
+
+/**
+ * @route PUT /:projectId
+ * @desc Update an existing project.
+ * @access Private (requires project ownership)
+ */
+router.put("/:projectId", authMiddleware, updateProject); // New: Route for updating a project
+
+/**
+ * @route DELETE /:projectId
+ * @desc Delete a project.
+ * @access Private (requires project ownership)
+ */
+router.delete("/:projectId", authMiddleware, deleteProject); // New: Route for deleting a project
 
 // --- Project Collaborators ---
 // Moved getCollaboratorsByProjectId to be under the project context, as it relates to a specific project

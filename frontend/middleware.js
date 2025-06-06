@@ -1,40 +1,44 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-// This function can be marked `async` if using `await` inside
 export async function middleware(request) {
   const path = request.nextUrl.pathname;
-
-  // Define public paths that do not require authentication
   const publicPaths = ["/", "/login", "/signup"];
   const isPublicPath = publicPaths.includes(path);
-
-  // Try to get the token from cookies
   const token = request.cookies.get("token")?.value || "";
 
-  // 1. If trying to access a protected route without a token, redirect to the main login page ('/')
+  console.log("Middleware Path:", path); // Add this
+  console.log("Middleware Token:", token ? "Exists" : "Does not exist"); // Add this
+  console.log(
+    "Middleware JWT_SECRET (first 5 chars):",
+    process.env.JWT_SECRET
+      ? process.env.JWT_SECRET.substring(0, 5)
+      : "Undefined"
+  ); // Add this for debugging
+
   if (!isPublicPath && !token) {
+    console.log("Redirecting to / because no token on protected path");
     return NextResponse.redirect(new URL("/", request.nextUrl));
   }
 
-  // 2. If a token exists, verify it
   if (token) {
     try {
-      // Use a secret key that matches the one used for signing the token
       const secret = new TextEncoder().encode(process.env.JWT_SECRET);
       const { payload } = await jwtVerify(token, secret);
+      console.log("Token verified, payload:", payload); // Add this
 
-      // If verification is successful and the user is on a public page (login/signup),
-      // redirect them to their dashboard.
       if (isPublicPath) {
-        const userId = payload.id; // Extract user ID from token payload
+        const userId = payload.id;
+        console.log(
+          "Redirecting public path user to dashboard:",
+          `/${userId}/dashboard`
+        );
         return NextResponse.redirect(
           new URL(`/${userId}/dashboard`, request.nextUrl)
         );
       }
     } catch (error) {
-      // If token verification fails (e.g., expired, invalid), clear the cookie and redirect to login
-      console.error("Token verification failed:", error.message);
+      console.error("Token verification failed in middleware:", error.message);
       const response = NextResponse.redirect(new URL("/", request.nextUrl));
       response.cookies.set("token", "", {
         httpOnly: true,
@@ -44,21 +48,10 @@ export async function middleware(request) {
     }
   }
 
-  // 3. Allow access if the path is public and there's no token, or if it's a protected path with a valid token.
+  console.log("Allowing access to:", path);
   return NextResponse.next();
 }
 
-// See "Matching Paths" below to learn more
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - logo.png (your logo file)
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico|logo.png).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|logo.png).*)"],
 };

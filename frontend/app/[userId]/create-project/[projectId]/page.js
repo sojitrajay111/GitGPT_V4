@@ -60,6 +60,8 @@ import {
 import {
   useGetCollaboratorsQuery,
   useGetProjectByIdQuery,
+  useUpdateProjectMutation, // New: Import update project mutation
+  useDeleteProjectMutation, // New: Import delete project mutation
 } from "@/features/projectApiSlice";
 import {
   useAddCollaboratorMutation,
@@ -67,6 +69,7 @@ import {
   useDeleteCollaboratorMutation,
   useUpdateCollaboratorPermissionsMutation,
   useGetUserAndGithubDataQuery,
+  useDeleteGithubRepoMutation, // New: Import delete GitHub repo mutation
 } from "@/features/githubApiSlice";
 import { useGetCollaboratorPermissionsQuery } from "@/features/developerApiSlice";
 import { skipToken } from "@reduxjs/toolkit/query";
@@ -289,8 +292,21 @@ const ProjectDetailPage = () => {
   const codeAnalysisTabRef = useRef(null);
 
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openDeleteCollaboratorDialog, setOpenDeleteCollaboratorDialog] =
+    useState(false); // Renamed for clarity
+  const [openEditCollaboratorDialog, setOpenEditCollaboratorDialog] =
+    useState(false); // Renamed for clarity
+
+  // New states for Project Edit/Delete
+  const [openEditProjectDialog, setOpenEditProjectDialog] = useState(false);
+  const [openDeleteProjectDialog, setOpenDeleteProjectDialog] = useState(false);
+  const [openConfirmDeleteRepoDialog, setOpenConfirmDeleteRepoDialog] =
+    useState(false);
+
+  const [editProjectName, setEditProjectName] = useState("");
+  const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editGithubRepoLink, setEditGithubRepoLink] = useState("");
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedPermissions, setSelectedPermissions] = useState([]);
@@ -323,6 +339,7 @@ const ProjectDetailPage = () => {
     isLoading: projectLoading,
     isError: projectIsError,
     error: projectError,
+    refetch: refetchProjectDetails, // New: Refetch project details
   } = useGetProjectByIdQuery(projectId, { skip: !projectId });
 
   // Fetch collaborators
@@ -378,6 +395,40 @@ const ProjectDetailPage = () => {
     },
   ] = useUpdateCollaboratorPermissionsMutation();
 
+  // New mutations for project
+  const [
+    updateProject,
+    {
+      isLoading: updateProjectLoading,
+      isSuccess: updateProjectSuccess,
+      isError: updateProjectIsError,
+      error: updateProjectError,
+      reset: resetUpdateProjectMutation,
+    },
+  ] = useUpdateProjectMutation();
+
+  const [
+    deleteProject,
+    {
+      isLoading: deleteProjectLoading,
+      isSuccess: deleteProjectSuccess,
+      isError: deleteProjectIsError,
+      error: deleteProjectError,
+      reset: resetDeleteProjectMutation,
+    },
+  ] = useDeleteProjectMutation();
+
+  const [
+    deleteGithubRepo,
+    {
+      isLoading: deleteGithubRepoLoading,
+      isSuccess: deleteGithubRepoSuccess,
+      isError: deleteGithubRepoIsError,
+      error: deleteGithubRepoError,
+      reset: resetDeleteGithubRepoMutation,
+    },
+  ] = useDeleteGithubRepoMutation();
+
   // Effects for mutation success handling
   useEffect(() => {
     if (addCollaboratorSuccess) {
@@ -396,7 +447,7 @@ const ProjectDetailPage = () => {
 
   useEffect(() => {
     if (deleteCollaboratorSuccess) {
-      setOpenDeleteDialog(false);
+      setOpenDeleteCollaboratorDialog(false);
       setSelectedCollaborator(null);
       refetchCollaborators();
       resetDeleteCollaboratorMutation();
@@ -409,7 +460,7 @@ const ProjectDetailPage = () => {
 
   useEffect(() => {
     if (updatePermissionsSuccess) {
-      setOpenEditDialog(false);
+      setOpenEditCollaboratorDialog(false);
       setSelectedCollaborator(null);
       setPermissionsToEdit([]);
       refetchCollaborators();
@@ -421,7 +472,34 @@ const ProjectDetailPage = () => {
     resetUpdatePermissionsMutation,
   ]);
 
-  // Dialog handlers
+  // Effects for project mutations
+  useEffect(() => {
+    if (updateProjectSuccess) {
+      setOpenEditProjectDialog(false);
+      refetchProjectDetails(); // Refetch project details to show updated data
+      resetUpdateProjectMutation();
+    }
+  }, [updateProjectSuccess, refetchProjectDetails, resetUpdateProjectMutation]);
+
+  useEffect(() => {
+    if (deleteProjectSuccess) {
+      setOpenDeleteProjectDialog(false);
+      setOpenConfirmDeleteRepoDialog(false); // Close repo confirmation if open
+      router.push(`/${userId}/dashboard`); // Redirect to dashboard after deletion
+      resetDeleteProjectMutation();
+    }
+  }, [deleteProjectSuccess, router, userId, resetDeleteProjectMutation]);
+
+  useEffect(() => {
+    if (deleteGithubRepoSuccess) {
+      // Potentially show a success message or handle further UI updates if needed
+      // This mutation is part of the deleteProject flow, so the main redirect happens after project delete
+      console.log("GitHub repo deleted successfully.");
+      resetDeleteGithubRepoMutation();
+    }
+  }, [deleteGithubRepoSuccess, resetDeleteGithubRepoMutation]);
+
+  // Dialog handlers for Collaborators
   const handleOpenAddDialog = () => {
     setSearchTerm("");
     setSelectedUser(null);
@@ -481,17 +559,17 @@ const ProjectDetailPage = () => {
     }
   };
 
-  const handleOpenDeleteDialog = (collaborator) => {
+  const handleOpenDeleteCollaboratorDialog = (collaborator) => {
     setSelectedCollaborator(collaborator);
-    setOpenDeleteDialog(true);
+    setOpenDeleteCollaboratorDialog(true);
   };
 
-  const handleCloseDeleteDialog = () => {
-    setOpenDeleteDialog(false);
+  const handleCloseDeleteCollaboratorDialog = () => {
+    setOpenDeleteCollaboratorDialog(false);
     setSelectedCollaborator(null);
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDeleteCollaborator = async () => {
     if (selectedCollaborator && projectId) {
       try {
         await deleteCollaborator({
@@ -504,14 +582,14 @@ const ProjectDetailPage = () => {
     }
   };
 
-  const handleOpenEditDialog = (collaborator) => {
+  const handleOpenEditCollaboratorDialog = (collaborator) => {
     setSelectedCollaborator(collaborator);
     setPermissionsToEdit(collaborator.permissions || []);
-    setOpenEditDialog(true);
+    setOpenEditCollaboratorDialog(true);
   };
 
-  const handleCloseEditDialog = () => {
-    setOpenEditDialog(false);
+  const handleCloseEditCollaboratorDialog = () => {
+    setOpenEditCollaboratorDialog(false);
     setSelectedCollaborator(null);
     setPermissionsToEdit([]);
   };
@@ -537,6 +615,87 @@ const ProjectDetailPage = () => {
         console.error("Failed to update permissions:", err);
       }
     }
+  };
+
+  // Project Edit/Delete Handlers
+  const handleOpenEditProjectDialog = () => {
+    if (project) {
+      setEditProjectName(project.projectName);
+      setEditProjectDescription(project.projectDescription);
+      setEditGithubRepoLink(project.githubRepoLink);
+      setOpenEditProjectDialog(true);
+    }
+  };
+
+  const handleCloseEditProjectDialog = () => {
+    setOpenEditProjectDialog(false);
+    resetUpdateProjectMutation();
+  };
+
+  const handleSaveProjectChanges = async () => {
+    if (projectId) {
+      try {
+        await updateProject({
+          projectId,
+          projectName: editProjectName,
+          projectDescription: editProjectDescription,
+          // githubRepoLink is disabled, so no need to send it back
+        }).unwrap();
+      } catch (err) {
+        console.error("Failed to update project:", err);
+      }
+    }
+  };
+
+  const handleOpenDeleteProjectDialog = () => {
+    setOpenDeleteProjectDialog(true);
+  };
+
+  const handleCloseDeleteProjectDialog = () => {
+    setOpenDeleteProjectDialog(false);
+    setOpenConfirmDeleteRepoDialog(false); // Ensure this is also closed
+    resetDeleteProjectMutation();
+  };
+
+  const handleConfirmProjectDelete = async () => {
+    if (projectId) {
+      try {
+        // First delete from DB
+        await deleteProject(projectId).unwrap();
+        setOpenDeleteProjectDialog(false); // Close first dialog
+        setOpenConfirmDeleteRepoDialog(true); // Open second dialog to ask about GitHub repo
+      } catch (err) {
+        console.error("Failed to delete project from DB:", err);
+      }
+    }
+  };
+
+  const handleConfirmDeleteRepo = async (deleteRepo) => {
+    if (deleteRepo && project?.githubRepoLink) {
+      try {
+        const repoUrl = new URL(project.githubRepoLink);
+        // Extract owner and repo name from the GitHub URL
+        const pathParts = repoUrl.pathname.split("/").filter(Boolean); // Filter(Boolean) removes empty strings
+        if (pathParts.length >= 2) {
+          const owner = pathParts[0];
+          const repoName = pathParts[1].replace(/\.git$/, ""); // Remove .git suffix if present
+
+          await deleteGithubRepo({ owner, repo: repoName }).unwrap();
+        } else {
+          console.warn(
+            "Could not parse owner/repo from GitHub link:",
+            project.githubRepoLink
+          );
+        }
+      } catch (err) {
+        console.error("Failed to delete GitHub repo:", err);
+        // Even if repo deletion fails, we proceed with project deletion from DB (which already happened)
+        // and redirect. A user can manually delete the repo later if needed.
+      }
+    }
+    // Regardless of GitHub repo deletion outcome, close the dialog and redirect.
+    setOpenConfirmDeleteRepoDialog(false);
+    router.push(`/${userId}/dashboard`);
   };
 
   const project = projectData?.project;
@@ -621,6 +780,34 @@ const ProjectDetailPage = () => {
                 height: "auto",
               }}
             />
+            {user_role === "manager" && ( // Only show edit/delete for managers
+              <Box sx={{ ml: 2, display: "flex", gap: 1 }}>
+                <IconButton
+                  aria-label="edit project"
+                  onClick={handleOpenEditProjectDialog}
+                  sx={{
+                    color: "primary.main",
+                    bgcolor: "rgba(79,70,229,0.1)",
+                    "&:hover": { bgcolor: "rgba(79,70,229,0.2)" },
+                  }}
+                  size="small"
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+                <IconButton
+                  aria-label="delete project"
+                  onClick={handleOpenDeleteProjectDialog}
+                  sx={{
+                    color: "error.main",
+                    bgcolor: "rgba(239,68,68,0.1)",
+                    "&:hover": { bgcolor: "rgba(239,68,68,0.2)" },
+                  }}
+                  size="small"
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            )}
           </Box>
 
           <Typography
@@ -1080,7 +1267,7 @@ const ProjectDetailPage = () => {
                           aria-label="edit"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleOpenEditDialog(collab);
+                            handleOpenEditCollaboratorDialog(collab);
                           }}
                           sx={{
                             color: "primary.main",
@@ -1095,7 +1282,7 @@ const ProjectDetailPage = () => {
                           aria-label="delete"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleOpenDeleteDialog(collab);
+                            handleOpenDeleteCollaboratorDialog(collab);
                           }}
                           sx={{
                             color: "error.main",
@@ -1358,8 +1545,8 @@ const ProjectDetailPage = () => {
 
         {/* Delete Collaborator Dialog */}
         <Dialog
-          open={openDeleteDialog}
-          onClose={handleCloseDeleteDialog}
+          open={openDeleteCollaboratorDialog}
+          onClose={handleCloseDeleteCollaboratorDialog}
           fullWidth
           maxWidth="xs"
           PaperProps={{
@@ -1411,14 +1598,14 @@ const ProjectDetailPage = () => {
             }}
           >
             <Button
-              onClick={handleCloseDeleteDialog}
+              onClick={handleCloseDeleteCollaboratorDialog}
               variant="outlined"
               size="medium"
             >
               Cancel
             </Button>
             <Button
-              onClick={handleConfirmDelete}
+              onClick={handleConfirmDeleteCollaborator}
               color="error"
               variant="contained"
               disabled={deleteCollaboratorLoading}
@@ -1433,10 +1620,10 @@ const ProjectDetailPage = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Edit Permissions Dialog */}
+        {/* Edit Collaborator Permissions Dialog */}
         <Dialog
-          open={openEditDialog}
-          onClose={handleCloseEditDialog}
+          open={openEditCollaboratorDialog}
+          onClose={handleCloseEditCollaboratorDialog}
           fullWidth
           maxWidth="sm"
           PaperProps={{
@@ -1528,7 +1715,7 @@ const ProjectDetailPage = () => {
             }}
           >
             <Button
-              onClick={handleCloseEditDialog}
+              onClick={handleCloseEditCollaboratorDialog}
               variant="outlined"
               size="medium"
             >
@@ -1545,6 +1732,269 @@ const ProjectDetailPage = () => {
                 <CircularProgress size={20} color="inherit" />
               ) : (
                 "Save Changes"
+              )}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* New: Edit Project Dialog */}
+        <Dialog
+          open={openEditProjectDialog}
+          onClose={handleCloseEditProjectDialog}
+          fullWidth
+          maxWidth="sm"
+          PaperProps={{
+            sx: {
+              borderRadius: "16px",
+              boxShadow: "0 8px 30px rgba(0,0,0,0.15)",
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              bgcolor: "#e0f2fe",
+              color: "primary.main",
+              borderBottom: "1px solid #e5e7eb",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              fontSize: "1.2rem",
+              p: 2.5,
+            }}
+          >
+            <EditIcon sx={{ mr: 1 }} />
+            Edit Project Details
+          </DialogTitle>
+          <DialogContent sx={{ py: 3 }}>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="Project Title"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={editProjectName}
+              onChange={(e) => setEditProjectName(e.target.value)}
+              sx={{ mb: 2 }}
+              size="medium"
+            />
+            <TextField
+              margin="dense"
+              label="Project Description"
+              type="text"
+              fullWidth
+              multiline
+              rows={4}
+              variant="outlined"
+              value={editProjectDescription}
+              onChange={(e) => setEditProjectDescription(e.target.value)}
+              sx={{ mb: 2 }}
+              size="medium"
+            />
+            <TextField
+              margin="dense"
+              label="GitHub Repository Link"
+              type="url"
+              fullWidth
+              variant="outlined"
+              value={editGithubRepoLink}
+              disabled // This field should be disabled as per requirement
+              sx={{ mb: 2 }}
+              size="medium"
+              InputProps={{
+                readOnly: true,
+              }}
+            />
+
+            {updateProjectIsError && (
+              <Alert severity="error" sx={{ mt: 2, borderRadius: "10px" }}>
+                {updateProjectError.data?.message ||
+                  "Error updating project. Please try again."}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions
+            sx={{
+              p: "16px 24px",
+              borderTop: "1px solid #e5e7eb",
+              bgcolor: "#f0f9ff",
+            }}
+          >
+            <Button
+              onClick={handleCloseEditProjectDialog}
+              variant="outlined"
+              size="medium"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveProjectChanges}
+              variant="contained"
+              color="primary"
+              disabled={updateProjectLoading}
+              size="medium"
+            >
+              {updateProjectLoading ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* New: Delete Project Confirmation Dialog (Phase 1) */}
+        <Dialog
+          open={openDeleteProjectDialog}
+          onClose={handleCloseDeleteProjectDialog}
+          fullWidth
+          maxWidth="xs"
+          PaperProps={{
+            sx: {
+              borderRadius: "16px",
+              boxShadow: "0 8px 30px rgba(0,0,0,0.15)",
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              bgcolor: "#fef2f2",
+              color: "error.main",
+              borderBottom: "1px solid #e5e7eb",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              fontSize: "1.2rem",
+              p: 2.5,
+            }}
+          >
+            <DeleteIcon sx={{ mr: 1 }} />
+            Confirm Project Deletion
+          </DialogTitle>
+          <DialogContent sx={{ py: 3 }}>
+            <Box textAlign="center" py={2}>
+              <DeleteIcon sx={{ fontSize: 60, color: "#fca5a5", mb: 2 }} />
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                Are you sure you want to delete "{project?.projectName}"?
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                This action will permanently remove the project from your
+                database.
+              </Typography>
+            </Box>
+
+            {deleteProjectIsError && (
+              <Alert severity="error" sx={{ mt: 2, borderRadius: "10px" }}>
+                {deleteProjectError.data?.message ||
+                  "Error deleting project from database."}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions
+            sx={{
+              p: "16px 24px",
+              borderTop: "1px solid #e5e7eb",
+              bgcolor: "#fef2f2",
+            }}
+          >
+            <Button
+              onClick={handleCloseDeleteProjectDialog}
+              variant="outlined"
+              size="medium"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmProjectDelete}
+              color="error"
+              variant="contained"
+              disabled={deleteProjectLoading}
+              size="medium"
+            >
+              {deleteProjectLoading ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                "Yes, Delete Project"
+              )}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* New: Confirm GitHub Repo Deletion Dialog (Phase 2) */}
+        <Dialog
+          open={openConfirmDeleteRepoDialog}
+          onClose={() => handleConfirmDeleteRepo(false)} // If user closes, it's a "no"
+          fullWidth
+          maxWidth="xs"
+          PaperProps={{
+            sx: {
+              borderRadius: "16px",
+              boxShadow: "0 8px 30px rgba(0,0,0,0.15)",
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              bgcolor: "#fffbe0", // Light yellow background
+              color: "#d97706", // Orange text
+              borderBottom: "1px solid #e5e7eb",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              fontSize: "1.2rem",
+              p: 2.5,
+            }}
+          >
+            <GitHubIcon sx={{ mr: 1 }} />
+            Delete GitHub Repository?
+          </DialogTitle>
+          <DialogContent sx={{ py: 3 }}>
+            <Box textAlign="center" py={2}>
+              <GitHubIcon sx={{ fontSize: 60, color: "#fcd34d", mb: 2 }} />
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                Also delete associated GitHub repository?
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                This will permanently delete the GitHub repository linked to
+                this project: <br />
+                <Typography component="span" fontWeight="bold">
+                  {project?.githubRepoLink.split("/").pop()}
+                </Typography>
+              </Typography>
+            </Box>
+
+            {deleteGithubRepoIsError && (
+              <Alert severity="error" sx={{ mt: 2, borderRadius: "10px" }}>
+                {deleteGithubRepoError.data?.message ||
+                  "Error deleting GitHub repository. You may need to delete it manually."}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions
+            sx={{
+              p: "16px 24px",
+              borderTop: "1px solid #e5e7eb",
+              bgcolor: "#fffbe0",
+            }}
+          >
+            <Button
+              onClick={() => handleConfirmDeleteRepo(false)}
+              variant="outlined"
+              size="medium"
+            >
+              No, Keep GitHub Repo
+            </Button>
+            <Button
+              onClick={() => handleConfirmDeleteRepo(true)}
+              color="warning"
+              variant="contained"
+              disabled={deleteGithubRepoLoading}
+              size="medium"
+            >
+              {deleteGithubRepoLoading ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                "Yes, Delete GitHub Repo"
               )}
             </Button>
           </DialogActions>

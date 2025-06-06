@@ -22,6 +22,7 @@ const {
   updateExistingPullRequest,
   getUserAndGithubData,
   getCollaboratorsByProjectId, // Added this to imports as it's used in a route
+  deleteGithubRepo, // New: Import deleteGithubRepo
 } = require("../controllers/githubController");
 
 // Middleware to authenticate user (ensure this path is correct)
@@ -83,6 +84,14 @@ router.patch(
   authenticateUser,
   updateExistingPullRequest
 );
+
+// --- GitHub Repository Management ---
+/**
+ * @route DELETE /repos/:owner/:repo
+ * @desc Delete a GitHub repository.
+ * @access Private (requires user authentication and appropriate GitHub permissions)
+ */
+router.delete("/repos/:owner/:repo", authenticateUser, deleteGithubRepo); // New: Route for deleting a GitHub repo
 
 // --- Webhook ---
 // Ensure this route is configured for raw body parsing if verifying signatures
