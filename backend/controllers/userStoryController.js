@@ -2,13 +2,14 @@ const UserStory = require("../models/UserStory");
 const Project = require("../models/Project");
 const ProjectCollaborator = require("../models/ProjectCollaborator");
 require("dotenv").config();
-// Using native fetch available in Node.js 18+
-// const fetch = require('node-fetch'); // for older Node.js versions
+// Import a fetch-like library if you are not using Node.js 18+ which has native fetch
+// For older Node.js versions:
+// const fetch = require('node-fetch'); // You'd need to install this: npm install node-fetch
 
 /**
  * @desc Create a new user story for a project.
  * @route POST /api/user-stories
- * @access Private
+ * @access Private (requires user authentication middleware)
  */
 const createUserStory = async (req, res) => {
   const {
@@ -17,12 +18,13 @@ const createUserStory = async (req, res) => {
     description,
     acceptanceCriteria,
     testingScenarios,
-    collaboratorGithubIds,
-    aiEnhancedUserStory,
+    collaboratorGithubIds, // Array of githubIds of selected collaborators
+    aiEnhancedUserStory, // New field from frontend
   } = req.body;
-  const creator_id = req.user.id;
+  const creator_id = req.user.id; // Get creator_id from authentication middleware
 
   try {
+    // 1. Validate project existence
     const project = await Project.findById(projectId);
     if (!project) {
       return res
@@ -30,9 +32,13 @@ const createUserStory = async (req, res) => {
         .json({ success: false, message: "Project not found." });
     }
 
+    // 2. Fetch collaborator details from ProjectCollaborator document
     const projectCollaboratorDoc = await ProjectCollaborator.findOne({
       project_id: projectId,
     });
+
+    // It's okay if there's no collaborator doc or no collaborators,
+    // just means the story won't have any assigned initially.
     const selectedCollaborators = [];
     if (
       projectCollaboratorDoc &&
@@ -53,6 +59,7 @@ const createUserStory = async (req, res) => {
       });
     }
 
+    // 3. Create the new user story
     const newUserStory = await UserStory.create({
       creator_id,
       projectId,
@@ -61,7 +68,7 @@ const createUserStory = async (req, res) => {
       acceptanceCriteria,
       testingScenarios,
       collaborators: selectedCollaborators,
-      aiEnhancedUserStory: aiEnhancedUserStory || "",
+      aiEnhancedUserStory: aiEnhancedUserStory || "", // Save the AI enhanced story, default to empty string
     });
 
     res.status(201).json({
@@ -84,110 +91,15 @@ const getUserStoriesByProjectId = async (req, res) => {
   const { projectId } = req.params;
 
   try {
-    const userStories = await UserStory.find({ projectId })
-      .sort({ createdAt: -1 })
-      .populate("creator_id", "username email");
+    // Find all user stories associated with the given projectId
+    const userStories = await UserStory.find({ projectId }).populate(
+      "creator_id",
+      "username email"
+    ); // Populate creator details if needed
+
     res.status(200).json({ success: true, userStories });
   } catch (error) {
     console.error("Error fetching user stories:", error);
-    res.status(500).json({ success: false, message: "Internal server error." });
-  }
-};
-
-/**
- * @desc Update a user story.
- * @route PUT /api/user-stories/:userStoryId
- * @access Private
- */
-const updateUserStory = async (req, res) => {
-  const { userStoryId } = req.params;
-  const {
-    userStoryTitle,
-    description,
-    acceptanceCriteria,
-    testingScenarios,
-    collaboratorGithubIds,
-    aiEnhancedUserStory,
-  } = req.body;
-
-  try {
-    const story = await UserStory.findById(userStoryId);
-    if (!story) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User story not found." });
-    }
-
-    // Optional: Authorization check can be added here
-    // e.g., if (story.creator_id.toString() !== req.user.id && req.user.role !== 'manager') ...
-
-    const projectCollaboratorDoc = await ProjectCollaborator.findOne({
-      project_id: story.projectId,
-    });
-    const selectedCollaborators = [];
-    if (projectCollaboratorDoc && collaboratorGithubIds) {
-      collaboratorGithubIds.forEach((githubId) => {
-        const foundCollab = projectCollaboratorDoc.collaborators.find(
-          (c) => c.githubId === githubId
-        );
-        if (foundCollab) {
-          selectedCollaborators.push({
-            username: foundCollab.username,
-            githubId: foundCollab.githubId,
-            avatarUrl: foundCollab.avatarUrl,
-          });
-        }
-      });
-    }
-
-    story.userStoryTitle = userStoryTitle || story.userStoryTitle;
-    story.description = description || story.description;
-    story.acceptanceCriteria = acceptanceCriteria || story.acceptanceCriteria;
-    story.testingScenarios = testingScenarios || story.testingScenarios;
-    story.collaborators = selectedCollaborators;
-    story.aiEnhancedUserStory =
-      aiEnhancedUserStory !== undefined
-        ? aiEnhancedUserStory
-        : story.aiEnhancedUserStory;
-
-    const updatedStory = await story.save();
-
-    res.status(200).json({
-      success: true,
-      message: "User story updated successfully.",
-      userStory: updatedStory,
-    });
-  } catch (error) {
-    console.error("Error updating user story:", error);
-    res.status(500).json({ success: false, message: "Internal server error." });
-  }
-};
-
-/**
- * @desc Delete a user story.
- * @route DELETE /api/user-stories/:userStoryId
- * @access Private
- */
-const deleteUserStory = async (req, res) => {
-  const { userStoryId } = req.params;
-
-  try {
-    const story = await UserStory.findById(userStoryId);
-    if (!story) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User story not found." });
-    }
-
-    // Optional: Authorization check can be added here
-
-    await story.deleteOne();
-
-    res
-      .status(200)
-      .json({ success: true, message: "User story deleted successfully." });
-  } catch (error) {
-    console.error("Error deleting user story:", error);
     res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
@@ -201,22 +113,22 @@ const generateAiStoryContent = async (req, res) => {
   const { userStoryTitle, description, acceptanceCriteria, testingScenarios } =
     req.body;
 
+  // Validate input
   if (
     !userStoryTitle ||
     !description ||
     !acceptanceCriteria ||
     !testingScenarios
   ) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Missing required fields for AI generation.",
-      });
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields for AI generation.",
+    });
   }
 
   const prompt = `As an expert project manager and agile coach, enhance the following user story details.
-Ensure the user story is well-defined, follows the INVEST principles, and provides clear guidance for a development team.
+Ensure the user story is well-defined, follows the INVEST principles (Independent, Negotiable, Valuable, Estimable, Small, Testable) where possible,
+and provides clear guidance for a development team. If any information seems missing or could be improved, please make reasonable assumptions or suggest additions.
 Structure the output clearly.
 
 User Story Input:
@@ -240,9 +152,19 @@ Enhanced User Story Output (provide only the enhanced content, ready to be store
         .json({ success: false, message: "AI service configuration error." });
     }
 
+    // Use the latest Gemini model
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
     const payload = {
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [
+        {
+          parts: [
+            {
+              text: prompt,
+            },
+          ],
+        },
+      ],
       generationConfig: {
         temperature: 0.7,
         topP: 0.8,
@@ -269,57 +191,120 @@ Enhanced User Story Output (provide only the enhanced content, ready to be store
       ],
     };
 
+    console.log("Making request to Gemini API...");
+
     const response = await fetch(apiUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "YourApp/1.0",
+      },
       body: JSON.stringify(payload),
     });
 
+    console.log(`Response status: ${response.status}`);
+
     if (!response.ok) {
-      const errorData = await response.text();
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (parseError) {
+        errorData = { error: { message: await response.text() } };
+      }
+
       console.error("Error from Gemini API:", errorData);
+
+      // Handle specific error cases
+      if (response.status === 400) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid request to AI service. Please check your input.",
+        });
+      } else if (response.status === 403) {
+        return res.status(500).json({
+          success: false,
+          message:
+            "AI service access denied. Please check API key permissions.",
+        });
+      } else if (response.status === 429) {
+        return res.status(429).json({
+          success: false,
+          message: "AI service rate limit exceeded. Please try again later.",
+        });
+      }
+
       throw new Error(
-        `Gemini API request failed with status ${response.status}`
+        `Gemini API request failed with status ${response.status}: ${
+          errorData?.error?.message || "Unknown error"
+        }`
       );
     }
 
     const result = await response.json();
+    console.log("API Response received:", JSON.stringify(result, null, 2));
 
-    if (result.candidates && result.candidates[0].finishReason === "SAFETY") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Content was blocked by safety filters.",
-        });
+    // Check for blocked content
+    if (
+      result.candidates &&
+      result.candidates[0] &&
+      result.candidates[0].finishReason === "SAFETY"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Content was blocked by safety filters. Please modify your input and try again.",
+      });
     }
 
-    if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+    // Extract the generated text
+    if (
+      result.candidates &&
+      result.candidates.length > 0 &&
+      result.candidates[0].content &&
+      result.candidates[0].content.parts &&
+      result.candidates[0].content.parts.length > 0
+    ) {
       const enhancedText = result.candidates[0].content.parts[0].text;
-      res
-        .status(200)
-        .json({ success: true, aiEnhancedText: enhancedText.trim() });
+
+      if (!enhancedText || enhancedText.trim() === "") {
+        return res.status(500).json({
+          success: false,
+          message: "AI service returned empty content.",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        aiEnhancedText: enhancedText.trim(),
+      });
     } else {
       console.error("Unexpected API response structure from Gemini:", result);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to parse AI response." });
+      res.status(500).json({
+        success: false,
+        message:
+          "Failed to generate story content due to unexpected API response.",
+      });
     }
   } catch (error) {
     console.error("Error calling Gemini API:", error);
-    res
-      .status(500)
-      .json({
+
+    // Handle network errors
+    if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+      return res.status(500).json({
         success: false,
-        message: `Error generating AI story content: ${error.message}`,
+        message: "Unable to connect to AI service. Please try again later.",
       });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: `Error generating AI story content: ${error.message}`,
+    });
   }
 };
 
 module.exports = {
   createUserStory,
   getUserStoriesByProjectId,
-  updateUserStory,
-  deleteUserStory,
-  generateAiStoryContent,
+  generateAiStoryContent, // Export the new function
 };
