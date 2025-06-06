@@ -502,6 +502,65 @@ const deleteCollaborator = async (req, res) => {
   }
 };
 
+/**
+ * @desc Delete a GitHub repository.
+ * @route DELETE /api/github/repos/:owner/:repo
+ * @access Private (requires user authentication)
+ */
+const deleteGithubRepo = async (req, res) => {
+  const { owner, repo } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const { pat: githubPAT, username: githubUsername } =
+      await getGitHubAuthDetails(userId);
+
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `token ${githubPAT}`,
+          "User-Agent": githubUsername,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ message: response.statusText }));
+      console.error(
+        `GitHub API error deleting repository ${owner}/${repo}:`,
+        errorData
+      );
+      return res.status(response.status).json({
+        success: false,
+        message: `Failed to delete GitHub repository: ${
+          errorData.message || "Unknown error."
+        }`,
+      });
+    }
+
+    // GitHub returns 204 No Content for successful deletion
+    res
+      .status(204)
+      .json({
+        success: true,
+        message: "GitHub repository deleted successfully.",
+      });
+  } catch (error) {
+    console.error("Error deleting GitHub repository:", error);
+    res.status(error.status || 500).json({
+      success: false,
+      message:
+        error.message ||
+        "Internal server error while deleting GitHub repository.",
+    });
+  }
+};
+
 // Update collaborator permissions (existing function)
 const updateCollaboratorPermissions = async (req, res) => {
   const { projectId, githubUsername } = req.params;
@@ -1135,4 +1194,5 @@ module.exports = {
   listPullRequests, // For GET /repos/:owner/:repo/pulls
   createNewPullRequest, // For POST /repos/:owner/:repo/pulls
   updateExistingPullRequest, // For PATCH /repos/:owner/:repo/pulls/:pullNumber
+  deleteGithubRepo, // New: Export delete GitHub repository function
 };
