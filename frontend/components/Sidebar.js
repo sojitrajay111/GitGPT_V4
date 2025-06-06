@@ -50,7 +50,7 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "create-project", label: "Projects", icon: FolderOpen },
     { id: "report", label: "Reports", icon: BarChart },
-    { id: "ai-features", label: "AI Features", icon: Sparkles },
+    
   ];
 
   const accountNavItems = [
