@@ -38,7 +38,6 @@ exports.register = async (req, res) => {
       .json({ message: error.message || "User registration failed" });
   }
 };
-
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body; // Expect username instead of email
@@ -66,16 +65,25 @@ exports.login = async (req, res) => {
       expiresIn: "2d",
     });
 
-    res.status(200).json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username, // Only send username, not email
-        role: user.role,
-      },
-    });
+    res
+      .cookie("token", token, {
+        httpOnly: true, // middleware can now access it securely
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax", // works well for frontend-backend on different ports locally
+        maxAge: 2 * 24 * 60 * 60 * 1000, // 2 days
+      })
+      .status(200)
+      .json({
+        token,
+        user: {
+          id: user._id,
+          username: user.username, // Only send username, not email
+          role: user.role,
+        },
+      });
   } catch (error) {
     console.error("Login Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
