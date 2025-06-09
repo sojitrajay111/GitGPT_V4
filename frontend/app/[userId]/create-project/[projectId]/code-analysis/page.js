@@ -707,7 +707,6 @@ const App = () => {
 
   return (
     <div className="flex h-screen font-sans bg-gradient-to-br from-gray-900 to-gray-800 text-gray-200 overflow-hidden">
-      {/* Mobile sidebar toggle (floating button) */}
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         className={`md:hidden fixed z-30 bottom-4 left-4 p-3 rounded-full shadow-lg bg-gradient-to-br from-purple-600 to-indigo-600 border border-purple-400 transition-all ${
