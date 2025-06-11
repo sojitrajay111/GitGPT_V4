@@ -14,7 +14,7 @@ import {
   Typography,
   Paper,
   InputAdornment,
-  Avatar,
+  Avatar, // Keep Avatar import if you intend to use it elsewhere or for the dialog, though not for the column
   Tooltip,
   Chip,
   CircularProgress,
@@ -30,7 +30,7 @@ import {
 import {
   Edit,
   Delete,
-  Add,
+  Add, // Will be used directly for the "Add User Name" button
   Search,
   CheckCircle,
   PendingActions,
@@ -56,13 +56,15 @@ const initialUsers = [
   { id: 8, username: 'eve_adams', email: 'eve@example.com', status: 'Pending' },
   { id: 9, username: 'frank_black', email: 'frank@example.com', status: 'In Progress' },
   { id: 10, username: 'grace_kelly', email: 'grace@example.com', status: 'Completed' },
+  // Adding more users to potentially trigger horizontal scroll if column widths are tight
   { id: 11, username: 'david_wilson_super_long_username', email: 'david.wilson.test@longdomainexample.com', status: 'Pending' },
   { id: 12, username: 'olivia_perez_max', email: 'olivia.perez.maximum@another-example.co.uk', status: 'In Progress' },
 ];
 
+// CustomToolbar is now simpler as the "Add User" button is moved out
 function CustomToolbar() {
   return (
-    <GridToolbarContainer sx={{ p: 2, justifyContent: 'flex-start' }}>
+    <GridToolbarContainer sx={{ p: 2, justifyContent: 'flex-start' }}> {/* Align left */}
       <GridToolbarFilterButton />
       <GridToolbarExport
         printOptions={{ disableToolbarButton: true }}
@@ -87,31 +89,15 @@ export default function ManageUser() {
     message: '',
     severity: 'success'
   });
-  const [isEditing, setIsEditing] = useState(false); // New state to track if we're editing
-  const [editingUserId, setEditingUserId] = useState(null); // New state to store the ID of the user being edited
 
-  const handleOpen = () => {
-    setIsEditing(false); // When opening for add, ensure isEditing is false
-    setEditingUserId(null); // Clear editing user ID
-    setNewUser({ username: '', email: '', status: 'Pending' }); // Reset form for new user
-    setOpen(true);
-  };
+  const handleOpen = () => setOpen(true);
 
   const handleClose = () => {
     setOpen(false);
     setNewUser({ username: '', email: '', status: 'Pending' });
-    setIsEditing(false); // Reset editing state on close
-    setEditingUserId(null); // Clear editing user ID
   };
 
-  const handleEdit = (user) => {
-    setIsEditing(true); // Set editing state to true
-    setEditingUserId(user.id); // Store the ID of the user being edited
-    setNewUser({ ...user }); // Pre-fill the form with user data
-    setOpen(true); // Open the dialog
-  };
-
-  const handleSaveUser = () => {
+  const handleAddUser = () => {
     // Basic validation
     if (!newUser.username.trim()) {
       setSnackbar({
@@ -122,12 +108,12 @@ export default function ManageUser() {
       return;
     }
     if (!newUser.email.trim()) {
-      setSnackbar({
-        open: true,
-        message: 'Email cannot be empty.',
-        severity: 'error'
-      });
-      return;
+        setSnackbar({
+            open: true,
+            message: 'Email cannot be empty.',
+            severity: 'error'
+        });
+        return;
     }
     if (!/\S+@\S+\.\S+/.test(newUser.email)) {
       setSnackbar({
@@ -142,43 +128,31 @@ export default function ManageUser() {
 
     // Simulate API call
     setTimeout(() => {
-      if (isEditing) {
-        // Update existing user
-        setUsers(prev =>
-          prev.map(user =>
-            user.id === editingUserId
-              ? { ...newUser, id: editingUserId } // Ensure ID is preserved
-              : user
-          )
-        );
-        setSnackbar({
-          open: true,
-          message: 'User updated successfully!',
-          severity: 'success'
-        });
-      } else {
-        // Add new user
-        const newEntry = {
-          id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
-          username: newUser.username.trim(),
-          email: newUser.email.trim(),
-          status: newUser.status,
-        };
-        setUsers(prev => [...prev, newEntry]);
-        setSnackbar({
-          open: true,
-          message: 'User added successfully!',
-          severity: 'success'
-        });
-      }
+      const newEntry = {
+        id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1, // Robust ID generation
+        username: newUser.username.trim(),
+        email: newUser.email.trim(),
+        status: newUser.status,
+      };
+
+      setUsers(prev => [...prev, newEntry]);
       handleClose();
       setLoading(false);
+
+      // Show success notification
+      setSnackbar({
+        open: true,
+        message: 'User added successfully!',
+        severity: 'success'
+      });
     }, 1000);
   };
 
   const handleDelete = (id) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       setUsers(prev => prev.filter(user => user.id !== id));
+
+      // Show deletion notification
       setSnackbar({
         open: true,
         message: 'User deleted successfully!',
@@ -189,19 +163,21 @@ export default function ManageUser() {
 
   const handleVerifyEmail = () => {
     const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email);
+
     setSnackbar({
       open: true,
       message: isValid
         ? 'Email is valid!'
         : 'Please enter a valid email address',
-      severity: isValid ? 'success' : 'error'
+      severity: isValid ? 'success' : 'error' // Changed severity to error for invalid email
     });
   };
+
 
   const columns = [
     {
       field: 'id',
-      headerName: 'Index',
+      headerName: 'ID',
       width: 70,
       headerAlign: 'center',
       align: 'center'
@@ -250,7 +226,7 @@ export default function ManageUser() {
           <Tooltip title="Edit user">
             <IconButton
               color="primary"
-              onClick={() => handleEdit(params.row)} // Call handleEdit with the row data
+              onClick={() => alert(`Edit user ${params.row.id}`)}
               sx={{ mr: 1 }}
             >
               <Edit />
@@ -299,22 +275,23 @@ export default function ManageUser() {
       >
         <Box
           display="flex"
-          justifyContent="space-between"
+          justifyContent="space-between" // Changed to space-between for left and right elements
           alignItems="center"
           mb={3}
         >
+          {/* New "Add User Name" button */}
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={handleOpen}
+            onClick={handleOpen} // This will open the dialog
             sx={{
               backgroundColor: '#1976d2',
               '&:hover': { backgroundColor: '#1565c0' },
               mr: 2,
-              ml: 57
+              ml:57 // Margin right to separate from search field
             }}
           >
-            Add User
+            Add User 
           </Button>
 
           <TextField
@@ -347,7 +324,7 @@ export default function ManageUser() {
               },
             }}
             components={{
-              Toolbar: CustomToolbar,
+              Toolbar: CustomToolbar, // No longer passing handleOpen here as the button is outside
             }}
             sx={{
               border: 'none',
@@ -364,6 +341,7 @@ export default function ManageUser() {
                 borderRadius: 1,
                 borderTop: 'none'
               },
+              // --- HIDE SCROLLBARS (VERTICAL & HORIZONTAL) ---
               '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': {
                 width: '0px',
                 height: '0px',
@@ -371,7 +349,7 @@ export default function ManageUser() {
               },
               '& .MuiDataGrid-virtualScroller': {
                 scrollbarWidth: 'none',
-                overflowX: 'auto',
+                overflowX: 'auto', // Keep this for horizontal scroll
               },
               '-ms-overflow-style': 'none',
             }}
@@ -381,7 +359,7 @@ export default function ManageUser() {
         </Box>
       </Paper>
 
-      {/* Add/Edit User Dialog */}
+      {/* Add User Dialog */}
       <Dialog
         open={open}
         onClose={handleClose}
@@ -398,22 +376,23 @@ export default function ManageUser() {
             borderTopRightRadius: 3
           }}
         >
-          {isEditing ? 'Edit User' : 'Add New User'}
+          Add New User
         </DialogTitle>
         <DialogContent sx={{ py: 3 }}>
-          <Box mt={1} display="flex" gap={2} alignItems="center">
+          <Box mt={1} display="flex" gap={2} alignItems="center"> {/* Added flex container */}
             <TextField
               fullWidth
               label="Username"
-              margin="normal"
+              margin="normal" // Keep margin for spacing relative to other elements
               value={newUser.username}
               onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
               variant="outlined"
             />
+            {/* Moved "Verify" button here for username as requested */}
             <Button
               variant="outlined"
-              onClick={() => setSnackbar({ open: true, message: 'Username verification not implemented.', severity: 'info' })}
-              sx={{ height: 56, mt: 1 }}
+              onClick={() => setSnackbar({ open: true, message: 'Username verification not implemented.', severity: 'info' })} // Placeholder for username verification
+              sx={{ height: 56, mt: 1 }} // Align with TextField height
             >
               Verify
             </Button>
@@ -430,8 +409,6 @@ export default function ManageUser() {
               variant="outlined"
             />
           </Box>
-
-          
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
@@ -443,11 +420,11 @@ export default function ManageUser() {
           </Button>
           <Button
             variant="contained"
-            onClick={handleSaveUser} // Now calls handleSaveUser
+            onClick={handleAddUser} // This is your "Save" functionality
             disabled={loading || !newUser.username || !newUser.email}
             sx={{ borderRadius: 2 }}
           >
-            {loading ? <CircularProgress size={24} /> : (isEditing ? 'Update User' : 'Save User')}
+            {loading ? <CircularProgress size={24} /> : 'Save User'} {/* Changed text to Save User */}
           </Button>
         </DialogActions>
       </Dialog>
