@@ -20,7 +20,7 @@ export default function InProgressProjectList() {
 
   if (isLoading) {
     return (
-      <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100 flex justify-center items-center h-48">
+      <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100 flex justify-center items-center h-48 font-sans"> {/* Added font-sans here */}
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -28,14 +28,14 @@ export default function InProgressProjectList() {
 
   if (isError) {
     return (
-      <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100 text-center text-red-500">
+      <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100 text-center text-red-500 font-sans"> {/* Added font-sans here */}
         Error loading projects.
       </div>
     );
   }
 
   return (
-    <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
+    <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100 font-sans"> {/* Applied font-sans to the main container */}
       <h2 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 border-gray-200">
         All Assigned Projects
       </h2>
@@ -43,7 +43,7 @@ export default function InProgressProjectList() {
         {(allProjects && allProjects.length > 0) ? (
           allProjects.map((project) => (
             <li
-              key={project._id} // Use a unique ID from your project object, like _id
+              key={project._id}
               className="flex justify-between items-center py-3 px-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-200 ease-in-out transform hover:scale-[1.01] shadow-sm"
             >
               <span className="text-gray-900 font-semibold text-lg">
@@ -58,7 +58,6 @@ export default function InProgressProjectList() {
         )}
       </ul>
 
-      {/* Optional: Add a button to view all projects or add a new one */}
       <div className="mt-6 text-center">
         <button className="text-blue-600 hover:text-blue-800 font-semibold transition-colors duration-200">
           Manage Projects &rarr;

@@ -136,7 +136,7 @@ const GitHubIntegrations = () => {
     return (
         <div className="mb-10">
             <div className="flex justify-between items-center mb-4">
-                <h4 className="text-2xl font-bold text-gray-700 mb-3 pl-3 border-l-4 border-blue-500 italic">
+                <h4 className="text-2xl font-bold text-gray-700 mb-3 mt-2 pl-3 border-l-4 border-blue-500 italic">
                     GitHub Integrations
                 </h4>
             </div>
