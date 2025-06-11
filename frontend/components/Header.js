@@ -1,39 +1,40 @@
-"use client";
+// components/Header.js
+'use client';
 
-import { usePathname, useRouter } from "next/navigation";
-import React from "react";
-import classNames from "classnames";
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import classNames from 'classnames';
 
 const navItems = [
-  { id: "configuration", label: "Configuration" },
-  { id: "company-details", label: "Company Details" },
-  { id: "manage-user", label: "Manage User" },
-  { id: "profile", label: "Profile" },
+  { id: 'configuration', label: 'Configuration' },
+  { id: 'company-detail', label: 'Company Detail' },
+  { id: 'manage-user', label: 'Manage User' },
+  { id: 'profile', label: 'User Detail' },
 ];
 
-const Header = ({ userId }) => {
+const Header = () => {
+  const { userId } = useParams();
   const router = useRouter();
   const pathname = usePathname();
 
-  // Get active tab from URL (e.g. /[userId]/configuration)
-  const activeTab = pathname.split("/")[2] || "";
+  // Extract last path segment after /setting/
+  const activeTab = pathname.split('/')[3] || 'configuration';
 
   const handleNavigate = (id) => {
-    router.push(`/${userId}/${id}`);
+    router.push(`/${userId}/setting/${id}`);
   };
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 w-full overflow-hidden">
+    <header className="bg-white shadow-sm border-b border-gray-200 w-full">
       <nav className="flex justify-start space-x-6 px-6 py-4 overflow-x-auto whitespace-nowrap">
         {navItems.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => handleNavigate(id)}
             className={classNames(
-              "text-sm font-medium px-2 pb-1 border-b-2 transition-colors duration-200 whitespace-nowrap",
+              'text-sm font-medium px-2 pb-1 border-b-2 transition-colors duration-200 whitespace-nowrap',
               {
-                "border-indigo-600 text-indigo-600": activeTab === id,
-                "border-transparent text-gray-600 hover:text-indigo-500":
+                'border-indigo-600 text-indigo-600': activeTab === id,
+                'border-transparent text-gray-600 hover:text-indigo-500':
                   activeTab !== id,
               }
             )}

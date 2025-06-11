@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header"; // Your Header component
+
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { HiMenu } from "react-icons/hi"; // Hamburger icon
 
@@ -82,11 +82,7 @@ export default function Layout({ children }) {
           </div>
         )}
 
-        {/* Render Header only if on 'setting' tab */}
-        {!isCodeAnalysisPage && activeTab === "setting" && (
-          <Header userId={userId} />
-        )}
-
+    
         {/* Children container full width and height, no padding */}
         <div className="flex-1 w-full overflow-auto">{children}</div>
       </main>

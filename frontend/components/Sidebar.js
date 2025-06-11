@@ -1,4 +1,5 @@
 "use client";
+
 import React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
@@ -7,7 +8,6 @@ import {
   BarChart,
   Settings,
   LogOut,
-  Sparkles,
   X,
   ChevronLeft,
   Menu,
@@ -15,7 +15,15 @@ import {
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
 import Cookies from "js-cookie";
 
-const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
+const Sidebar = ({
+  userId,
+  isOpen,
+  onClose,
+  collapsed,
+  setCollapsed,
+  activeTab,
+  setActiveTab,
+}) => {
   const router = useRouter();
   const pathname = usePathname();
   const { data } = useGetUserAndGithubDataQuery(userId);
@@ -25,42 +33,33 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
   const avatar_url = data?.githubData?.avatarUrl || "/default-avatar.png";
   const githubUsername = data?.githubData?.githubUsername || "Loading...";
 
-  const getActiveTab = () => {
-    const segments = pathname.split("/");
-    return segments.length > 2 ? segments[2] : "dashboard";
-  };
-
-  const activeTab = getActiveTab();
-
+  // Function to navigate and set active tab
   const handleNavigate = (tab) => {
     router.push(`/${userId}/${tab}`);
+    setActiveTab(tab);
   };
 
   const handleLogout = () => {
-    // Remove token from both localStorage and cookies
     localStorage.removeItem("token");
     Cookies.remove("token");
-
-    // Redirect to login page
     router.push("/");
-    router.refresh(); // Ensures the page reloads and middleware runs
+    router.refresh();
   };
 
   const mainNavItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "create-project", label: "Projects", icon: FolderOpen },
     { id: "report", label: "Reports", icon: BarChart },
-    
   ];
 
   const accountNavItems = [
-    { id: "settings", label: "Settings", icon: Settings },
+    { id: "setting", label: "Settings", icon: Settings },
     { id: "logout", label: "Logout", icon: LogOut, action: handleLogout },
   ];
 
   return (
     <>
-      {/* Overlay for mobile when open */}
+      {/* Overlay for mobile sidebar */}
       {isOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/50 lg:hidden"
@@ -69,13 +68,13 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
       )}
 
       <div
-        className={`fixed inset-y-0 left-0 z-30 bg-white text-gray-800 flex flex-col h-screen border-r border-gray-200 shadow-lg
+        className={`fixed inset-y-0 left-0 z-30 bg-white text-gray-800 flex flex-col h-screen border-r border-gray-200 
         transform transition-all duration-300 ease-in-out
         lg:static lg:translate-x-0
         ${isOpen ? "translate-x-0" : "-translate-x-full"}
         ${collapsed ? "w-20" : "w-64"} `}
       >
-        {/* Mobile Close Button (X icon) */}
+        {/* Mobile Close Button */}
         <button
           className="absolute top-4 right-4 p-1 lg:hidden text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
           onClick={onClose}
@@ -84,14 +83,13 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
           <X className="w-6 h-6" />
         </button>
 
-        {/* Header/Logo Section */}
+        {/* Logo & Collapse toggle */}
         <div
           className={`p-5 flex items-center justify-between border-b border-gray-200 ${
             collapsed ? "justify-center" : ""
           }`}
         >
           <div className="flex items-center">
-            {/* Logo */}
             <img
               src="/logo.png"
               alt="GitGPT Logo"
@@ -99,7 +97,6 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
                 collapsed ? "w-10 h-10" : "w-10 h-10 mr-3"
               }`}
             />
-            {/* GitGPT Text */}
             {!collapsed && (
               <h1 className="text-xl font-bold text-gray-900 tracking-wide">
                 GitGPT
@@ -107,7 +104,6 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
             )}
           </div>
 
-          {/* Toggle Button for Desktop */}
           <button
             className={`hidden lg:block p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors ${
               collapsed ? "ml-0" : "ml-auto"
@@ -123,8 +119,8 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
           </button>
         </div>
 
-        {/* Profile Section (only when expanded) */}
-        {!collapsed && (
+        {/* Profile Section */}
+        {!collapsed ? (
           <div className="px-5 pt-4 pb-3 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center space-x-3">
               <img
@@ -143,9 +139,7 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
               </div>
             </div>
           </div>
-        )}
-        {/* Profile Section (always visible, minimal when collapsed) */}
-        {collapsed && (
+        ) : (
           <div className="flex items-center justify-center p-3 border-b border-gray-200 bg-gray-50">
             <img
               src={avatar_url}
@@ -155,10 +149,10 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
           </div>
         )}
 
-        {/* Navigation Sections */}
+        {/* Navigation */}
         <div className="flex-1 flex flex-col justify-between overflow-y-auto">
           <nav className="p-4 space-y-4">
-            {/* Main Nav */}
+            {/* Main Navigation */}
             <div>
               <h3
                 className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${
@@ -189,7 +183,7 @@ const Sidebar = ({ userId, isOpen, onClose, collapsed, setCollapsed }) => {
               </ul>
             </div>
 
-            {/* Account Nav */}
+            {/* Account Navigation */}
             <div className="mt-4 border-t border-gray-100 pt-4">
               <h3
                 className={`text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 ${
