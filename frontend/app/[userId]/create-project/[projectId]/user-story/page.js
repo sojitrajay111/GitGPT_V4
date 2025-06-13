@@ -29,8 +29,14 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  LinearProgress, // Import LinearProgress for the progress bar
 } from "@mui/material";
-import { ThemeProvider, createTheme, styled } from "@mui/material/styles";
+import {
+  ThemeProvider,
+  createTheme,
+  styled,
+  keyframes,
+} from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
@@ -47,6 +53,7 @@ import {
   useUpdateUserStoryMutation,
   useDeleteUserStoryMutation,
   useGenerateAiStoryMutation,
+  useGenerateSalesforceCodeMutation, // Import the new hook
 } from "@/features/userStoryApiSlice";
 import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
@@ -56,6 +63,23 @@ import {
 } from "@/features/developerApiSlice";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ChevronLeft } from "lucide-react";
+
+// Keyframes for futuristic loading animation
+const rotate = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const pulse = keyframes`
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+`;
 
 // Professional theme
 const freshTheme = createTheme({
@@ -71,6 +95,8 @@ const freshTheme = createTheme({
     fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
     h4: { fontWeight: 700, fontSize: "1.8rem" },
     h6: { fontWeight: 600, fontSize: "1.1rem" },
+    body1: { fontSize: "0.95rem" },
+    body2: { fontSize: "0.85rem" },
   },
   components: {
     MuiButton: {
@@ -127,6 +153,71 @@ const AIContentBox = styled(Box)(({ theme }) => ({
   marginTop: theme.spacing(2),
 }));
 
+// Styled Dialog for advanced loading
+const LoadingDialog = styled(Dialog)(({ theme }) => ({
+  "& .MuiDialog-paper": {
+    borderRadius: "20px",
+    background: "linear-gradient(145deg, #1a2a4a 0%, #0a1525 100%)",
+    color: "#e0e0e0",
+    boxShadow: "0 8px 30px rgba(0, 0, 0, 0.5)",
+    border: "1px solid #0f3460",
+    padding: theme.spacing(3),
+    maxWidth: "500px",
+    width: "90%",
+    textAlign: "center",
+  },
+}));
+
+// Styled component for animated progress icon
+const AnimatedIcon = styled(Box)(({ theme }) => ({
+  fontSize: "4rem",
+  marginBottom: theme.spacing(3),
+  color: theme.palette.primary.main,
+  animation: `${rotate} 2s linear infinite`,
+  display: "inline-block",
+}));
+
+// Styled for status messages
+const StatusMessage = styled(Typography)(({ theme }) => ({
+  fontSize: "1.1rem",
+  fontWeight: 600,
+  color: "#ffffff",
+  marginBottom: theme.spacing(2),
+}));
+
+// Styled for completed steps list
+const CompletedStepsList = styled(Box)(({ theme }) => ({
+  maxHeight: "150px",
+  overflowY: "auto",
+  textAlign: "left",
+  paddingLeft: theme.spacing(2),
+  marginTop: theme.spacing(2),
+  borderLeft: `2px solid ${theme.palette.secondary.main}`,
+  "&::-webkit-scrollbar": {
+    width: "6px",
+  },
+  "&::-webkit-scrollbar-track": {
+    background: "transparent",
+  },
+  "&::-webkit-scrollbar-thumb": {
+    background: "#888",
+    borderRadius: "3px",
+  },
+}));
+
+const CompletedStepItem = styled(Typography)(({ theme }) => ({
+  fontSize: "0.9rem",
+  color: "#b0b0b0",
+  display: "flex",
+  alignItems: "center",
+  marginBottom: theme.spacing(0.5),
+  animation: `${fadeIn} 0.5s ease-out`,
+  "& svg": {
+    marginRight: theme.spacing(1),
+    color: theme.palette.success.main,
+  },
+}));
+
 const TruncatedText = ({ content, maxLines = 5, title }) => {
   const [expanded, setExpanded] = useState(false);
   const lines = content ? content.split("\n") : [];
@@ -176,6 +267,14 @@ const UserStoryPage = () => {
   const [editingStory, setEditingStory] = useState(null);
   const [storyToDelete, setStoryToDelete] = useState(null);
 
+  // NEW: State for code generation loading and status
+  const [isGeneratingCodeProcess, setIsGeneratingCodeProcess] = useState(false);
+  const [currentGenerationStatus, setCurrentGenerationStatus] = useState("");
+  const [completedGenerationSteps, setCompletedGenerationSteps] = useState([]);
+  const [generationError, setGenerationError] = useState(null);
+  const [githubResult, setGithubResult] = useState(null);
+  const [activeGenerationStoryId, setActiveGenerationStoryId] = useState(null); // New state to track which story is generating
+
   // Form fields state
   const [userStoryTitle, setUserStoryTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -184,6 +283,7 @@ const UserStoryPage = () => {
   const [selectedCollaboratorGithubIds, setSelectedCollaboratorGithubIds] =
     useState([]);
   const [generatedStoryContent, setGeneratedStoryContent] = useState("");
+  const [githubRepoUrl, setGithubRepoUrl] = useState(""); // State for GitHub Repo URL - though project's will be used
 
   // State for menus and notifications
   const [anchorEl, setAnchorEl] = useState(null);
@@ -198,6 +298,10 @@ const UserStoryPage = () => {
   const { data: userData } = useGetUserAndGithubDataQuery(userId);
   const userRole = userData?.user?.role;
   const githubId = userData?.githubData?.githubId;
+
+  // Placeholder for project's GitHub Repo URL. In a real app, this would come from a project details query.
+  // For this example, ensure you replace this with actual project data if available.
+  const projectGithubRepoUrl = "https://github.com/your-org/your-repo-name"; // <<< IMPORTANT: REPLACE WITH ACTUAL PROJECT REPO URL LOGIC
 
   const { data: developerPermissions } = useGetCollaboratorPermissionsQuery(
     { projectId, githubId },
@@ -223,6 +327,8 @@ const UserStoryPage = () => {
     useDeleteUserStoryMutation();
   const [generateAiStory, { isLoading: isGenerating }] =
     useGenerateAiStoryMutation();
+  // We're not using the RTK Query mutation directly for streaming, but keeping it for reference if needed
+  const [triggerSalesforceCodeGeneration] = useGenerateSalesforceCodeMutation();
 
   const canManageStories =
     userRole === "manager" ||
@@ -246,6 +352,7 @@ const UserStoryPage = () => {
     setSelectedCollaboratorGithubIds([]);
     setGeneratedStoryContent("");
     setEditingStory(null);
+    setGithubRepoUrl(""); // Reset GitHub Repo URL
   };
 
   // Open dialog for creating
@@ -267,6 +374,9 @@ const UserStoryPage = () => {
         story.collaborators.map((c) => c.githubId)
       );
       setGeneratedStoryContent(story.aiEnhancedUserStory || "");
+      // If editing, try to pre-fill githubRepoUrl if it was associated with the project
+      // For now, assuming a default or project-level URL
+      setGithubRepoUrl(projectGithubRepoUrl); // Set a default or fetch it based on projectId
       setDialogOpen(true);
     }
     handleMenuClose();
@@ -283,6 +393,26 @@ const UserStoryPage = () => {
   const handleCloseDialogs = () => {
     setDialogOpen(false);
     setDeleteDialogOpen(false);
+    // When closing the main dialog, also ensure the generation dialog is closed if it's open,
+    // but only if the generation process is truly done or user explicitly closes it after error/completion.
+    if (!isGeneratingCodeProcess) {
+      // Only allow this if process is not active (or finished)
+      setIsGeneratingCodeProcess(false);
+      setCompletedGenerationSteps([]); // Clear steps on close
+      setCurrentGenerationStatus(""); // Clear current status
+      setGenerationError(null); // Clear any errors
+      setGithubResult(null); // Clear result
+      setActiveGenerationStoryId(null); // Reset active generation story
+    }
+  };
+
+  // NEW: Handler for opening the generation dialog manually (from "Generating..." button)
+  const handleOpenGenerationDialog = (storyId) => {
+    setCurrentStoryId(storyId); // Set context for the dialog
+    // Ensure the dialog opens if the process is active for this story
+    if (activeGenerationStoryId === storyId) {
+      setIsGeneratingCodeProcess(true);
+    }
   };
 
   const handleCollaboratorChange = (event) => {
@@ -314,6 +444,144 @@ const UserStoryPage = () => {
         err.data?.message || "Failed to generate AI content.",
         "error"
       );
+    }
+  };
+
+  // NEW: Handler for generating Salesforce code with streaming updates
+  const handleGenerateSalesforceCode = async () => {
+    if (!currentStoryId) {
+      showSnackbar("Please select a user story first.", "warning");
+      return;
+    }
+    if (!projectGithubRepoUrl) {
+      // Use the project's actual GitHub URL
+      showSnackbar(
+        "Project GitHub repository URL is not configured. Please update project settings.",
+        "error"
+      );
+      return;
+    }
+
+    setIsGeneratingCodeProcess(true);
+    setActiveGenerationStoryId(currentStoryId); // Set the active story for generation
+    setCompletedGenerationSteps([]);
+    setCurrentGenerationStatus("AI code generation initiated..."); // Initial status
+    setGenerationError(null);
+    setGithubResult(null);
+    handleMenuClose(); // Close the story action menu
+
+    // Immediately add the initial status to the completed steps list
+    setCompletedGenerationSteps([
+      { message: "AI code generation initiated..." },
+    ]);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user-stories/${currentStoryId}/generate-salesforce-code`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`, // Ensure token is sent
+          },
+          body: JSON.stringify({
+            projectId,
+            githubRepoUrl: projectGithubRepoUrl,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        // Handle non-streaming errors
+        const errorData = await response.json();
+        setGenerationError(
+          errorData.message ||
+            "An unknown error occurred during generation setup."
+        );
+        setCurrentGenerationStatus("Failed to start.");
+        showSnackbar(
+          errorData.message || "Failed to start code generation.",
+          "error"
+        );
+        return;
+      }
+
+      // Use a ReadableStreamDefaultReader to process the stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process each complete SSE message
+        let lastIndex = 0;
+        let newlineIndex;
+        while ((newlineIndex = buffer.indexOf("\n\n", lastIndex)) !== -1) {
+          const eventString = buffer.substring(lastIndex, newlineIndex);
+          lastIndex = newlineIndex + 2; // Move past the double newline
+
+          if (eventString.startsWith("data: ")) {
+            try {
+              const eventData = JSON.parse(eventString.substring(6)); // Remove 'data: ' prefix
+
+              // Always add the new message to completed steps list if it's new
+              setCompletedGenerationSteps((prev) => {
+                // Only add if it's a new, meaningful status update.
+                if (
+                  prev.length === 0 ||
+                  prev[prev.length - 1]?.message !== eventData.message
+                ) {
+                  return [...prev, { message: eventData.message }];
+                }
+                return prev;
+              });
+
+              setCurrentGenerationStatus(eventData.message); // Update the currently displayed status
+
+              if (eventData.type === "complete") {
+                setGithubResult(eventData); // Store the final result
+                showSnackbar(
+                  "Salesforce code generated and PR created successfully!",
+                  "success"
+                );
+                refetchUserStories(); // Refresh stories to reflect any changes
+              } else if (eventData.type === "error") {
+                setGenerationError(eventData.message);
+                setCurrentGenerationStatus("Process failed.");
+                showSnackbar(eventData.message, "error");
+              }
+            } catch (parseError) {
+              console.error("Error parsing SSE data:", parseError);
+              // Handle malformed JSON if necessary, but don't stop the stream
+            }
+          }
+        }
+        buffer = buffer.substring(lastIndex); // Keep any incomplete message in the buffer
+      }
+    } catch (err) {
+      console.error("Fetch error during Salesforce code generation:", err);
+      setGenerationError(
+        err.message || "Network error during code generation."
+      );
+      setCurrentGenerationStatus("Failed to connect or stream.");
+      showSnackbar(
+        err.message || "Network error during code generation.",
+        "error"
+      );
+    } finally {
+      // Ensure the process is marked as complete or failed after stream ends or error
+      // Give a small delay to ensure final status is displayed
+      setTimeout(() => {
+        // Only reset activeGenerationStoryId if the process truly finishes (success or error)
+        // and is not just a temporary network hiccup that might restart.
+        // For simplicity, we'll reset it here assuming process completion/failure.
+        setIsGeneratingCodeProcess(false);
+        setActiveGenerationStoryId(null); // Reset active generation story
+      }, 1000); // Small delay to allow final status to render
     }
   };
 
@@ -418,10 +686,39 @@ const UserStoryPage = () => {
                       display="flex"
                       justifyContent="space-between"
                       alignItems="flex-start"
+                      // Flex container for title and generating button
+                      sx={{ flexWrap: "wrap" }}
                     >
                       <Typography variant="h6" sx={{ pr: 1, flexGrow: 1 }}>
                         {story.userStoryTitle}
                       </Typography>
+                      {activeGenerationStoryId === story._id &&
+                        isGeneratingCodeProcess && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() =>
+                              handleOpenGenerationDialog(story._id)
+                            }
+                            startIcon={
+                              <CircularProgress size={16} color="inherit" />
+                            }
+                            sx={{
+                              ml: 1, // Margin-left
+                              mt: 0.5, // Margin-top to align with text
+                              color: freshTheme.palette.secondary.main,
+                              borderColor: freshTheme.palette.secondary.main,
+                              "&:hover": {
+                                borderColor: freshTheme.palette.secondary.dark,
+                                color: freshTheme.palette.secondary.dark,
+                              },
+                              textTransform: "none",
+                              borderRadius: "8px",
+                            }}
+                          >
+                            Generating...
+                          </Button>
+                        )}
                       {canManageStories && (
                         <IconButton
                           size="small"
@@ -476,6 +773,60 @@ const UserStoryPage = () => {
                         />
                       </>
                     )}
+
+                    {/* NEW: Display GitHub Branch and PR Link */}
+                    {(story.githubBranch || story.prUrl) && (
+                      <Box
+                        mt={2}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: "8px",
+                          border: `1px solid ${freshTheme.palette.secondary.light}`,
+                          background: freshTheme.palette.background.default,
+                        }}
+                      >
+                        <Typography
+                          variant="subtitle2"
+                          color="text.primary"
+                          fontWeight={600}
+                          mb={1}
+                        >
+                          GitHub Details:
+                        </Typography>
+                        {story.githubBranch && (
+                          <Typography variant="body2" color="text.secondary">
+                            Branch:{" "}
+                            <a
+                              href={`https://github.com/your-org/your-repo-name/tree/${story.githubBranch}`} // Replace 'your-org/your-repo-name' with dynamic project repo base
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: freshTheme.palette.primary.main,
+                                textDecoration: "underline",
+                              }}
+                            >
+                              {story.githubBranch}
+                            </a>
+                          </Typography>
+                        )}
+                        {story.prUrl && (
+                          <Typography variant="body2" color="text.secondary">
+                            Pull Request:{" "}
+                            <a
+                              href={story.prUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: freshTheme.palette.primary.main,
+                                textDecoration: "underline",
+                              }}
+                            >
+                              View PR
+                            </a>
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
                   </CardContent>
                   {story.collaborators && story.collaborators.length > 0 && (
                     <CardContent sx={{ pt: 0 }}>
@@ -508,6 +859,24 @@ const UserStoryPage = () => {
               <EditIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Edit</ListItemText>
+          </MenuItem>
+          <MenuItem
+            onClick={handleGenerateSalesforceCode}
+            disabled={isGeneratingCodeProcess || !projectGithubRepoUrl}
+          >
+            <ListItemIcon>
+              {isGeneratingCodeProcess ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <AutoFixHighIcon fontSize="small" />
+              )}
+            </ListItemIcon>
+            <ListItemText>
+              {isGeneratingCodeProcess &&
+              activeGenerationStoryId === currentStoryId
+                ? "Generating Code..."
+                : "Generate Salesforce Code"}
+            </ListItemText>
           </MenuItem>
           <MenuItem onClick={handleOpenDeleteDialog}>
             <ListItemIcon>
@@ -678,6 +1047,137 @@ const UserStoryPage = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* NEW: Advanced Code Generation Loading Dialog */}
+        <LoadingDialog
+          open={
+            isGeneratingCodeProcess &&
+            activeGenerationStoryId === currentStoryId
+          } // Only open if process is active for the current story
+          onClose={(event, reason) => {
+            // Allow closing only if the "Close" button is clicked.
+            // Backdrop click or escape key will not close it if it's open due to generation.
+            if (reason === "escapeKeyDown" || reason === "backdropClick") {
+              // Optionally show a message that generation is still in progress
+              showSnackbar(
+                "Code generation is in progress. Please use the 'Close' button.",
+                "info"
+              );
+              return; // Prevent closing
+            }
+            handleCloseDialogs(); // This will reset states and close the dialog
+          }}
+          aria-labelledby="loading-dialog-title"
+        >
+          <DialogTitle
+            id="loading-dialog-title"
+            sx={{ color: "primary.main", fontWeight: 700 }}
+          >
+            {generationError
+              ? "Code Generation Failed"
+              : "AI Code Generation Progress"}
+          </DialogTitle>
+          <DialogContent sx={{ p: 4 }}>
+            {!generationError && !githubResult ? (
+              <>
+                <AnimatedIcon>
+                  <AutoFixHighIcon sx={{ fontSize: "inherit" }} />
+                </AnimatedIcon>
+                <StatusMessage>{currentGenerationStatus}</StatusMessage>
+                <LinearProgress
+                  color="primary"
+                  sx={{ my: 2, height: 8, borderRadius: 5 }}
+                />
+              </>
+            ) : (
+              <>
+                {generationError ? (
+                  <Box>
+                    <Typography color="error" variant="h6" mb={2}>
+                      Error: {generationError}
+                    </Typography>
+                    <Typography color="text.secondary" variant="body2">
+                      Please check the backend logs for more details or try
+                      again.
+                    </Typography>
+                  </Box>
+                ) : (
+                  githubResult && (
+                    <Box>
+                      <CheckCircleOutlineIcon
+                        sx={{
+                          fontSize: "4rem",
+                          color: "success.main",
+                          mb: 2,
+                          animation: `${pulse} 1.5s infinite`,
+                        }}
+                      />
+                      <Typography color="success.main" variant="h6" mb={1}>
+                        Process Completed Successfully!
+                      </Typography>
+                      <Typography variant="body1" color="text.secondary" mb={2}>
+                        Your Salesforce code has been generated and pushed to
+                        GitHub.
+                      </Typography>
+                      <Box mb={2}>
+                        <Typography variant="body2" color="text.secondary">
+                          Branch:{" "}
+                          <a
+                            href={
+                              githubResult.githubRepoUrl +
+                              "/tree/" +
+                              githubResult.githubBranch
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: freshTheme.palette.secondary.main,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            {githubResult.githubBranch}
+                          </a>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Pull Request:{" "}
+                          <a
+                            href={githubResult.prUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: freshTheme.palette.secondary.main,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            View PR
+                          </a>
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )
+                )}
+              </>
+            )}
+
+            <CompletedStepsList>
+              {completedGenerationSteps.map((step, index) => (
+                <CompletedStepItem key={index}>
+                  <CheckCircleOutlineIcon sx={{ fontSize: "1rem" }} />
+                  {step.message}
+                </CompletedStepItem>
+              ))}
+            </CompletedStepsList>
+          </DialogContent>
+          <DialogActions sx={{ p: "16px 24px" }}>
+            <Button
+              onClick={handleCloseDialogs}
+              variant="contained"
+              color="primary"
+            >
+              Close
+            </Button>
+          </DialogActions>
+        </LoadingDialog>
 
         {/* Snackbar for notifications */}
         <Snackbar

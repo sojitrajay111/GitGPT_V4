@@ -16,6 +16,27 @@ async function loadESModules() {
 }
 
 /**
+ * Helper function to send a status update to the client.
+ * @param {object} res - Express response object.
+ * @param {string} message - The status message to send.
+ * @param {string} type - Type of message (e.g., 'status', 'error', 'complete').
+ * @param {object} [data] - Optional additional data.
+ */
+function sendStatusUpdate(res, message, type = "status", data = {}) {
+  // Ensure the connection is still open before writing
+  if (!res.headersSent) {
+    // Check if headers have been sent (prevents errors if client disconnects)
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+  }
+  // Format as a server-sent event
+  res.write(`data: ${JSON.stringify({ type, message, ...data })}\n\n`);
+}
+
+/**
  * Helper function to fetch repository contents recursively from GitHub.
  * It fetches content for common code and text file types.
  * This function is adapted from codeAnalysisController.js
@@ -502,32 +523,48 @@ const generateSalesforceCodeAndPush = async (req, res) => {
   const { projectId } = req.body;
   const authenticatedUserId = req.user.id;
 
+  // Set response headers for Server-Sent Events immediately
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+
+  // Handle client disconnect
+  req.on("close", () => {
+    console.log("Client disconnected during Salesforce code generation.");
+    res.end(); // End the response if the client closes the connection
+  });
+
   try {
+    sendStatusUpdate(res, "AI code generation initiated...");
+
     // 1. Fetch project and user's GitHub data
     const project = await Project.findById(projectId);
     if (!project) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Project not found." });
+      sendStatusUpdate(res, "Project not found.", "error");
+      return res.end();
     }
     const githubRepoUrl = project.githubRepoLink;
     if (!githubRepoUrl) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "GitHub repository link not found for this project. Please configure it in project settings.",
-      });
+      sendStatusUpdate(
+        res,
+        "GitHub repository link not found for this project. Please configure it in project settings.",
+        "error"
+      );
+      return res.end();
     }
 
     const userGitHubData = await GitHubData.findOne({
       userId: authenticatedUserId,
     });
     if (!userGitHubData || !userGitHubData.githubPAT) {
-      return res.status(401).json({
-        success: false,
-        message:
-          "User's GitHub PAT not found. Please authenticate with GitHub.",
-      });
+      sendStatusUpdate(
+        res,
+        "User's GitHub PAT not found. Please authenticate with GitHub.",
+        "error"
+      );
+      return res.end();
     }
     const githubToken = userGitHubData.githubPAT;
     const githubUsername = userGitHubData.githubUsername;
@@ -536,19 +573,20 @@ const generateSalesforceCodeAndPush = async (req, res) => {
 
     const userStory = await UserStory.findById(userStoryId);
     if (!userStory) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User story not found." });
+      sendStatusUpdate(res, "User story not found.", "error");
+      return res.end();
     }
 
     const repoMatch = githubRepoUrl.match(
       /github\.com\/([^\/]+)\/([^\/]+)(?:\.git)?$/i
     );
     if (!repoMatch) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid GitHub repository URL from project.",
-      });
+      sendStatusUpdate(
+        res,
+        "Invalid GitHub repository URL from project.",
+        "error"
+      );
+      return res.end();
     }
     const owner = repoMatch[1];
     const repoName = repoMatch[2];
@@ -556,6 +594,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     let baseBranchSha;
     let actualBaseBranchName = "main"; // Default to 'main' as a safe fallback for PR base
 
+    sendStatusUpdate(res, "Fetching repository context...");
     // Determine the actual base branch and its SHA (prioritize 'dev', then default)
     try {
       // First, attempt to directly get the 'dev' branch by exact name
@@ -614,18 +653,27 @@ const generateSalesforceCodeAndPush = async (req, res) => {
           }
         } catch (listError) {
           if (listError.status === 404) {
-            throw new Error(
-              `Repository '${owner}/${repoName}' appears to be empty or uninitialized. Please create an initial commit and a 'dev' branch or a default branch (e.g., 'main') first.`
+            sendStatusUpdate(
+              res,
+              `Repository '${owner}/${repoName}' appears to be empty or uninitialized. Please create an initial commit and a 'dev' branch or a default branch (e.g., 'main') first.`,
+              "error"
             );
+            return res.end();
           }
-          throw new Error(
-            `Failed to list branches or get default branch details for ${owner}/${repoName}: ${listError.message}`
+          sendStatusUpdate(
+            res,
+            `Failed to list branches or get default branch details for ${owner}/${repoName}: ${listError.message}`,
+            "error"
           );
+          return res.end();
         }
       } else {
-        throw new Error(
-          `Failed to get 'dev' branch details for ${owner}/${repoName}: ${error.message}`
+        sendStatusUpdate(
+          res,
+          `Failed to get 'dev' branch details for ${owner}/${repoName}: ${error.message}`,
+          "error"
         );
+        return res.end();
       }
     }
 
@@ -797,10 +845,12 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     // 4. Call AI to generate Salesforce code
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error("GEMINI_API_KEY is not set in environment variables.");
-      return res
-        .status(500)
-        .json({ success: false, message: "AI service configuration error." });
+      sendStatusUpdate(
+        res,
+        "AI service configuration error: GEMINI_API_KEY is not set.",
+        "error"
+      );
+      return res.end();
     }
 
     const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -833,6 +883,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       ],
     };
 
+    sendStatusUpdate(res, "Sending request to AI model...");
     console.log("Calling Gemini API for Salesforce code generation...");
     const aiResponse = await fetch(geminiApiUrl, {
       method: "POST",
@@ -843,18 +894,23 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     if (!aiResponse.ok) {
       const errorData = await aiResponse.text();
       console.error("Error from Gemini API:", errorData);
-      throw new Error(
-        `Gemini API request failed with status ${aiResponse.status}: ${errorData}`
+      sendStatusUpdate(
+        res,
+        `Gemini API request failed: ${aiResponse.status} - ${errorData}`,
+        "error"
       );
+      return res.end();
     }
 
     const result = await aiResponse.json();
 
     if (result.candidates && result.candidates[0].finishReason === "SAFETY") {
-      return res.status(400).json({
-        success: false,
-        message: "AI code generation content was blocked by safety filters.",
-      });
+      sendStatusUpdate(
+        res,
+        "AI code generation content was blocked by safety filters.",
+        "error"
+      );
+      return res.end();
     }
 
     let generatedCodeFiles;
@@ -873,21 +929,27 @@ const generateSalesforceCodeAndPush = async (req, res) => {
         }
       } catch (parseError) {
         console.error("Failed to parse AI generated code JSON:", parseError);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to parse AI code generation response.",
-        });
+        sendStatusUpdate(
+          res,
+          "Failed to parse AI code generation response.",
+          "error"
+        );
+        return res.end();
       }
     } else {
       console.error(
         "Unexpected AI response structure for code generation:",
         result
       );
-      return res.status(500).json({
-        success: false,
-        message: "Failed to get AI generated Salesforce code.",
-      });
+      sendStatusUpdate(
+        res,
+        "Failed to get AI generated Salesforce code.",
+        "error"
+      );
+      return res.end();
     }
+    sendStatusUpdate(res, "AI response received. Generating code...");
+    sendStatusUpdate(res, "Code generation completed. Preparing for GitHub...");
 
     // 5. Create a new branch name and check for uniqueness
     const userStoryTitleWords = userStory.userStoryTitle
@@ -922,6 +984,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       // else: branch does not exist, safe to use the original name
     }
 
+    sendStatusUpdate(res, `Creating new branch '${newBranchName}'...`);
     // 6. Create Blobs and Tree for the new commit
     const treeUpdates = [];
     // Fetch current tree for the base branch to ensure we include existing files
@@ -1046,6 +1109,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
         throw error; // Re-throw other errors
       }
     }
+    sendStatusUpdate(res, "Pushing generated code...");
 
     // 9. Create a Pull Request (from newBranchName to targetBranchForPR)
     const prTitle = `feat(AI): Implement User Story: ${userStory.userStoryTitle} [UserStoryId: ${userStoryId}]`;
@@ -1062,6 +1126,7 @@ ${userStory.testingScenarios}
 
 *This code was automatically generated by the AI and requires human review for accuracy, best practices, and integration.*`;
 
+    sendStatusUpdate(res, "Creating Pull Request...");
     console.log(`Attempting to create PR:`);
     console.log(`Owner: ${owner}`);
     console.log(`Repo: ${repoName}`);
@@ -1079,13 +1144,20 @@ ${userStory.testingScenarios}
     });
     console.log(`Pull Request created: ${pr.html_url}`);
 
-    res.status(200).json({
-      success: true,
-      message: `Salesforce code generated, pushed to branch '${newBranchName}', and PR created: ${pr.html_url}`,
+    // Update the user story in the database with the new GitHub details
+    userStory.githubBranch = newBranchName;
+    userStory.prUrl = pr.html_url;
+    await userStory.save();
+    console.log(
+      `User story ${userStoryId} updated with GitHub branch and PR URL.`
+    );
+
+    sendStatusUpdate(res, "Process completed successfully!", "complete", {
       githubBranch: newBranchName,
       githubRepoUrl: githubRepoUrl,
       prUrl: pr.html_url,
     });
+    res.end(); // End the response here
   } catch (error) {
     console.error(
       "Error during Salesforce code generation and GitHub operations:",
@@ -1095,7 +1167,8 @@ ${userStory.testingScenarios}
     if (error.response?.data?.message) {
       errorMessage += ` (GitHub API Error: ${error.response.data.message})`;
     }
-    res.status(500).json({ success: false, message: errorMessage });
+    sendStatusUpdate(res, errorMessage, "error");
+    res.end(); // Ensure the response is always ended on error
   }
 };
 
