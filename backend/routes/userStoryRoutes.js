@@ -7,6 +7,7 @@ const {
   updateUserStory,
   deleteUserStory,
   generateAiStoryContent,
+  generateSalesforceCodeAndPush,
 } = require("../controllers/userStoryController");
 
 // Route to create a new user story
@@ -23,5 +24,10 @@ router.delete("/:userStoryId", authenticateUser, deleteUserStory);
 
 // Route for AI content generation
 router.post("/generate-ai-story", authenticateUser, generateAiStoryContent);
+router.post(
+  "/:userStoryId/generate-salesforce-code",
+  authenticateUser,
+  generateSalesforceCodeAndPush
+);
 
 module.exports = router;

@@ -1,472 +1,515 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from "react"; // Added useMemo
 import {
   Box,
+  Typography,
   Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  MenuItem,
   IconButton,
-  Typography,
-  Paper,
-  InputAdornment,
-  Avatar,
-  Tooltip,
   Chip,
   CircularProgress,
-  Snackbar,
-  Alert
-} from '@mui/material';
+  Alert,
+  DialogContentText,
+  InputAdornment, // For search icon
+} from "@mui/material";
+import { DataGrid } from "@mui/x-data-grid";
+import { useForm } from "react-hook-form";
 import {
-  DataGrid,
-  GridToolbarContainer,
-  GridToolbarFilterButton,
-  GridToolbarExport
-} from '@mui/x-data-grid';
+  Delete as DeleteIcon,
+  Add as AddIcon,
+  CheckCircleOutline as VerifyIcon,
+  Search as SearchIcon, // Added SearchIcon
+} from "@mui/icons-material";
+import { useParams } from "next/navigation";
 import {
-  Edit,
-  Delete,
-  Add,
-  Search,
-  CheckCircle,
-  PendingActions,
-  PlayCircleFilled,
-  Cancel
-} from '@mui/icons-material';
+  useAddUserMutation,
+  useCheckUserExistenceMutation,
+  useDeleteUserMutation,
+  useGetUsersQuery,
+  useUpdateUserMutation,
+} from "@/features/usermanagementSlice";
 
-const statusOptions = [
-  { value: 'Pending', label: 'Pending', color: 'warning', icon: <PendingActions /> },
-  { value: 'In Progress', label: 'In Progress', color: 'info', icon: <PlayCircleFilled /> },
-  { value: 'Completed', label: 'Completed', color: 'success', icon: <CheckCircle /> },
-  { value: 'Rejected', label: 'Rejected', color: 'error', icon: <Cancel /> },
-];
+export default function UserManagementSettings() {
+  const [openAddUserDialog, setOpenAddUserDialog] = useState(false);
+  const [usernameVerifiedAsNew, setUsernameVerifiedAsNew] = useState(false);
+  const [usernameVerificationMessage, setUsernameVerificationMessage] = useState("");
+  const [formMessage, setFormMessage] = useState("");
+  const [openConfirmDeleteDialog, setOpenConfirmDeleteDialog] = useState(false);
+  const [userToDeleteId, setUserToDeleteId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(""); // New state for search term
+  const params = useParams();
+  const { userId } = params;
 
-const initialUsers = [
-  { id: 1, username: 'john_doe', email: 'john@example.com', status: 'Pending' },
-  { id: 2, username: 'jane_smith', email: 'jane@example.com', status: 'Completed' },
-  { id: 3, username: 'mike_johnson', email: 'mike@example.com', status: 'In Progress' },
-  { id: 4, username: 'sara_wilson', email: 'sara@example.com', status: 'Rejected' },
-  { id: 5, username: 'alex_carter', email: 'alex@example.com', status: 'Pending' },
-  { id: 6, username: 'charlie_brown', email: 'charlie@example.com', status: 'In Progress' },
-  { id: 7, username: 'diana_ross', email: 'diana@example.com', status: 'Completed' },
-  { id: 8, username: 'eve_adams', email: 'eve@example.com', status: 'Pending' },
-  { id: 9, username: 'frank_black', email: 'frank@example.com', status: 'In Progress' },
-  { id: 10, username: 'grace_kelly', email: 'grace@example.com', status: 'Completed' },
-  { id: 11, username: 'david_wilson_super_long_username', email: 'david.wilson.test@longdomainexample.com', status: 'Pending' },
-  { id: 12, username: 'olivia_perez_max', email: 'olivia.perez.maximum@another-example.co.uk', status: 'In Progress' },
-];
+  // RTK Query hooks for user management
+  const {
+    data: usersData,
+    isLoading: isLoadingUsers,
+    isError: isErrorUsers,
+    error: usersError,
+  } = useGetUsersQuery(userId);
 
-function CustomToolbar() {
-  return (
-    <GridToolbarContainer sx={{ p: 2, justifyContent: 'flex-start' }}>
-      <GridToolbarFilterButton />
-      <GridToolbarExport
-        printOptions={{ disableToolbarButton: true }}
-        sx={{ ml: 1 }}
-      />
-    </GridToolbarContainer>
-  );
-}
+  const [
+    addUser,
+    { isLoading: isAddingUser, isSuccess: addUserSuccess, isError: adduserError, error: addUserErrorMessage },
+  ] = useAddUserMutation();
 
-export default function ManageUser() {
-  const [users, setUsers] = useState(initialUsers);
-  const [open, setOpen] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [newUser, setNewUser] = useState({
-    username: '',
-    email: '',
-    status: 'Pending'
-  });
-  const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
-  const [isEditing, setIsEditing] = useState(false); // New state to track if we're editing
-  const [editingUserId, setEditingUserId] = useState(null); // New state to store the ID of the user being edited
+  const [updateUser, { isLoading: isUpdatingUser }] = useUpdateUserMutation();
+  const [deleteUser, { isLoading: isDeletingUser }] = useDeleteUserMutation();
+  const [
+    checkUserExistence,
+    { isLoading: isCheckingExistence, isError: checkExistenceError, error: checkExistenceErrorMessage },
+  ] = useCheckUserExistenceMutation();
 
-  const handleOpen = () => {
-    setIsEditing(false); // When opening for add, ensure isEditing is false
-    setEditingUserId(null); // Clear editing user ID
-    setNewUser({ username: '', email: '', status: 'Pending' }); // Reset form for new user
-    setOpen(true);
-  };
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setError,
+    clearErrors,
+    formState: { errors, isValid },
+  } = useForm({ mode: "onChange" });
 
-  const handleClose = () => {
-    setOpen(false);
-    setNewUser({ username: '', email: '', status: 'Pending' });
-    setIsEditing(false); // Reset editing state on close
-    setEditingUserId(null); // Clear editing user ID
-  };
+  const usernameValue = watch("username");
 
-  const handleEdit = (user) => {
-    setIsEditing(true); // Set editing state to true
-    setEditingUserId(user.id); // Store the ID of the user being edited
-    setNewUser({ ...user }); // Pre-fill the form with user data
-    setOpen(true); // Open the dialog
-  };
+  useEffect(() => {
+    if (addUserSuccess) {
+      setFormMessage("✅ User added and invitation email sent successfully!");
+      setUsernameVerifiedAsNew(false);
+      reset();
+      setOpenAddUserDialog(false);
+    }
+    if (adduserError) {
+      setFormMessage(`❌ Error adding user: ${addUserErrorMessage?.data?.message || addUserErrorMessage?.message || 'Unknown error'}`);
+    }
+    if (isErrorUsers) {
+      setFormMessage(`❌ Error fetching users: ${usersError?.data?.message || usersError?.message || 'Unknown error'}`);
+    }
+    const timer = setTimeout(() => {
+      setFormMessage("");
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [addUserSuccess, adduserError, addUserErrorMessage, isErrorUsers, usersError, reset]);
 
-  const handleSaveUser = () => {
-    // Basic validation
-    if (!newUser.username.trim()) {
-      setSnackbar({
-        open: true,
-        message: 'Username cannot be empty.',
-        severity: 'error'
-      });
+  const handleVerifyUsername = async () => {
+    if (!usernameValue) {
+      setError("username", { type: "manual", message: "Username is required for verification." });
+      setUsernameVerifiedAsNew(false);
+      setUsernameVerificationMessage("");
       return;
     }
-    if (!newUser.email.trim()) {
-      setSnackbar({
-        open: true,
-        message: 'Email cannot be empty.',
-        severity: 'error'
-      });
-      return;
-    }
-    if (!/\S+@\S+\.\S+/.test(newUser.email)) {
-      setSnackbar({
-        open: true,
-        message: 'Please enter a valid email address.',
-        severity: 'error'
-      });
-      return;
-    }
+    clearErrors("username");
 
-    setLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      if (isEditing) {
-        // Update existing user
-        setUsers(prev =>
-          prev.map(user =>
-            user.id === editingUserId
-              ? { ...newUser, id: editingUserId } // Ensure ID is preserved
-              : user
-          )
-        );
-        setSnackbar({
-          open: true,
-          message: 'User updated successfully!',
-          severity: 'success'
-        });
+    try {
+      const result = await checkUserExistence(usernameValue).unwrap();
+      if (result.exists) {
+        setUsernameVerifiedAsNew(false);
+        setError("username", { type: "manual", message: "A user with this username already exists." });
+        setUsernameVerificationMessage("❌ User already exists with this username.");
       } else {
-        // Add new user
-        const newEntry = {
-          id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
-          username: newUser.username.trim(),
-          email: newUser.email.trim(),
-          status: newUser.status,
-        };
-        setUsers(prev => [...prev, newEntry]);
-        setSnackbar({
-          open: true,
-          message: 'User added successfully!',
-          severity: 'success'
-        });
+        setUsernameVerifiedAsNew(true);
+        setUsernameVerificationMessage("✅ Username is new and available!");
+        clearErrors("username");
       }
-      handleClose();
-      setLoading(false);
-    }, 1000);
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(prev => prev.filter(user => user.id !== id));
-      setSnackbar({
-        open: true,
-        message: 'User deleted successfully!',
-        severity: 'info'
-      });
+    } catch (err) {
+      setUsernameVerifiedAsNew(false);
+      setError("username", { type: "manual", message: "Failed to verify username. Please try again." });
+      setUsernameVerificationMessage(`❌ Verification failed: ${err.data?.message || err.message || 'Unknown error'}`);
+      console.error("Username verification error:", err);
     }
   };
 
-  const handleVerifyEmail = () => {
-    const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email);
-    setSnackbar({
-      open: true,
-      message: isValid
-        ? 'Email is valid!'
-        : 'Please enter a valid email address',
-      severity: isValid ? 'success' : 'error'
-    });
+  const handleAddUser = async (data) => {
+    if (!usernameVerifiedAsNew) {
+      setFormMessage("❌ Please verify the user's username first.");
+      return;
+    }
+
+    setFormMessage("Adding user and sending invitation...");
+    try {
+      await addUser({ userData: data, managerId: userId }).unwrap();
+    } catch (error) {
+      // Error handled by useEffect and RTK Query's isError state
+    }
   };
 
+  const handleEditUser = async (id, currentData) => {
+    console.log("Editing user with ID:", id);
+    setFormMessage("Updating user (example)...");
+    try {
+      await updateUser({ id, status: "Active" }).unwrap();
+      setFormMessage("✅ User status updated to Active (example).");
+    } catch (error) {
+      setFormMessage(`❌ Failed to update user: ${error?.data?.message || error?.message || 'Unknown error'}`);
+    }
+  };
+
+  const confirmDelete = (id) => {
+    setUserToDeleteId(id);
+    setOpenConfirmDeleteDialog(true);
+  };
+
+  const executeDelete = async () => {
+    setOpenConfirmDeleteDialog(false);
+    if (userToDeleteId) {
+      setFormMessage("Deleting user...");
+      try {
+        await deleteUser(userToDeleteId).unwrap();
+        setFormMessage("✅ User deleted successfully!");
+      } catch (error) {
+        setFormMessage(`❌ Failed to delete user: ${error?.data?.message || error?.message || 'Unknown error'}`);
+      } finally {
+        setUserToDeleteId(null);
+      }
+    }
+  };
+
+  // Filtered users based on search term
+  const filteredUsers = useMemo(() => {
+    if (!usersData?.data) return [];
+    if (!searchTerm) return usersData.data;
+
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    return usersData.data.filter(user =>
+      user.username.toLowerCase().startsWith(lowerCaseSearchTerm)
+    );
+  }, [usersData, searchTerm]);
+
+  // Define columns for DataGrid
   const columns = [
     {
-      field: 'id',
-      headerName: 'Index',
-      width: 70,
-      headerAlign: 'center',
-      align: 'center'
-    },
-    {
-      field: 'username',
-      headerName: 'Username',
-      width: 180,
-      headerAlign: 'left',
-      align: 'left'
-    },
-    {
-      field: 'email',
-      headerName: 'Email',
-      width: 250,
-      headerAlign: 'left',
-      align: 'left'
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 180,
+      field: "index",
+      headerName: "Index",
+      width: 90,
       renderCell: (params) => {
-        const status = statusOptions.find(opt => opt.value === params.value);
+        const currentIndex = filteredUsers.findIndex(user => user._id === params.row._id);
+        return currentIndex !== -1 ? currentIndex + 1 : '';
+      },
+      sortable: false,
+      filterable: false,
+      headerAlign: 'center',
+      align: 'center',
+    },
+    { field: "username", headerName: "Name", width: 200, flex: 1 },
+    { field: "email", headerName: "Email", width: 250, flex: 1.5 },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 120,
+      renderCell: (params) => {
+        let color;
+        switch (params.value) {
+          case "Active":
+            color = "success";
+            break;
+          case "Pending":
+            color = "warning";
+            break;
+          case "Inactive":
+            color = "error";
+            break;
+          default:
+            color = "default";
+        }
         return (
-          <Chip
-            label={status.label}
-            color={status.color}
-            icon={status.icon}
-            variant="outlined"
-            size="small"
-            sx={{ width: 'fit-content' }}
-          />
+          <Chip label={params.value} color={color} size="small" sx={{ borderRadius: 1.5 }} />
         );
       },
       headerAlign: 'center',
-      align: 'center'
+      align: 'center',
     },
     {
-      field: 'action',
-      headerName: 'Actions',
-      width: 150,
+      field: "actions",
+      headerName: "Actions",
+      width: 100,
       sortable: false,
+      filterable: false,
       renderCell: (params) => (
-        <Box display="flex" justifyContent="center">
-          <Tooltip title="Edit user">
-            <IconButton
-              color="primary"
-              onClick={() => handleEdit(params.row)} // Call handleEdit with the row data
-              sx={{ mr: 1 }}
-            >
-              <Edit />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete user">
-            <IconButton
-              color="error"
-              onClick={() => handleDelete(params.row.id)}
-            >
-              <Delete />
-            </IconButton>
-          </Tooltip>
+        <Box>
+          <IconButton
+            color="error"
+            size="small"
+            onClick={() => confirmDelete(params.id)}
+            aria-label="delete user"
+            disabled={isDeletingUser}
+          >
+            {isDeletingUser ? <CircularProgress size={20} /> : <DeleteIcon fontSize="small" />}
+          </IconButton>
         </Box>
       ),
       headerAlign: 'center',
-      align: 'center'
+      align: 'center',
     },
   ];
 
-  const filteredUsers = users.filter(user =>
-    user.username.toLowerCase().includes(searchText.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchText.toLowerCase())
-  );
+  const inputSx = {
+    mb: 2,
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 2,
+    },
+  };
 
   return (
-    <Box
-      sx={{
-        p: 3,
-        maxWidth: 1200,
-        margin: '0 auto',
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column'
-      }}
-    >
-      <Paper
-        elevation={3}
+    <Box sx={{ p: 3, maxWidth: 1200, margin: '0 auto' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 3, gap: 2 }}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setOpenAddUserDialog(true);
+            setUsernameVerifiedAsNew(false);
+            setUsernameVerificationMessage("");
+            setFormMessage("");
+            reset();
+          }}
+          sx={{
+            py: 1,
+            borderRadius: 3,
+            fontWeight: 600,
+            background: `linear-gradient(135deg, #4285F4 0%, #3367D6 100%)`,
+            "&:hover": {
+              opacity: 0.9,
+            },
+            whiteSpace: 'nowrap', // Prevents button text from wrapping
+          }}
+        >
+          Add User
+        </Button>
+        <TextField
+          variant="outlined"
+          placeholder="Search users..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          sx={{
+            width: { xs: '100%', sm: 'auto' }, // Full width on small screens, auto on larger
+            minWidth: 200,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              pr: 1, // Adjust padding to accommodate icon
+            },
+            '& .MuiInputBase-input': {
+              py: '10.5px', // Match button height
+            },
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+
+      {formMessage && (
+        <Alert
+          severity={formMessage.includes("✅") ? "success" : "error"}
+          sx={{ mb: 2, borderRadius: 2 }}
+        >
+          {formMessage}
+        </Alert>
+      )}
+
+      <Box
         sx={{
-          p: 3,
+          height: 400,
+          width: "100%",
+          "& .MuiDataGrid-columnHeaders": {
+            backgroundColor: "#F0F2F5",
+            borderRadius: 1,
+            borderBottom: 'none'
+          },
+          "& .MuiDataGrid-columnHeaderTitle": {
+            fontWeight: 700,
+            color: "#344054",
+          },
           borderRadius: 3,
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column'
+          overflow: "hidden",
+          border: "1px solid #E0E0E0",
+          '& .MuiDataGrid-cell': {
+            borderBottom: '1px solid rgba(224, 224, 224, 0.5)',
+          },
+          '& .MuiDataGrid-footerContainer': {
+            backgroundColor: '#F0F2F5',
+            borderRadius: 1,
+            borderTop: 'none'
+          },
         }}
       >
-        <Box
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={3}
-        >
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={handleOpen}
-            sx={{
-              backgroundColor: '#1976d2',
-              '&:hover': { backgroundColor: '#1565c0' },
-              mr: 2,
-              ml: 57
-            }}
-          >
-            Add User
-          </Button>
-
-          <TextField
-            variant="outlined"
-            placeholder="Search users..."
-            size="small"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search color="action" />
-                </InputAdornment>
-              ),
-              sx: { borderRadius: 2 }
-            }}
-            sx={{ width: 300 }}
-          />
-        </Box>
-
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {isLoadingUsers ? (
+          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+            <CircularProgress />
+            <Typography sx={{ ml: 2, color: "#5F6368" }}>Loading users...</Typography>
+          </Box>
+        ) : (
           <DataGrid
-            rows={filteredUsers}
+            rows={filteredUsers} // Use filteredUsers here
+            getRowId={(row) => row._id}
             columns={columns}
-            autoHeight
             pageSizeOptions={[5, 10, 20]}
             initialState={{
               pagination: {
-                paginationModel: { pageSize: 5 },
+                paginationModel: { pageSize: 5, page: 0 },
               },
-            }}
-            components={{
-              Toolbar: CustomToolbar,
-            }}
-            sx={{
-              border: 'none',
-              '& .MuiDataGrid-cell': {
-                borderBottom: '1px solid rgba(224, 224, 224, 0.5)',
-              },
-              '& .MuiDataGrid-columnHeaders': {
-                backgroundColor: '#f5f7fa',
-                borderRadius: 1,
-                borderBottom: 'none'
-              },
-              '& .MuiDataGrid-footerContainer': {
-                backgroundColor: '#f5f7fa',
-                borderRadius: 1,
-                borderTop: 'none'
-              },
-              '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': {
-                width: '0px',
-                height: '0px',
-                background: 'transparent',
-              },
-              '& .MuiDataGrid-virtualScroller': {
-                scrollbarWidth: 'none',
-                overflowX: 'auto',
-              },
-              '-ms-overflow-style': 'none',
             }}
             disableRowSelectionOnClick
-            onRowClick={(params) => console.log('Row clicked:', params)}
+            sx={{ border: "none" }}
           />
-        </Box>
-      </Paper>
+        )}
+      </Box>
 
-      {/* Add/Edit User Dialog */}
+      {/* Add User Dialog */}
       <Dialog
-        open={open}
-        onClose={handleClose}
+        open={openAddUserDialog}
+        onClose={() => setOpenAddUserDialog(false)}
         fullWidth
         maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: 3, boxShadow: '0px 8px 24px rgba(0,0,0,0.1)' } }}
       >
         <DialogTitle
           sx={{
-            bgcolor: '#1976d2',
+            bgcolor: '#4285F4',
             color: 'white',
             fontWeight: 'bold',
             borderTopLeftRadius: 3,
             borderTopRightRadius: 3
           }}
         >
-          {isEditing ? 'Edit User' : 'Add New User'}
+          Add New User
         </DialogTitle>
-        <DialogContent sx={{ py: 3 }}>
-          <Box mt={1} display="flex" gap={2} alignItems="center">
-            <TextField
-              fullWidth
-              label="Username"
-              margin="normal"
-              value={newUser.username}
-              onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-              variant="outlined"
-            />
-            <Button
-              variant="outlined"
-              onClick={() => setSnackbar({ open: true, message: 'Username verification not implemented.', severity: 'info' })}
-              sx={{ height: 56, mt: 1 }}
-            >
-              Verify
-            </Button>
-          </Box>
+        <form onSubmit={handleSubmit(handleAddUser)}>
+          <DialogContent sx={{ py: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ...inputSx }}>
+              <TextField
+                autoFocus
+                margin="dense"
+                label="Username"
+                type="text"
+                fullWidth
+                variant="outlined"
+                {...register("username", { required: "Username is required" })}
+                error={!!errors.username}
+                helperText={errors.username?.message || usernameVerificationMessage}
+                sx={{ flexGrow: 1 }}
+              />
+              <Button
+                variant="outlined"
+                onClick={handleVerifyUsername}
+                disabled={!usernameValue || isCheckingExistence || !!errors.username}
+                sx={{
+                  whiteSpace: 'nowrap',
+                  py: '12px',
+                  borderRadius: 2,
+                  borderColor: usernameVerifiedAsNew ? '#4CAF50' : (usernameVerificationMessage.includes("❌") ? '#F44336' : '#4285F4'),
+                  color: usernameVerifiedAsNew ? '#4CAF50' : (usernameVerificationMessage.includes("❌") ? '#F44336' : '#4285F4'),
+                  '&:hover': {
+                    borderColor: usernameVerifiedAsNew ? '#388E3C' : (usernameVerificationMessage.includes("❌") ? '#D32F2F' : '#3367D6'),
+                    color: usernameVerifiedAsNew ? '#388E3C' : (usernameVerificationMessage.includes("❌") ? '#D32F2F' : '#3367D6'),
+                    bgcolor: usernameVerifiedAsNew ? '#E8F5E9' : (usernameVerificationMessage.includes("❌") ? '#FFEBEE' : '#E8F0FE'),
+                  },
+                }}
+              >
+                {isCheckingExistence ? <CircularProgress size={20} /> : <VerifyIcon sx={{ mr: 0.5 }} />}
+                Verify
+              </Button>
+            </Box>
 
-          <Box mt={2} display="flex" gap={2} alignItems="center">
             <TextField
-              fullWidth
-              label="Email"
+              margin="dense"
+              label="User Email"
               type="email"
-              margin="normal"
-              value={newUser.email}
-              onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+              fullWidth
               variant="outlined"
+              {...register("email", {
+                required: "User Email is required",
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i,
+                  message: "Invalid email address",
+                },
+              })}
+              error={!!errors.email}
+              helperText={errors.email?.message}
+              sx={inputSx}
             />
-          </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button
+              onClick={() => setOpenAddUserDialog(false)}
+              sx={{
+                color: "#607d8b",
+                borderRadius: 2,
+                "&:hover": { backgroundColor: "rgba(96, 125, 139, 0.05)" },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{
+                background: `linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)`,
+                "&:hover": {
+                  opacity: 0.9,
+                },
+                borderRadius: 2,
+              }}
+              disabled={isAddingUser || !isValid || !usernameVerifiedAsNew}
+            >
+              {isAddingUser ? <CircularProgress size={24} color="inherit" /> : "Add User"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
 
-          
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={openConfirmDeleteDialog}
+        onClose={() => setOpenConfirmDeleteDialog(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+        PaperProps={{ sx: { borderRadius: 3, boxShadow: '0px 8px 24px rgba(0,0,0,0.1)' } }}
+      >
+        <DialogTitle id="alert-dialog-title" sx={{ fontWeight: 700, color: "#D32F2F" }}>
+          {"Confirm Delete"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description" sx={{ color: "#4A4A4A" }}>
+            Are you sure you want to delete this user? This action cannot be undone.
+          </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
-            variant="outlined"
-            onClick={handleClose}
-            sx={{ borderRadius: 2 }}
+            onClick={() => setOpenConfirmDeleteDialog(false)}
+            sx={{
+              color: "#607d8b",
+              borderRadius: 2,
+              "&:hover": { backgroundColor: "rgba(96, 125, 139, 0.05)" },
+            }}
           >
             Cancel
           </Button>
           <Button
+            onClick={executeDelete}
+            color="error"
             variant="contained"
-            onClick={handleSaveUser} // Now calls handleSaveUser
-            disabled={loading || !newUser.username || !newUser.email}
-            sx={{ borderRadius: 2 }}
+            autoFocus
+            sx={{
+              background: "linear-gradient(135deg, #FF5252 0%, #D32F2F 100%)",
+              "&:hover": {
+                opacity: 0.9,
+              },
+              borderRadius: 2,
+            }}
           >
-            {loading ? <CircularProgress size={24} /> : (isEditing ? 'Update User' : 'Save User')}
+            Delete
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

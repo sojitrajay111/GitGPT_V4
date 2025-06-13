@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Settings, Database, Edit, Trash2, Power } from 'lucide-react';
 import ConfigurationWizard from './ConfigurationWizard';
 import { toast } from 'sonner';
+import axios from 'axios';
+import { useParams } from 'next/navigation';
 import {
   ColumnDef,
   flexRender,
@@ -41,89 +43,202 @@ import {
  */
 
 const ConfigurationDashboard = () => {
-  const [configurations, setConfigurations] = useState([
-    {
-      id: '1',
-      title: 'ChatGPT API',
-      items: [
-        { key: 'api_key', value: 'sk-...' },
-        { key: 'model', value: 'gpt-4' },
-        { key: 'max_tokens', value: '2048' }
-      ],
-      createdAt: '2025-06-11',
-      isActive: true
-    },
-    {
-      id: '2',
-      title: 'JIRA Settings',
-      items: [
-        { key: 'base_url', value: 'https://company.atlassian.net' },
-        { key: 'username', value: 'user@company.com' },
-        { key: 'api_token', value: 'ATATT...' }
-      ],
-      createdAt: '2025-06-10',
-      isActive: false
-    }
-  ]);
-
+  const params = useParams();
+  const userId = params.userId;
+  const [configurations, setConfigurations] = useState([]);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // --- Handlers (remain mostly the same) ---
-  const handleSaveConfiguration = (configData) => {
-    if (editingConfig) {
-      setConfigurations(configurations.map(config =>
-        config.id === editingConfig.id
-          ? { ...config, ...configData }
-          : config
-      ));
-      toast.success("Configuration Updated", {
-        description: `${configData.title} has been updated successfully.`,
-      });
-    } else {
-      const newConfig = {
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString().split('T')[0],
-        ...configData,
-        isActive: true
-      };
-      setConfigurations([...configurations, newConfig]);
-      toast.success("Configuration Added", {
-        description: `${configData.title} has been added successfully.`,
-      });
+  // Get auth token
+  const getAuthToken = () => {
+    return localStorage.getItem('token');
+  };
+
+  // Configure axios headers
+  const getAuthHeaders = () => {
+    const token = getAuthToken();
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    };
+  };
+
+  // Fetch configurations on component mount
+  useEffect(() => {
+    console.log('Current userId:', userId);
+    if (userId) {
+      fetchConfigurations();
     }
-    setEditingConfig(null);
-    setIsWizardOpen(false);
+  }, [userId]);
+
+  const fetchConfigurations = async () => {
+    try {
+      setLoading(true);
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+
+      const response = await axios.get(
+        `http://localhost:3001/api/configurations/${userId}`,
+        getAuthHeaders()
+      );
+      
+      if (response.data.success) {
+        setConfigurations(response.data.data);
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch configurations');
+      }
+    } catch (error) {
+      console.error('Error fetching configurations:', error);
+      if (error.response?.status === 401) {
+        toast.error("Authentication Error", {
+          description: "Please log in again to continue.",
+        });
+      } else {
+        toast.error("Error Loading Configurations", {
+          description: error.message || "Failed to load configurations. Please try again.",
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveConfiguration = async (configData) => {
+    try {
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+
+      const response = await axios.post(
+        `http://localhost:3001/api/configurations/${userId}`,
+        {
+          configTitle: configData.title,
+          configValue: configData.items.map(item => ({
+            key: item.key,
+            value: item.value
+          })),
+          isActive: true
+        },
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        toast.success("Configuration Saved", {
+          description: `${configData.title} has been ${editingConfig ? 'updated' : 'added'} successfully.`,
+        });
+        handleCloseWizard();
+        fetchConfigurations(); // Refresh the list
+      } else {
+        throw new Error(response.data.message || 'Failed to save configuration');
+      }
+    } catch (error) {
+      console.error('Error saving configuration:', error);
+      if (error.response?.status === 401) {
+        toast.error("Authentication Error", {
+          description: "Please log in again to continue.",
+        });
+      } else {
+        toast.error("Error Saving Configuration", {
+          description: error.message || "Failed to save configuration. Please try again.",
+        });
+      }
+    }
   };
 
   const handleEditConfiguration = (config) => {
-    setEditingConfig(config);
+    // Transform the configuration data to match the wizard's expected format
+    const transformedConfig = {
+      title: config.configTitle,
+      items: config.configValue.map(item => ({
+        key: item.key,
+        value: item.value
+      })),
+      isActive: config.isActive
+    };
+    setEditingConfig(transformedConfig);
     setIsWizardOpen(true);
   };
 
-  const handleDeleteConfiguration = (id) => {
-    setConfigurations(configurations.filter(config => config.id !== id));
-    toast.error("Configuration Deleted", {
-      description: "The configuration has been removed successfully.",
-    });
-  };
+  const handleDeleteConfiguration = async (id) => {
+    try {
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
 
-  const handleToggleStatus = (id) => {
-    setConfigurations(prevConfigs => {
-      const updatedConfigs = prevConfigs.map(config =>
-        config.id === id
-          ? { ...config, isActive: !config.isActive }
-          : config
+      const configToDelete = configurations.find(config => config._id === id);
+      if (!configToDelete) {
+        throw new Error('Configuration not found');
+      }
+
+      const response = await axios.delete(
+        `http://localhost:3001/api/configurations/${userId}/${configToDelete.configTitle}`,
+        getAuthHeaders()
       );
-      const toggledConfig = updatedConfigs.find(config => config.id === id);
-      if (toggledConfig) {
-        toast.info("Status Changed", {
-          description: `${toggledConfig.title} is now ${toggledConfig.isActive ? 'Active' : 'Inactive'}.`,
+      
+      if (response.data.success) {
+        toast.success("Configuration Deleted", {
+          description: "The configuration has been removed successfully.",
+        });
+        fetchConfigurations(); // Refresh the list
+      } else {
+        throw new Error(response.data.message || 'Failed to delete configuration');
+      }
+    } catch (error) {
+      console.error('Error deleting configuration:', error);
+      if (error.response?.status === 401) {
+        toast.error("Authentication Error", {
+          description: "Please log in again to continue.",
+        });
+      } else {
+        toast.error("Error Deleting Configuration", {
+          description: error.message || "Failed to delete configuration. Please try again.",
         });
       }
-      return updatedConfigs;
-    });
+    }
+  };
+
+  const handleToggleStatus = async (id) => {
+    try {
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+
+      const configToToggle = configurations.find(config => config._id === id);
+      if (!configToToggle) {
+        throw new Error('Configuration not found');
+      }
+
+      const response = await axios.patch(
+        `http://localhost:3001/api/configurations/${userId}/${configToToggle.configTitle}/toggle`,
+        {},
+        getAuthHeaders()
+      );
+      
+      if (response.data.success) {
+        toast.info("Status Changed", {
+          description: `${configToToggle.configTitle} is now ${response.data.data.isActive ? 'Active' : 'Inactive'}.`,
+        });
+        fetchConfigurations(); // Refresh the list
+      } else {
+        throw new Error(response.data.message || 'Failed to toggle configuration status');
+      }
+    } catch (error) {
+      console.error('Error toggling configuration status:', error);
+      if (error.response?.status === 401) {
+        toast.error("Authentication Error", {
+          description: "Please log in again to continue.",
+        });
+      } else {
+        toast.error("Error Changing Status", {
+          description: error.message || "Failed to change configuration status. Please try again.",
+        });
+      }
+    }
   };
 
   const handleOpenWizard = () => {
@@ -131,29 +246,34 @@ const ConfigurationDashboard = () => {
     setIsWizardOpen(true);
   };
 
+  const handleCloseWizard = () => {
+    setEditingConfig(null);
+    setIsWizardOpen(false);
+  };
+
   // --- Table Column Definitions ---
   /** @type {ColumnDef<Configuration>[]} */
   const columns = [
     {
-      accessorKey: "title",
+      accessorKey: "configTitle",
       header: "Service",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <span role="img" aria-label="chip">💾</span>
           <div>
-            <div className="font-semibold">{row.getValue("title")}</div>
-            <div className="text-xs text-muted-foreground">ID: {row.original.id}</div>
+            <div className="font-semibold">{row.getValue("configTitle")}</div>
+            <div className="text-xs text-muted-foreground">ID: {row.original._id}</div>
           </div>
         </div>
       ),
       filterFn: "includesString",
     },
     {
-      accessorKey: "items",
+      accessorKey: "configValue",
       header: "Sample value",
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
-          {row.original.items.map((item, index) => (
+          {row.original.configValue.map((item, index) => (
             <Badge key={index} variant="outline" className="text-xs">
               {item.key}
             </Badge>
@@ -201,11 +321,11 @@ const ConfigurationDashboard = () => {
               <DropdownMenuItem onClick={() => handleEditConfiguration(config)}>
                 <Edit className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleToggleStatus(config.id)}>
+              <DropdownMenuItem onClick={() => handleToggleStatus(config._id)}>
                 <Power className="mr-2 h-4 w-4" /> {config.isActive ? 'Deactivate' : 'Activate'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleDeleteConfiguration(config.id)} className="text-red-600 focus:text-red-700">
+              <DropdownMenuItem onClick={() => handleDeleteConfiguration(config._id)} className="text-red-600 focus:text-red-700">
                 <Trash2 className="mr-2 h-4 w-4" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -224,9 +344,9 @@ const ConfigurationDashboard = () => {
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     state: {
-      globalFilter: searchTerm, // Connect global filter to searchTerm state
+      globalFilter: searchTerm,
     },
-    onGlobalFilterChange: setSearchTerm, // Update searchTerm when global filter changes
+    onGlobalFilterChange: setSearchTerm,
   });
 
   // --- Calculate summary stats ---
@@ -235,6 +355,17 @@ const ConfigurationDashboard = () => {
   const lastUpdatedDate = configurations.length > 0
     ? new Date(Math.max(...configurations.map(c => new Date(c.createdAt).getTime()))).toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })
     : 'N/A';
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-6 font-sans flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading configurations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 font-sans">
@@ -355,7 +486,7 @@ const ConfigurationDashboard = () => {
               </Table>
             </div>
 
-            {/* Pagination Controls (Optional, if you want pagination) */}
+            {/* Pagination Controls */}
             <div className="flex items-center justify-end space-x-2 py-4">
               <Button
                 variant="outline"
@@ -396,7 +527,7 @@ const ConfigurationDashboard = () => {
 
       <ConfigurationWizard
         isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
+        onClose={handleCloseWizard}
         onSave={handleSaveConfiguration}
         editingConfig={editingConfig}
       />

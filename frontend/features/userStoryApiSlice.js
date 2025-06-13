@@ -68,12 +68,21 @@ export const userStoryApiSlice = createApi({
       ],
     }),
 
-    // Mutation for AI content generation
+    // Mutation for AI content generation (for story text enhancement)
     generateAiStory: builder.mutation({
       query: (data) => ({
         url: "/user-stories/generate-ai-story",
         method: "POST",
         body: data,
+      }),
+    }),
+
+    // NEW: Mutation for AI Salesforce Code Generation and GitHub Push/PR
+    generateSalesforceCode: builder.mutation({
+      query: ({ userStoryId, projectId, githubRepoUrl }) => ({
+        url: `/user-stories/${userStoryId}/generate-salesforce-code`,
+        method: "POST",
+        body: { projectId, githubRepoUrl },
       }),
     }),
   }),
@@ -82,7 +91,8 @@ export const userStoryApiSlice = createApi({
 export const {
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
-  useUpdateUserStoryMutation, // Export new hook
-  useDeleteUserStoryMutation, // Export new hook
+  useUpdateUserStoryMutation,
+  useDeleteUserStoryMutation,
   useGenerateAiStoryMutation,
+  useGenerateSalesforceCodeMutation, // Export the new hook
 } = userStoryApiSlice;

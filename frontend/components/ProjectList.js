@@ -1,5 +1,5 @@
 import React from 'react';
-import { useGetProjectsQuery, useGetDeveloperProjectsQuery } from '@/features/projectApiSlice'; // Import your RTK Query hooks
+import { useGetProjectsQuery, useGetDeveloperProjectsQuery } from '../features/projectApiSlice'; // Import your RTK Query hooks
 import { useGetUserAndGithubDataQuery } from '@/features/githubApiSlice'; // To get the user role
 import { useParams } from 'next/navigation'; // To get userId from the URL
 
@@ -18,7 +18,7 @@ export default function InProgressProjectList() {
   const isLoading = managerProjectsLoading || developerProjectsLoading;
   const isError = managerProjectsError || developerProjectsError;
 
-  if (isLoading) {
+  if (isLoading) { 
     return (
       <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100 flex justify-center items-center h-48 font-sans"> {/* Added font-sans here */}
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -35,7 +35,7 @@ export default function InProgressProjectList() {
   }
 
   return (
-    <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100 font-sans"> {/* Applied font-sans to the main container */}
+    <div className="bg-white shadow-xl  rounded-2xl p-8 border border-gray-100 font-sans"> {/* Applied font-sans to the main container */}
       <h2 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 border-gray-200">
         All Assigned Projects
       </h2>

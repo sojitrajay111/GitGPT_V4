@@ -24,7 +24,7 @@ import {
 } from "@mui/material";
 import {
   LockOutlined,
-  PersonOutlined, // Changed from EmailOutlined for username
+  PersonOutlined,
   GitHub,
   RocketLaunch,
   Fingerprint,
@@ -59,9 +59,8 @@ export default function LoginPage() {
 
   const onSubmit = async (data) => {
     try {
-      // Changed 'email' to 'username' in the data payload
       const response = await login({
-        username: data.username,
+        identifier: data.identifier, // Use 'identifier' for username or email
         password: data.password,
       }).unwrap();
 
@@ -408,8 +407,8 @@ export default function LoginPage() {
                     p: { xs: 3, sm: 5 },
                     borderRadius: 6,
                     background: `
-                      linear-gradient(135deg, 
-                        rgba(255, 255, 255, 0.95) 0%, 
+                      linear-gradient(135deg,
+                        rgba(255, 255, 255, 0.95) 0%,
                         rgba(255, 255, 255, 0.85) 100%
                       )
                     `,
@@ -496,28 +495,28 @@ export default function LoginPage() {
                     noValidate
                     onSubmit={handleSubmit(onSubmit)}
                   >
-                    {/* Username Field */}
+                    {/* Username or Email Field */}
                     <TextField
                       fullWidth
                       margin="normal"
-                      id="username"
-                      label="Username"
-                      autoComplete="username"
+                      id="identifier" // Changed id to 'identifier'
+                      label="Username or Email" // Updated label
+                      autoComplete="username" // Still use username autocomplete
                       variant="outlined"
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <PersonOutlined // Changed icon to PersonOutlined
+                            <PersonOutlined
                               sx={{ color: "rgba(59, 130, 246, 0.7)" }}
                             />
                           </InputAdornment>
                         ),
                       }}
-                      {...register("username", {
-                        required: "Username is required",
-                      })} // Changed from 'email' to 'username'
-                      error={!!errors.username}
-                      helperText={errors.username?.message}
+                      {...register("identifier", {
+                        required: "Username or Email is required",
+                      })}
+                      error={!!errors.identifier}
+                      helperText={errors.identifier?.message}
                       sx={{
                         mb: 3,
                         "& .MuiOutlinedInput-root": {
@@ -545,6 +544,7 @@ export default function LoginPage() {
                       }}
                     />
 
+                    {/* Password Field */}
                     <TextField
                       fullWidth
                       margin="normal"
@@ -583,7 +583,7 @@ export default function LoginPage() {
                       error={!!errors.password}
                       helperText={errors.password?.message}
                       sx={{
-                        mb: 4,
+                        mb: 3,
                         "& .MuiOutlinedInput-root": {
                           borderRadius: 4,
                           background: "rgba(255, 255, 255, 0.7)",
@@ -609,157 +609,92 @@ export default function LoginPage() {
                       }}
                     />
 
+                    {/* Login Button */}
                     <Button
-                      type="submit"
                       fullWidth
+                      type="submit"
                       variant="contained"
+                      size="large"
                       disabled={isLoading}
-                      startIcon={
-                        isLoading ? (
-                          <CircularProgress size={20} color="inherit" />
-                        ) : (
-                          <Fingerprint />
-                        )
-                      }
                       sx={{
-                        py: 2,
-                        mb: 3,
+                        mt: 2,
+                        py: 1.5,
                         borderRadius: 4,
-                        fontWeight: 700,
                         fontSize: "1.1rem",
+                        fontWeight: 700,
                         textTransform: "none",
-                        background: `
-                          linear-gradient(135deg, 
-                            #1e40af 0%, 
-                            #3b82f6 25%,
-                            #8b5cf6 75%,
-                            #06b6d4 100%
-                          )
-                        `,
-                        backgroundSize: "200% 200%",
-                        boxShadow: `
-                          0 8px 32px rgba(59, 130, 246, 0.3),
-                          0 0 0 1px rgba(255, 255, 255, 0.2) inset
-                        `,
-                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        background:
+                          "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        boxShadow: "0 10px 20px rgba(0, 0, 0, 0.1)",
+                        transition: "all 0.3s ease",
                         "&:hover": {
-                          backgroundPosition: "100% 0%",
                           transform: "translateY(-2px)",
-                          boxShadow: `
-                            0 12px 40px rgba(59, 130, 246, 0.4),
-                            0 0 0 1px rgba(255, 255, 255, 0.3) inset
-                          `,
-                        },
-                        "&:active": {
-                          transform: "translateY(0px)",
+                          boxShadow: "0 15px 30px rgba(0, 0, 0, 0.2)",
                         },
                         "&:disabled": {
-                          background: "rgba(148, 163, 184, 0.5)",
-                          color: "rgba(255, 255, 255, 0.7)",
-                        },
-                      }}
-                    >
-                      {isLoading ? "Authenticating..." : "Login"}
-                    </Button>
-
-                    {/* Divider */}
-                    <Box
-                      sx={{
-                        position: "relative",
-                        textAlign: "center",
-                        mb: 3,
-                        "&::before": {
-                          content: '""',
-                          position: "absolute",
-                          top: "50%",
-                          left: 0,
-                          right: 0,
-                          height: 1,
                           background:
-                            "linear-gradient(90deg, transparent, rgba(203, 213, 225, 0.5), transparent)",
+                            "linear-gradient(135deg, #a5d2ff 0%, #d1b1ff 100%)",
+                          color: "#fff",
                         },
                       }}
                     >
-                      <Chip
-                        label="OR CONTINUE WITH"
-                        sx={{
-                          background: "rgba(255, 255, 255, 0.9)",
-                          color: "rgba(71, 85, 105, 0.6)",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          letterSpacing: "0.05em",
-                          border: "1px solid rgba(203, 213, 225, 0.3)",
-                        }}
-                      />
-                    </Box>
-
-                    {/* GitHub Login */}
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      startIcon={<GitHub />}
-                      sx={{
-                        py: 1.8,
-                        mb: 4,
-                        borderRadius: 4,
-                        fontWeight: 600,
-                        fontSize: "1rem",
-                        textTransform: "none",
-                        borderColor: "rgba(203, 213, 225, 0.5)",
-                        borderWidth: 1.5,
-                        color: "rgba(30, 41, 59, 0.8)",
-                        background: "rgba(255, 255, 255, 0.7)",
-                        backdropFilter: "blur(10px)",
-                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                        "&:hover": {
-                          borderColor: "rgba(30, 41, 59, 0.3)",
-                          background: "rgba(248, 250, 252, 0.9)",
-                          transform: "translateY(-1px)",
-                          boxShadow: "0 8px 25px rgba(0, 0, 0, 0.08)",
-                        },
-                      }}
-                    >
-                      Continue with GitHub
+                      {isLoading ? (
+                        <CircularProgress size={24} color="inherit" />
+                      ) : (
+                        "Log In"
+                      )}
                     </Button>
+                  </Box>
 
-                    {/* Footer Links */}
+                  {/* Forgot password and Sign Up links */}
+                  <Box
+                    sx={{
+                      mt: 4,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <Box
-                      sx={{ textAlign: "center", space: 2, cursor: "pointer" }}
-                      onClick={handlesignupClick}
+                      sx={{
+                        color: "rgba(71, 85, 105, 0.8)",
+                        mb: { xs: 2, sm: 0 },
+                      }}
                     >
-                      <div className="flex justify-center items-center">
-                        <Typography
-                          variant="body2"
-                          sx={{ color: "rgba(71, 85, 105, 0.7)", mb: 1 }}
-                        >
-                          Don't have an account?
-                        </Typography>
-
-                        <Button
-                          variant="text"
-                          onClick={handlesignupClick}
-                          sx={{
-                            color: "#3b82f6",
-                            fontWeight: 600,
-                            textTransform: "none",
-                            "&:hover": {
-                              textDecoration: "underline",
-                              color: "#1e40af",
-                            },
-                          }}
-                        >
-                          Sign up
-                        </Button>
-                      </div>
+                      New to GitGPT?{" "}
+                      <Button
+                        onClick={handlesignupClick}
+                        disabled={isLoading}
+                        sx={{
+                          ml: 0.5,
+                          fontWeight: 700,
+                          color: "#3b82f6",
+                          textTransform: "none",
+                          "&:hover": {
+                            textDecoration: "underline",
+                            background: "transparent",
+                            color: "#7c3aed",
+                          },
+                        }}
+                      >
+                        Sign up here
+                      </Button>
+                    </Box>
+                    <Box
+                      sx={{
+                        flexGrow: 1,
+                        textAlign: { xs: "center", sm: "right" },
+                      }}
+                    >
                       <Typography
+                        variant="body2"
                         component="a"
                         href="#"
-                        variant="body2"
                         sx={{
-                          color: "#8b5cf6",
                           fontWeight: 600,
+                          color: "rgba(71, 85, 105, 0.7)",
                           textDecoration: "none",
-                          transition: "all 0.2s ease",
                           "&:hover": {
                             textDecoration: "underline",
                             color: "#7c3aed",
@@ -814,4 +749,3 @@ export default function LoginPage() {
     </>
   );
 }
-

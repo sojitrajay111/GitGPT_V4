@@ -34,14 +34,16 @@ import {
   Assignment,
 } from "@mui/icons-material";
 import GitHubAuthDialog from "@/components/GitHubAuthDialog";
-import {
-  useGetGitHubStatusQuery,
-  useDisconnectGitHubMutation,
-  useGetUserAndGithubDataQuery,
-} from "@/features/githubApiSlice";
+// import {
+//   useGetGitHubStatusQuery,
+//   useDisconnectGitHubMutation,
+//   useGetUserAndGithubDataQuery,
+// } from "@/features/githubApiSlice";
+
+
 import { useParams, useRouter } from "next/navigation";
-import { useGetProjectsQuery } from "@/features/projectApiSlice";
-import { useGetDeveloperProjectsQuery } from "@/features/developerApiSlice";
+// import { useGetProjectsQuery } from "@/features/projectApiSlice";
+// import { useGetDeveloperProjectsQuery } from "@/features/developerApiSlice";
 import {
   PieChart,
   Pie,
@@ -56,6 +58,9 @@ import {
   LineChart,
   Line,
 } from "recharts";
+import { useDisconnectGitHubMutation, useGetGitHubStatusQuery, useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
+import { useGetDeveloperProjectsQuery } from "@/features/developerApiSlice";
+import { useGetProjectsQuery } from "@/features/projectApiSlice";
 
 // Enhanced StatCard Component
 function StatCard({ label, value, icon: Icon, trend, color = "primary" }) {

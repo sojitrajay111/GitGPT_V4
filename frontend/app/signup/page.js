@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { useSignupMutation } from "@/features/authApiSlice"; // Assuming this path is correct
+import { useSignupMutation } from "@/features/authApiSlice";
 import {
   Snackbar,
   Alert,
@@ -29,7 +29,7 @@ import {
   Chip,
 } from "@mui/material";
 import {
-  PersonOutlined, // Icon for Username
+  PersonOutlined,
   LockOutlined,
   Visibility,
   VisibilityOff,
@@ -38,22 +38,21 @@ import {
   Code,
   Speed,
   Security,
+  EmailOutlined, // Import EmailOutlined icon
 } from "@mui/icons-material";
 import Head from "next/head";
-// No Cookies or useLoginMutation needed for signup page directly
 
 export default function SignUpPage() {
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch, // Used to validate confirm password against password
+    watch,
   } = useForm();
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  const [signup, { isLoading }] = useState(false); // Changed to a boolean for simplicity; assuming useSignupMutation manages loading state
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -61,39 +60,25 @@ export default function SignUpPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [signup, { isLoading }] = useSignupMutation(); // isLoading is now the correct state
 
   const router = useRouter();
 
   /**
    * Handles the form submission for user registration.
    * Calls the signup mutation and handles success/error messages.
-   * @param {Object} data - The form data (username, password, confirmPassword, role).
+   * @param {Object} data - The form data (username, email, password, confirmPassword, role).
    */
   const onSubmit = async (data) => {
     try {
-      // Set isLoading to true at the start of the submission
-      setSignup(true);
-
-      // Ensure 'role' is part of the data sent to the API
       const payload = {
         username: data.username,
+        email: data.email, // Add email to the payload
         password: data.password,
-        role: data.role || "developer", // Default role if not selected, assuming default 'developer' from RadioGroup
+        role: data.role || "developer",
       };
 
-      // Simulate API call
-      // await signup(payload).unwrap(); // Use your actual mutation here
-
-      // Mock API call for demonstration
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
-      if (payload.username === "existinguser") {
-        // Example of a server-side username check
-        throw {
-          data: {
-            message: "Username already exists. Please choose a different one.",
-          },
-        };
-      }
+      await signup(payload).unwrap();
 
       setSnackbar({
         open: true,
@@ -101,24 +86,20 @@ export default function SignUpPage() {
         severity: "success",
       });
 
-      // Redirect to login page after a short delay
       setTimeout(() => {
         router.push("/login");
       }, 1500);
     } catch (error) {
-      // Handle API error response structure
       const errorMessage =
         error.data?.message ||
         error.error ||
         "An unexpected error occurred during signup.";
+
       setSnackbar({
         open: true,
         message: errorMessage,
         severity: "error",
       });
-    } finally {
-      // Set isLoading to false after submission (success or error)
-      setSignup(false);
     }
   };
 
@@ -552,13 +533,13 @@ export default function SignUpPage() {
                       margin="normal"
                       id="username"
                       label="Username"
-                      placeholder="e.g., raj@149" // Added example placeholder
+                      placeholder="e.g., raj@149"
                       autoComplete="username"
                       variant="outlined"
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <PersonOutlined // Icon for Username
+                            <PersonOutlined
                               sx={{ color: "rgba(59, 130, 246, 0.7)" }}
                             />
                           </InputAdornment>
@@ -587,6 +568,61 @@ export default function SignUpPage() {
                       })}
                       error={!!errors.username}
                       helperText={errors.username?.message}
+                      sx={{
+                        mb: 3,
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: 4,
+                          background: "rgba(255, 255, 255, 0.7)",
+                          backdropFilter: "blur(10px)",
+                          "& fieldset": {
+                            borderColor: "rgba(203, 213, 225, 0.5)",
+                            borderWidth: 1.5,
+                          },
+                          "&:hover fieldset": {
+                            borderColor: "rgba(59, 130, 246, 0.4)",
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: "#3b82f6",
+                            borderWidth: 2,
+                          },
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: "rgba(71, 85, 105, 0.7)",
+                          "&.Mui-focused": {
+                            color: "#3b82f6",
+                          },
+                        },
+                      }}
+                    />
+
+                    {/* Email Field */}
+                    <TextField
+                      fullWidth
+                      margin="normal"
+                      id="email"
+                      label="Email Address"
+                      placeholder="e.g., raj@example.com"
+                      autoComplete="email"
+                      variant="outlined"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <EmailOutlined
+                              sx={{ color: "rgba(59, 130, 246, 0.7)" }}
+                            />
+                          </InputAdornment>
+                        ),
+                      }}
+                      {...register("email", {
+                        required: "Email is required.",
+                        pattern: {
+                          value:
+                            /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
+                          message: "Invalid email address.",
+                        },
+                      })}
+                      error={!!errors.email}
+                      helperText={errors.email?.message}
                       sx={{
                         mb: 3,
                         "& .MuiOutlinedInput-root": {
@@ -725,7 +761,7 @@ export default function SignUpPage() {
                       error={!!errors.confirmPassword}
                       helperText={errors.confirmPassword?.message}
                       sx={{
-                        mb: 4, // Increased margin for role selection below
+                        mb: 3,
                         "& .MuiOutlinedInput-root": {
                           borderRadius: 4,
                           background: "rgba(255, 255, 255, 0.7)",
@@ -754,221 +790,123 @@ export default function SignUpPage() {
                     {/* Role Selection */}
                     <FormControl
                       component="fieldset"
-                      error={!!errors.role}
-                      sx={{ mb: 4 }} // Added margin bottom
+                      margin="normal"
+                      sx={{ mb: 4 }}
                     >
                       <FormLabel
                         component="legend"
-                        sx={{
-                          color: "rgba(71, 85, 105, 0.8)",
-                          fontWeight: 600,
-                          mb: 1,
-                          "&.Mui-focused": {
-                            color: "#3b82f6", // Match focus color
-                          },
-                        }}
+                        sx={{ color: "rgba(71, 85, 105, 0.7)", mb: 1.5 }}
                       >
-                        Your Role
+                        Register as
                       </FormLabel>
                       <RadioGroup
                         row
                         aria-label="role"
+                        name="role"
                         defaultValue="developer"
-                        name="radio-buttons-group"
-                        {...register("role", { required: "Role is required" })}
                       >
                         <FormControlLabel
                           value="developer"
-                          control={
-                            <Radio
+                          control={<Radio sx={{ color: "#3b82f6" }} />}
+                          label={
+                            <Chip
+                              label="Developer"
+                              size="small"
                               sx={{
-                                color: "rgba(71, 85, 105, 0.7)",
-                                "&.Mui-checked": {
-                                  color: "#3b82f6",
-                                },
+                                backgroundColor: "#e0f2fe",
+                                color: "#1e40af",
+                                fontWeight: 600,
                               }}
                             />
                           }
-                          label={
-                            <Typography
-                              sx={{ color: "rgba(71, 85, 105, 0.9)" }}
-                            >
-                              Developer
-                            </Typography>
-                          }
+                          {...register("role")}
                         />
                         <FormControlLabel
                           value="manager"
-                          control={
-                            <Radio
+                          control={<Radio sx={{ color: "#8b5cf6" }} />}
+                          label={
+                            <Chip
+                              label="Manager"
+                              size="small"
                               sx={{
-                                color: "rgba(71, 85, 105, 0.7)",
-                                "&.Mui-checked": {
-                                  color: "#3b82f6",
-                                },
+                                backgroundColor: "#f3e8ff",
+                                color: "#5b21b6",
+                                fontWeight: 600,
                               }}
                             />
                           }
-                          label={
-                            <Typography
-                              sx={{ color: "rgba(71, 85, 105, 0.9)" }}
-                            >
-                              Manager
-                            </Typography>
-                          }
+                          {...register("role")}
                         />
                       </RadioGroup>
-                      {errors.role && (
-                        <Typography variant="body2" color="error">
-                          {errors.role.message}
-                        </Typography>
-                      )}
                     </FormControl>
 
                     {/* Sign Up Button */}
                     <Button
-                      type="submit"
                       fullWidth
+                      type="submit"
                       variant="contained"
+                      size="large"
                       disabled={isLoading}
-                      startIcon={
-                        isLoading ? (
-                          <CircularProgress size={20} color="inherit" />
-                        ) : (
-                          <PersonOutlined /> // A generic user icon for signup
-                        )
-                      }
                       sx={{
-                        py: 2,
-                        mb: 3,
+                        mt: 2,
+                        py: 1.5,
                         borderRadius: 4,
-                        fontWeight: 700,
                         fontSize: "1.1rem",
+                        fontWeight: 700,
                         textTransform: "none",
-                        background: `
-                          linear-gradient(135deg,
-                            #1e40af 0%,
-                            #3b82f6 25%,
-                            #8b5cf6 75%,
-                            #06b6d4 100%
-                          )
-                        `,
-                        backgroundSize: "200% 200%",
-                        boxShadow: `
-                          0 8px 32px rgba(59, 130, 246, 0.3),
-                          0 0 0 1px rgba(255, 255, 255, 0.2) inset
-                        `,
-                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        background:
+                          "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        boxShadow: "0 10px 20px rgba(0, 0, 0, 0.1)",
+                        transition: "all 0.3s ease",
                         "&:hover": {
-                          backgroundPosition: "100% 0%",
                           transform: "translateY(-2px)",
-                          boxShadow: `
-                            0 12px 40px rgba(59, 130, 246, 0.4),
-                            0 0 0 1px rgba(255, 255, 255, 0.3) inset
-                          `,
-                        },
-                        "&:active": {
-                          transform: "translateY(0px)",
+                          boxShadow: "0 15px 30px rgba(0, 0, 0, 0.2)",
                         },
                         "&:disabled": {
-                          background: "rgba(148, 163, 184, 0.5)",
-                          color: "rgba(255, 255, 255, 0.7)",
-                        },
-                      }}
-                    >
-                      {isLoading ? "Signing Up..." : "Sign Up"}
-                    </Button>
-
-                    {/* Divider */}
-                    <Box
-                      sx={{
-                        position: "relative",
-                        textAlign: "center",
-                        mb: 3,
-                        "&::before": {
-                          content: '""',
-                          position: "absolute",
-                          top: "50%",
-                          left: 0,
-                          right: 0,
-                          height: 1,
                           background:
-                            "linear-gradient(90deg, transparent, rgba(203, 213, 225, 0.5), transparent)",
+                            "linear-gradient(135deg, #a5d2ff 0%, #d1b1ff 100%)",
+                          color: "#fff",
                         },
                       }}
                     >
-                      <Chip
-                        label="OR CONTINUE WITH"
-                        sx={{
-                          background: "rgba(255, 255, 255, 0.9)",
-                          color: "rgba(71, 85, 105, 0.6)",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          letterSpacing: "0.05em",
-                          border: "1px solid rgba(203, 213, 225, 0.3)",
-                        }}
-                      />
-                    </Box>
-
-                    {/* GitHub Login */}
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      startIcon={<GitHub />}
-                      sx={{
-                        py: 1.8,
-                        mb: 4,
-                        borderRadius: 4,
-                        fontWeight: 600,
-                        fontSize: "1rem",
-                        textTransform: "none",
-                        borderColor: "rgba(203, 213, 225, 0.5)",
-                        borderWidth: 1.5,
-                        color: "rgba(30, 41, 59, 0.8)",
-                        background: "rgba(255, 255, 255, 0.7)",
-                        backdropFilter: "blur(10px)",
-                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                        "&:hover": {
-                          borderColor: "rgba(30, 41, 59, 0.3)",
-                          background: "rgba(248, 250, 252, 0.9)",
-                          transform: "translateY(-1px)",
-                          boxShadow: "0 8px 25px rgba(0, 0, 0, 0.08)",
-                        },
-                      }}
-                    >
-                      Continue with GitHub
+                      {isLoading ? (
+                        <CircularProgress size={24} color="inherit" />
+                      ) : (
+                        "Sign Up"
+                      )}
                     </Button>
+                  </Box>
 
-                    {/* Footer Link to Login */}
-                    <Box
-                      sx={{ textAlign: "center", cursor: "pointer" }}
-                      onClick={handleLoginClick}
+                  {/* "Already have an account?" link */}
+                  <Box
+                    sx={{
+                      mt: 4,
+                      textAlign: "center",
+                      color: "rgba(71, 85, 105, 0.8)",
+                    }}
+                  >
+                    <div
+                      style={{ display: "inline-flex", alignItems: "center" }}
                     >
-                      <div className="flex justify-center items-center">
-                        <Typography
-                          variant="body2"
-                          sx={{ color: "rgba(71, 85, 105, 0.7)", mb: 1 }}
-                        >
-                          Already have an account?
-                        </Typography>
-
-                        <Button
-                          variant="text"
-                          onClick={handleLoginClick}
-                          sx={{
-                            color: "#3b82f6",
-                            fontWeight: 600,
-                            textTransform: "none",
-                            "&:hover": {
-                              textDecoration: "underline",
-                              color: "#1e40af",
-                            },
-                          }}
-                        >
-                          Login here
-                        </Button>
-                      </div>
-                    </Box>
+                      Already have an account?{" "}
+                      <Button
+                        onClick={handleLoginClick}
+                        disabled={isLoading}
+                        sx={{
+                          ml: 1,
+                          fontWeight: 700,
+                          color: "#3b82f6",
+                          textTransform: "none",
+                          "&:hover": {
+                            textDecoration: "underline",
+                            background: "transparent",
+                            color: "#7c3aed",
+                          },
+                        }}
+                      >
+                        Login here
+                      </Button>
+                    </div>
                   </Box>
                 </Paper>
               </Fade>

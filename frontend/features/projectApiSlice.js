@@ -1,10 +1,13 @@
+// features/projectApiSlice.js
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 // Define the API slice for project-related operations
 export const projectApiSlice = createApi({
   reducerPath: "projectApi",
+
   baseQuery: fetchBaseQuery({
     baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`,
+
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("token"); // Get the token from local storage
       if (token) {
@@ -15,52 +18,54 @@ export const projectApiSlice = createApi({
   }),
 
   tagTypes: ["Project", "GitHubRepos", "GitHubStatus", "ProjectCollaborators"],
+  // "GitHubRepos" added because project creation can affect GitHub state
 
   // Define the API endpoints
   endpoints: (builder) => ({
     getProjects: builder.query({
-      query: (userId) => `/projects/user/${userId}`,
-      providesTags: ["Project"],
+      query: (userId) => `/projects/user/${userId}`, // Endpoint path for fetching projects by user ID (currently used for manager)
+      providesTags: ["Project"], // Tag this query's data
     }),
-
+    // --- ADD THIS NEW ENDPOINT FOR DEVELOPER PROJECTS ---
     getDeveloperProjects: builder.query({
-      query: (userId) => `/developer/${userId}/projects`,
-      providesTags: ["Project"],
+      query: (userId) => `/projects/developer/${userId}`, // **IMPORTANT: Define the correct backend path for developer projects**
+      providesTags: ["Project"], // Tag this query's data (or a specific 'DeveloperProject' tag if needed)
     }),
+    // --- END OF NEW ENDPOINT ---
 
     createProject: builder.mutation({
       query: (projectData) => ({
-        url: "/projects",
-        method: "POST",
-        body: projectData,
+        url: "/projects", // Endpoint path for creating a project
+        method: "POST", // HTTP method for creation
+        body: projectData, // Request body containing project data
       }),
-      invalidatesTags: ["Project", "GitHubRepos"],
+      invalidatesTags: ["Project", "GitHubRepos"], // Invalidate tags to trigger refetching
     }),
 
     getUserGithubRepos: builder.query({
-      query: () => "/github/repos",
-      providesTags: ["GitHubRepos"],
+      query: () => "/github/repos", // Endpoint path for fetching user's GitHub repos
+      providesTags: ["GitHubRepos"], // Tag this query's data
     }),
 
     getGitHubAuthStatus: builder.query({
-      query: () => "/github/status",
-      providesTags: ["GitHubStatus"],
+      query: () => "/github/status", // Endpoint path for GitHub authentication status
+      providesTags: ["GitHubStatus"], // Tag this query's data
     }),
-
     getProjectById: builder.query({
+      // New endpoint
       query: (projectId) => `projects/${projectId}`,
       providesTags: (result, error, projectId) => [
         { type: "Project", id: projectId },
       ],
     }),
-
     getCollaborators: builder.query({
+      // New endpoint
       query: (projectId) => `projects/${projectId}/collaborators`,
       providesTags: (result, error, projectId) => [
         { type: "ProjectCollaborators", id: projectId },
       ],
     }),
-
+    // New: Mutation for updating a project
     updateProject: builder.mutation({
       query: ({ projectId, projectName, projectDescription }) => ({
         url: `/projects/${projectId}`,
@@ -71,13 +76,13 @@ export const projectApiSlice = createApi({
         { type: "Project", id: projectId },
       ],
     }),
-
+    // New: Mutation for deleting a project
     deleteProject: builder.mutation({
       query: (projectId) => ({
         url: `/projects/${projectId}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["Project"],
+      invalidatesTags: ["Project"], // Invalidate the general 'Project' tag to refetch project lists
     }),
   }),
 });
@@ -85,7 +90,7 @@ export const projectApiSlice = createApi({
 // Export the generated hooks for each endpoint for use in React components
 export const {
   useGetProjectsQuery,
-  useGetDeveloperProjectsQuery,
+  useGetDeveloperProjectsQuery, // <-- NOW THIS HOOK WILL BE GENERATED AND EXPORTED!
   useCreateProjectMutation,
   useGetUserGithubReposQuery,
   useGetGitHubAuthStatusQuery,

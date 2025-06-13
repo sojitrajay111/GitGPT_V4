@@ -14,20 +14,14 @@ export const authApiSlice = createApi({
       query: (userData) => ({
         url: "auth/signup",
         method: "POST",
-        body: userData,
+        body: userData, // userData will now include username, email, password, role
       }),
     }),
     login: builder.mutation({
       query: (credentials) => ({
         url: "auth/login",
         method: "POST",
-        body: credentials,
-      }),
-    }),
-    logout: builder.mutation({
-      query: () => ({
-        url: "auth/logout",
-        method: "POST",
+        body: credentials, // credentials will now include identifier (username/email) and password
       }),
     }),
     // logout: builder.mutation({
