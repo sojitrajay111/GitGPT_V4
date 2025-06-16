@@ -56,6 +56,12 @@ export default function ResetPasswordPage() {
         localStorage.removeItem("userData");
       }
 
+
+
+
+
+
+      
       setTimeout(() => {
         router.push("/login"); // Always redirect to login page
       }, 3000);
@@ -140,8 +146,22 @@ export default function ResetPasswordPage() {
               {...register("newPassword", {
                 required: "New password is required",
                 minLength: {
-                  value: 6,
-                  message: "Password must be at least 6 characters",
+                  value: 8,
+                  message: "Password must be at least 8 characters",
+                },
+                validate: {
+                  hasUpperCase: (value) =>
+                    /[A-Z]/.test(value) ||
+                    "Password must contain at least one uppercase letter",
+                  hasLowerCase: (value) =>
+                    /[a-z]/.test(value) ||
+                    "Password must contain at least one lowercase letter",
+                  hasNumber: (value) =>
+                    /[0-9]/.test(value) ||
+                    "Password must contain at least one number",
+                  hasSpecialChar: (value) =>
+                    /[!@#$%^&*(),.?":{}|<>]/.test(value) ||
+                    "Password must contain at least one special character",
                 },
               })}
               error={!!errors.newPassword}

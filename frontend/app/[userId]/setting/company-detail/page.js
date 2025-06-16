@@ -160,7 +160,7 @@ export default function CompanyDetailPage() {
               {/* Logo Upload */}
               <div className="flex flex-col items-center">
                 <div 
-                  className={`relative w-32 h-32 rounded-full flex items-center justify-center ${
+                  className={`relative w-48 h-48 rounded-full flex items-center justify-center ${
                     isEditing 
                       ? 'border-2 border-dashed border-blue-200 cursor-pointer hover:border-blue-300 bg-blue-50'
                       : 'border border-gray-200'
@@ -175,13 +175,13 @@ export default function CompanyDetailPage() {
                     />
                   ) : (
                     <div className="flex flex-col items-center text-blue-400">
-                      <ImageIcon size={32} />
-                      <span className="text-xs mt-1">Upload Logo</span>
+                      <ImageIcon size={48} />
+                      <span className="text-sm mt-2">Upload Logo</span>
                     </div>
                   )}
                   {isEditing && (
                     <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <Pencil size={24} className="text-white" />
+                      <Pencil size={32} className="text-white" />
                     </div>
                   )}
                 </div>
@@ -301,12 +301,17 @@ export default function CompanyDetailPage() {
                   <Avatar
                     src={previewUrl || undefined}
                     className="w-48 h-48 border-4 border-gray shadow-lg"
+                    sx={{ 
+                      width: 192, // 48 * 4 = 192px
+                      height: 192, // 48 * 4 = 192px
+                      fontSize: '3rem', // Larger font size for the fallback letter
+                      borderWidth: '4px',
+                      borderColor: 'rgba(0, 0, 0, 0.1)',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                    }}
                   >
                     {!previewUrl && (companyData?.companyName?.[0]?.toUpperCase() || 'C')}
                   </Avatar>
-                  {/* <div className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow-md"> */}
-                    {/* <Briefcase className="text-blue-600" size={20} /> */}
-                  {/* </div> */}
                 </div>
               </div>
 
