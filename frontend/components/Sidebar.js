@@ -1,3 +1,4 @@
+// Sidebar.js
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -15,7 +16,11 @@ import {
   Moon,
 } from "lucide-react";
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
-import Cookies from "js-cookie";
+// import Cookies from "js-cookie"; // Remove Cookies import
+import {
+  useGetThemeQuery,
+  useUpdateThemeMutation,
+} from "@/features/themeApiSlice"; // Import new theme hooks
 
 const Sidebar = ({
   userId,
@@ -27,28 +32,50 @@ const Sidebar = ({
   setActiveTab,
 }) => {
   const router = useRouter();
-  const { data } = useGetUserAndGithubDataQuery(userId);
-  const [theme, setTheme] = useState("light");
+  const { data: userData } = useGetUserAndGithubDataQuery(userId); // Renamed for clarity
+  // Use theme from RTK Query
+  const {
+    data: themeData,
+    isLoading: isThemeLoading,
+    isError: isThemeError,
+  } = useGetThemeQuery(userId, {
+    skip: !userId, // Skip query if userId is not available
+  });
+  const [updateTheme] = useUpdateThemeMutation(); // Mutation hook
 
-  // Effect to handle theme initialization and persistence
+  const theme = themeData?.theme || "light"; // Default to 'light' if data is not yet loaded or error
+  // const [theme, setTheme] = useState("light"); // Remove local state for theme
+
+  // Remove useEffect for initial theme from Cookies
+  // useEffect(() => {
+  //   const savedTheme = Cookies.get("theme") || "light";
+  //   setTheme(savedTheme);
+  // }, []);
+
+  // Effect to apply the theme class to the document element (html tag)
+  // This useEffect will now react to changes in themeData from the API
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") || "light";
-    setTheme(savedTheme);
-  }, []);
+    if (!isThemeLoading && !isThemeError && theme) {
+      // Only apply once theme data is fetched
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    }
+  }, [theme, isThemeLoading, isThemeError]);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
-  const handleToggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === "dark" ? "light" : "dark"));
+  const handleToggleTheme = async () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    try {
+      await updateTheme({ userId, theme: newTheme }).unwrap();
+      // The `useGetThemeQuery` will automatically refetch and update the UI
+    } catch (error) {
+      console.error("Failed to update theme preference:", error);
+      // Optionally show an error message to the user
+    }
   };
 
-  const username = data?.user?.username || "Loading...";
-  const email = data?.githubData?.githubEmail || "Loading...";
-  const avatar_url = data?.githubData?.avatarUrl || "/default-avatar.png";
-  const githubUsername = data?.githubData?.githubUsername || "Loading...";
+  const username = userData?.user?.username || "Loading...";
+  const email = userData?.githubData?.githubEmail || "Loading...";
+  const avatar_url = userData?.githubData?.avatarUrl || "/default-avatar.png";
+  const githubUsername = userData?.githubData?.githubUsername || "Loading...";
 
   const handleNavigate = (tab) => {
     router.push(`/${userId}/${tab}`);
@@ -57,8 +84,8 @@ const Sidebar = ({
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("theme"); // Also clear theme on logout
-    Cookies.remove("token");
+    // localStorage.removeItem("theme"); // Remove theme from local storage
+    // Cookies.remove("token"); // Assuming Cookies for token are managed elsewhere now or no longer needed for theme
     router.push("/");
     router.refresh();
   };
@@ -98,7 +125,7 @@ const Sidebar = ({
       )}
 
       <div
-        className={`fixed inset-y-0 left-0 z-30 ${sidebarBg} ${textColor} flex flex-col h-screen border-r ${borderColor} 
+        className={`fixed inset-y-0 left-0 z-30 ${sidebarBg} ${textColor} flex flex-col h-screen border-r ${borderColor}
         transform transition-all duration-300 ease-in-out
         lg:static lg:translate-x-0
         ${isOpen ? "translate-x-0" : "-translate-x-full"}

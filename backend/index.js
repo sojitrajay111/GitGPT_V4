@@ -13,13 +13,12 @@ const documentRoutes = require("./routes/documentRoutes");
 const developerRoutes = require("./routes/developerRoutes"); // Import developer routes
 const gptRoutes = require("./routes/gptRoutes"); // Import GPT routes
 const jiraroute = require("./routes/jiraroute");
-const configurationRoutes = require('./routes/configurationRoutes');
-
+const configurationRoutes = require("./routes/configurationRoutes");
 const userManagementRoute = require("./routes/userManagementRoute");
-
+const themeRoutes = require("./routes/themeRoutes");
 
 const companyRoutes = require("./routes/companyRoutes");
-const userRoutes = require('./routes/userRoutes');
+const userRoutes = require("./routes/userRoutes");
 
 const app = express();
 
@@ -27,7 +26,12 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+    ],
     credentials: true,
   })
 );
@@ -51,7 +55,8 @@ app.use("/api/jira", jiraroute);
 app.use("/api/user-management", userManagementRoute);
 
 app.use("/api/company", companyRoutes);
-app.use('/api/users', userRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/theme", themeRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

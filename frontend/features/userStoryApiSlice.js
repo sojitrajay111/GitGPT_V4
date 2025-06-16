@@ -1,3 +1,4 @@
+// userStoryApiSlice.js
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 // Create a base query that will inject the token into the headers
@@ -84,6 +85,8 @@ export const userStoryApiSlice = createApi({
         method: "POST",
         body: { projectId, githubRepoUrl },
       }),
+      // We don't invalidate tags here because updates are streamed via SSE and refetch is called manually.
+      // If the backend also sends a direct update, invalidation might be needed.
     }),
   }),
 });
