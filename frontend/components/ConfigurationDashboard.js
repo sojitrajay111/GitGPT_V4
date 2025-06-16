@@ -119,8 +119,8 @@ const ConfigurationDashboard = () => {
         {
           configTitle: configData.title,
           configValue: configData.items.map(item => ({
-            key: item.key,
-            value: item.value
+        key: item.key,
+        value: item.value
           })),
           isActive: true
         },
@@ -128,10 +128,10 @@ const ConfigurationDashboard = () => {
       );
 
       if (response.data.success) {
-        toast.success("Configuration Saved", {
-          description: `${configData.title} has been ${editingConfig ? 'updated' : 'added'} successfully.`,
-        });
-        handleCloseWizard();
+      toast.success("Configuration Saved", {
+        description: `${configData.title} has been ${editingConfig ? 'updated' : 'added'} successfully.`,
+      });
+      handleCloseWizard();
         fetchConfigurations(); // Refresh the list
       } else {
         throw new Error(response.data.message || 'Failed to save configuration');
@@ -143,9 +143,9 @@ const ConfigurationDashboard = () => {
           description: "Please log in again to continue.",
         });
       } else {
-        toast.error("Error Saving Configuration", {
+      toast.error("Error Saving Configuration", {
           description: error.message || "Failed to save configuration. Please try again.",
-        });
+      });
       }
     }
   };
@@ -181,9 +181,9 @@ const ConfigurationDashboard = () => {
       );
       
       if (response.data.success) {
-        toast.success("Configuration Deleted", {
-          description: "The configuration has been removed successfully.",
-        });
+      toast.success("Configuration Deleted", {
+        description: "The configuration has been removed successfully.",
+      });
         fetchConfigurations(); // Refresh the list
       } else {
         throw new Error(response.data.message || 'Failed to delete configuration');
@@ -195,9 +195,9 @@ const ConfigurationDashboard = () => {
           description: "Please log in again to continue.",
         });
       } else {
-        toast.error("Error Deleting Configuration", {
+      toast.error("Error Deleting Configuration", {
           description: error.message || "Failed to delete configuration. Please try again.",
-        });
+      });
       }
     }
   };
