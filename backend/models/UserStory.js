@@ -1,3 +1,4 @@
+// UserStory.js
 const mongoose = require("mongoose");
 
 const userStorySchema = new mongoose.Schema(
@@ -53,8 +54,38 @@ const userStorySchema = new mongoose.Schema(
     // New field for AI-enhanced user story content
     aiEnhancedUserStory: {
       type: String,
-      trim: true, // Good to trim whitespace
-      default: "", // Default to an empty string
+      trim: true,
+      default: "",
+    },
+    // NEW: Status of the user story (e.g., Planning, In Review, Completed, AI Developed)
+    status: {
+      type: String,
+      enum: ["PLANNING", "IN REVIEW", "COMPLETED", "AI DEVELOPED"],
+      default: "PLANNING",
+    },
+    // NEW: Priority of the user story (e.g., Low, Medium, High)
+    priority: {
+      type: String,
+      enum: ["Low", "Medium", "High"],
+      default: "Medium",
+    },
+    // NEW: Estimated time for the user story (e.g., "8h", "2d")
+    estimatedTime: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    // NEW: GitHub branch created for this user story (if applicable)
+    githubBranch: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    // NEW: Pull Request URL created for this user story (if applicable)
+    prUrl: {
+      type: String,
+      trim: true,
+      default: "",
     },
   },
   {

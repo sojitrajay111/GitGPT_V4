@@ -1,6 +1,7 @@
+// page.js
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Button,
@@ -22,14 +23,15 @@ import {
   Chip,
   Stack,
   Snackbar,
-  IconButton,
   Divider,
   Grid,
-  Menu,
+  LinearProgress,
+  FormControl,
+  InputLabel,
+  Select,
   MenuItem,
-  ListItemIcon,
-  ListItemText,
-  LinearProgress, // Import LinearProgress for the progress bar
+  IconButton,
+  Switch, // Added for the back button in detail view
 } from "@mui/material";
 import {
   ThemeProvider,
@@ -40,20 +42,19 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
-import DescriptionIcon from "@mui/icons-material/Description";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import SearchIcon from "@mui/icons-material/Search";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft"; // For back navigation
+
 import {
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
   useUpdateUserStoryMutation,
   useDeleteUserStoryMutation,
   useGenerateAiStoryMutation,
-  useGenerateSalesforceCodeMutation, // Import the new hook
+  useGenerateSalesforceCodeMutation,
 } from "@/features/userStoryApiSlice";
 import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
@@ -61,8 +62,7 @@ import {
   useGetCollaboratorPermissionsQuery,
   useGetDeveloperUserStoriesQuery,
 } from "@/features/developerApiSlice";
-import { skipToken } from "@reduxjs/toolkit/query";
-import { ChevronLeft } from "lucide-react";
+import { useGetThemeQuery } from "@/features/themeApiSlice"; // Import new theme hook
 
 // Keyframes for futuristic loading animation
 const rotate = keyframes`
@@ -81,76 +81,194 @@ const pulse = keyframes`
   100% { transform: scale(1); opacity: 0.7; }
 `;
 
-// Professional theme
-const freshTheme = createTheme({
-  palette: {
-    primary: { main: "#5e72e4" },
-    secondary: { main: "#11cdef" },
-    success: { main: "#2dce89" },
-    error: { main: "#f5365c" },
-    background: { default: "#f8f9fe", paper: "#ffffff" },
-    text: { primary: "#32325d", secondary: "#525f7f" },
-  },
-  typography: {
-    fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
-    h4: { fontWeight: 700, fontSize: "1.8rem" },
-    h6: { fontWeight: 600, fontSize: "1.1rem" },
-    body1: { fontSize: "0.95rem" },
-    body2: { fontSize: "0.85rem" },
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: "12px",
-          padding: "8px 20px",
-          fontWeight: 600,
-          textTransform: "none",
-        },
+// Theme definitions
+const getAppTheme = (mode) =>
+  createTheme({
+    palette: {
+      mode: mode,
+      primary: { main: mode === "dark" ? "#90CAF9" : "#5e72e4" },
+      secondary: { main: mode === "dark" ? "#F48FB1" : "#11cdef" },
+      success: { main: "#2dce89" },
+      error: { main: "#f5365c" },
+      warning: { main: "#fb6340" }, // Added warning color for 'In Review'
+      info: { main: "#11cdef" }, // Added info color for 'Planning'
+      background: {
+        default: mode === "dark" ? "#1a202c" : "#f8f9fe",
+        paper: mode === "dark" ? "#2d3748" : "#ffffff",
+      },
+      text: {
+        primary: mode === "dark" ? "#e0e0e0" : "#32325d",
+        secondary: mode === "dark" ? "#b0b0b0" : "#525f7f",
       },
     },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: "16px",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
-          border: "1px solid #e9ecef",
-          transition: "all 0.3s ease",
-          "&:hover": {
-            transform: "translateY(-3px)",
+    typography: {
+      fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
+      h4: { fontWeight: 700, fontSize: "1.8rem" },
+      h6: { fontWeight: 600, fontSize: "1.1rem" },
+      body1: { fontSize: "0.95rem" },
+      body2: { fontSize: "0.85rem" },
+    },
+    components: {
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: "12px",
+            padding: "8px 20px",
+            fontWeight: 600,
+            textTransform: "none",
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            borderRadius: "16px",
             boxShadow:
-              "0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08)",
+              mode === "dark"
+                ? "0 4px 20px rgba(0, 0, 0, 0.4)"
+                : "0 4px 20px rgba(0, 0, 0, 0.03)",
+            border: `1px solid ${mode === "dark" ? "#4a5568" : "#e9ecef"}`,
+            transition: "all 0.3s ease",
+            "&:hover": {
+              transform: "translateY(-3px)",
+              boxShadow:
+                mode === "dark"
+                  ? "0 7px 14px rgba(0, 0, 0, 0.5), 0 3px 6px rgba(0, 0, 0, 0.3)"
+                  : "0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08)",
+            },
+          },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: { paper: { borderRadius: "16px" } },
+      },
+      MuiTextField: {
+        styleOverrides: {
+          root: {
+            "& .MuiOutlinedInput-root": {
+              "& fieldset": {
+                borderColor: mode === "dark" ? "#6b7280" : undefined,
+              },
+              "&:hover fieldset": {
+                borderColor: mode === "dark" ? "#90CAF9" : undefined,
+              },
+              "&.Mui-focused fieldset": {
+                borderColor: mode === "dark" ? "#90CAF9" : undefined,
+              },
+            },
+            "& .MuiInputLabel-root": {
+              color: mode === "dark" ? "#b0b0b0" : undefined,
+            },
+            "& .MuiInputBase-input": {
+              color: mode === "dark" ? "#e0e0e0" : undefined,
+            },
+          },
+        },
+      },
+      MuiSelect: {
+        styleOverrides: {
+          root: {
+            "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: mode === "dark" ? "#6b7280" : undefined,
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: mode === "dark" ? "#90CAF9" : undefined,
+            },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderColor: mode === "dark" ? "#90CAF9" : undefined,
+            },
+            color: mode === "dark" ? "#e0e0e0" : undefined,
+          },
+          icon: {
+            color: mode === "dark" ? "#e0e0e0" : undefined,
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            color: mode === "dark" ? "#b0b0b0" : undefined,
           },
         },
       },
     },
-    MuiDialog: {
-      styleOverrides: { paper: { borderRadius: "16px" } },
-    },
-  },
-});
+  });
 
 // Styled components
 const HeaderCard = styled(Card)(({ theme }) => ({
-  background: "linear-gradient(87deg, #5e72e4 0, #825ee4 100%)",
+  background:
+    theme.palette.mode === "dark"
+      ? "linear-gradient(87deg, #3a506b 0, #1c2a3b 100%)"
+      : "linear-gradient(87deg, #5e72e4 0, #825ee4 100%)",
   color: "white",
   padding: theme.spacing(3),
-  marginBottom: theme.spacing(4),
+  marginBottom: theme.spacing(4), // This might be overridden by the main layout, but good to keep
+  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
 }));
 
-const StoryCard = styled(Card)(({ theme }) => ({
-  borderLeft: `5px solid ${theme.palette.primary.main}`,
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-}));
+// Corrected StoryCard styled component for dynamic border and text color
+const StoryCard = styled(Card)(({ theme, storyStatus }) => {
+  let borderColor;
+  let statusTextColor;
+
+  switch (storyStatus) {
+    case "AI DEVELOPED":
+      borderColor = theme.palette.secondary.main;
+      statusTextColor = theme.palette.secondary.main;
+      break;
+    case "COMPLETED":
+      borderColor = theme.palette.success.main;
+      statusTextColor = theme.palette.success.main;
+      break;
+    case "IN REVIEW":
+      borderColor = theme.palette.warning.main;
+      statusTextColor = theme.palette.warning.main;
+      break;
+    case "PLANNING":
+      borderColor = theme.palette.info.main;
+      statusTextColor = theme.palette.info.main;
+      break;
+    default:
+      borderColor = theme.palette.primary.main;
+      statusTextColor = theme.palette.text.secondary;
+      break;
+  }
+
+  return {
+    borderLeft: `5px solid ${borderColor}`,
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.primary,
+    "& .status-chip": {
+      backgroundColor:
+        theme.palette.mode === "dark"
+          ? theme.palette.action.selected
+          : theme.palette.grey[100],
+      color: statusTextColor,
+      fontWeight: 600,
+    },
+    // Ensure text color is appropriate for the theme
+    "& .MuiTypography-root": {
+      color: theme.palette.text.primary,
+    },
+    "& .MuiTypography-caption, & .MuiTypography-body2": {
+      color: theme.palette.text.secondary,
+    },
+  };
+});
 
 const AIContentBox = styled(Box)(({ theme }) => ({
-  background: "linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)",
-  border: `1px solid #dee2e6`,
+  background:
+    theme.palette.mode === "dark"
+      ? "linear-gradient(120deg, #2a3447 0%, #1c2a3b 100%)"
+      : "linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)",
+  border: `1px solid ${theme.palette.mode === "dark" ? "#4a5568" : "#dee2e6"}`,
   borderRadius: "12px",
   padding: theme.spacing(2),
   marginTop: theme.spacing(2),
+  color: theme.palette.text.primary,
 }));
 
 // Styled Dialog for advanced loading
@@ -261,10 +379,16 @@ const UserStoryPage = () => {
   const router = useRouter();
   const { userId, projectId } = params;
 
-  // State for dialogs and forms
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // State for forms and views
+  // 'list': shows the list of stories (default when no story is selected)
+  // 'create': shows the form for creating a new story
+  // 'view': shows the details of a selected story
+  // 'edit': shows the form for editing a selected story
+  const [activePanel, setActivePanel] = useState("create"); // Set to 'create' by default as per request
+  const [selectedStory, setSelectedStory] = useState(null); // The story currently being viewed/edited
+
+  // State for delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editingStory, setEditingStory] = useState(null);
   const [storyToDelete, setStoryToDelete] = useState(null);
 
   // NEW: State for code generation loading and status
@@ -273,7 +397,7 @@ const UserStoryPage = () => {
   const [completedGenerationSteps, setCompletedGenerationSteps] = useState([]);
   const [generationError, setGenerationError] = useState(null);
   const [githubResult, setGithubResult] = useState(null);
-  const [activeGenerationStoryId, setActiveGenerationStoryId] = useState(null); // New state to track which story is generating
+  const [activeGenerationStoryId, setActiveGenerationStoryId] = useState(null);
 
   // Form fields state
   const [userStoryTitle, setUserStoryTitle] = useState("");
@@ -283,25 +407,68 @@ const UserStoryPage = () => {
   const [selectedCollaboratorGithubIds, setSelectedCollaboratorGithubIds] =
     useState([]);
   const [generatedStoryContent, setGeneratedStoryContent] = useState("");
-  const [githubRepoUrl, setGithubRepoUrl] = useState(""); // State for GitHub Repo URL - though project's will be used
+  const [storyStatus, setStoryStatus] = useState("PLANNING"); // NEW: Status
+  const [storyPriority, setStoryPriority] = useState("Medium"); // NEW: Priority
+  const [estimatedTime, setEstimatedTime] = useState(""); // NEW: Estimated Time
 
-  // State for menus and notifications
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [currentStoryId, setCurrentStoryId] = useState(null);
+  // State for search and filter
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  // State for snackbar notifications
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
 
+  // State for theme mode, initialized from RTK Query
+  const {
+    data: themeData,
+    isLoading: isThemeLoading,
+    isError: isThemeError,
+  } = useGetThemeQuery(userId, {
+    skip: !userId, // Skip query if userId is not available
+  });
+
+  const themeMode = themeData?.theme || "light"; // Default to 'light' if data is not yet loaded or error
+
+  // Remove useEffect for initial theme from localStorage
+  // useEffect(() => {
+  //   const storedTheme = localStorage.getItem("theme") || "light";
+  //   setThemeMode(storedTheme);
+
+  //   const handleStorageChange = () => {
+  //     setThemeMode(localStorage.getItem("theme") || "light");
+  //   };
+  //   window.addEventListener("storage", handleStorageChange);
+  //   return () => {
+  //     window.removeEventListener("storage", handleStorageChange);
+  //   };
+  // }, []);
+
+  // NEW ADDITION: Effect to apply the theme class to the document element (html tag)
+  // This ensures the global 'dark' class is always in sync with page.js's themeMode state,
+  // especially important for initial load and consistency across components.
+  useEffect(() => {
+    if (!isThemeLoading && !isThemeError && themeMode) {
+      // Only apply once theme data is fetched
+      document.documentElement.classList.toggle("dark", themeMode === "dark");
+    }
+  }, [themeMode, isThemeLoading, isThemeError]);
+
+  // Memoize the theme creation to prevent unnecessary re-renders
+  const currentTheme = useMemo(() => getAppTheme(themeMode), [themeMode]);
+
   // RTK Query Hooks
   const { data: userData } = useGetUserAndGithubDataQuery(userId);
   const userRole = userData?.user?.role;
   const githubId = userData?.githubData?.githubId;
 
-  // Placeholder for project's GitHub Repo URL. In a real app, this would come from a project details query.
-  // For this example, ensure you replace this with actual project data if available.
-  const projectGithubRepoUrl = "https://github.com/your-org/your-repo-name"; // <<< IMPORTANT: REPLACE WITH ACTUAL PROJECT REPO URL LOGIC
+  // Placeholder for project's GitHub Repo URL.
+  // IMPORTANT: REPLACE WITH ACTUAL PROJECT REPO URL LOGIC
+  // This should ideally come from a project-specific API call
+  const projectGithubRepoUrl = "https://github.com/your-org/your-repo-name";
 
   const { data: developerPermissions } = useGetCollaboratorPermissionsQuery(
     { projectId, githubId },
@@ -327,7 +494,6 @@ const UserStoryPage = () => {
     useDeleteUserStoryMutation();
   const [generateAiStory, { isLoading: isGenerating }] =
     useGenerateAiStoryMutation();
-  // We're not using the RTK Query mutation directly for streaming, but keeping it for reference if needed
   const [triggerSalesforceCodeGeneration] = useGenerateSalesforceCodeMutation();
 
   const canManageStories =
@@ -337,13 +503,6 @@ const UserStoryPage = () => {
   const showSnackbar = (message, severity = "success") =>
     setSnackbar({ open: true, message, severity });
 
-  // Handlers for story actions menu
-  const handleMenuClick = (event, storyId) => {
-    setAnchorEl(event.currentTarget);
-    setCurrentStoryId(storyId);
-  };
-  const handleMenuClose = () => setAnchorEl(null);
-
   const resetForm = () => {
     setUserStoryTitle("");
     setDescription("");
@@ -351,52 +510,52 @@ const UserStoryPage = () => {
     setTestingScenarios("");
     setSelectedCollaboratorGithubIds([]);
     setGeneratedStoryContent("");
-    setEditingStory(null);
-    setGithubRepoUrl(""); // Reset GitHub Repo URL
+    setStoryStatus("PLANNING");
+    setStoryPriority("Medium");
+    setEstimatedTime("");
+    setSelectedStory(null); // Clear selected story
   };
 
-  // Open dialog for creating
-  const handleOpenCreateDialog = () => {
+  // Open form for creating new story
+  const handleOpenCreateForm = () => {
     resetForm();
-    setDialogOpen(true);
+    setActivePanel("create");
   };
 
-  // Open dialog for editing
-  const handleOpenEditDialog = () => {
-    const story = userStories.find((s) => s._id === currentStoryId);
-    if (story) {
-      setEditingStory(story);
-      setUserStoryTitle(story.userStoryTitle);
-      setDescription(story.description);
-      setAcceptanceCriteria(story.acceptanceCriteria);
-      setTestingScenarios(story.testingScenarios);
-      setSelectedCollaboratorGithubIds(
-        story.collaborators.map((c) => c.githubId)
-      );
-      setGeneratedStoryContent(story.aiEnhancedUserStory || "");
-      // If editing, try to pre-fill githubRepoUrl if it was associated with the project
-      // For now, assuming a default or project-level URL
-      setGithubRepoUrl(projectGithubRepoUrl); // Set a default or fetch it based on projectId
-      setDialogOpen(true);
-    }
-    handleMenuClose();
+  // Open form for editing existing story
+  const handleOpenEditForm = (story) => {
+    setSelectedStory(story);
+    setUserStoryTitle(story.userStoryTitle);
+    setDescription(story.description);
+    setAcceptanceCriteria(story.acceptanceCriteria);
+    setTestingScenarios(story.testingScenarios);
+    setSelectedCollaboratorGithubIds(
+      story.collaborators?.map((c) => c.githubId) || []
+    );
+    setGeneratedStoryContent(story.aiEnhancedUserStory || "");
+    setStoryStatus(story.status || "PLANNING");
+    setStoryPriority(story.priority || "Medium");
+    setEstimatedTime(story.estimatedTime || "");
+    setActivePanel("edit");
+  };
+
+  // View a specific story
+  const handleViewStory = (story) => {
+    setSelectedStory(story);
+    setActivePanel("view");
   };
 
   // Open dialog for deleting
-  const handleOpenDeleteDialog = () => {
-    const story = userStories.find((s) => s._id === currentStoryId);
+  const handleOpenDeleteDialog = (story) => {
     setStoryToDelete(story);
     setDeleteDialogOpen(true);
-    handleMenuClose();
   };
 
   const handleCloseDialogs = () => {
-    setDialogOpen(false);
     setDeleteDialogOpen(false);
     // When closing the main dialog, also ensure the generation dialog is closed if it's open,
     // but only if the generation process is truly done or user explicitly closes it after error/completion.
     if (!isGeneratingCodeProcess) {
-      // Only allow this if process is not active (or finished)
       setIsGeneratingCodeProcess(false);
       setCompletedGenerationSteps([]); // Clear steps on close
       setCurrentGenerationStatus(""); // Clear current status
@@ -406,11 +565,10 @@ const UserStoryPage = () => {
     }
   };
 
-  // NEW: Handler for opening the generation dialog manually (from "Generating..." button)
+  // Handler for opening the generation dialog manually (from "Generating..." button)
   const handleOpenGenerationDialog = (storyId) => {
-    setCurrentStoryId(storyId); // Set context for the dialog
-    // Ensure the dialog opens if the process is active for this story
-    if (activeGenerationStoryId === storyId) {
+    // Only open if this story is the one actively generating
+    if (activeGenerationStoryId === storyId && isGeneratingCodeProcess) {
       setIsGeneratingCodeProcess(true);
     }
   };
@@ -447,14 +605,13 @@ const UserStoryPage = () => {
     }
   };
 
-  // NEW: Handler for generating Salesforce code with streaming updates
   const handleGenerateSalesforceCode = async () => {
-    if (!currentStoryId) {
+    const storyToGenerate = selectedStory; // Use the currently selected story
+    if (!storyToGenerate?._id) {
       showSnackbar("Please select a user story first.", "warning");
       return;
     }
     if (!projectGithubRepoUrl) {
-      // Use the project's actual GitHub URL
       showSnackbar(
         "Project GitHub repository URL is not configured. Please update project settings.",
         "error"
@@ -463,26 +620,24 @@ const UserStoryPage = () => {
     }
 
     setIsGeneratingCodeProcess(true);
-    setActiveGenerationStoryId(currentStoryId); // Set the active story for generation
+    setActiveGenerationStoryId(storyToGenerate._id);
     setCompletedGenerationSteps([]);
-    setCurrentGenerationStatus("AI code generation initiated..."); // Initial status
+    setCurrentGenerationStatus("AI code generation initiated...");
     setGenerationError(null);
     setGithubResult(null);
-    handleMenuClose(); // Close the story action menu
 
-    // Immediately add the initial status to the completed steps list
     setCompletedGenerationSteps([
       { message: "AI code generation initiated..." },
     ]);
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user-stories/${currentStoryId}/generate-salesforce-code`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user-stories/${storyToGenerate._id}/generate-salesforce-code`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`, // Ensure token is sent
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: JSON.stringify({
             projectId,
@@ -492,7 +647,6 @@ const UserStoryPage = () => {
       );
 
       if (!response.ok) {
-        // Handle non-streaming errors
         const errorData = await response.json();
         setGenerationError(
           errorData.message ||
@@ -506,7 +660,6 @@ const UserStoryPage = () => {
         return;
       }
 
-      // Use a ReadableStreamDefaultReader to process the stream
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -517,20 +670,17 @@ const UserStoryPage = () => {
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Process each complete SSE message
         let lastIndex = 0;
         let newlineIndex;
         while ((newlineIndex = buffer.indexOf("\n\n", lastIndex)) !== -1) {
           const eventString = buffer.substring(lastIndex, newlineIndex);
-          lastIndex = newlineIndex + 2; // Move past the double newline
+          lastIndex = newlineIndex + 2;
 
           if (eventString.startsWith("data: ")) {
             try {
-              const eventData = JSON.parse(eventString.substring(6)); // Remove 'data: ' prefix
+              const eventData = JSON.parse(eventString.substring(6));
 
-              // Always add the new message to completed steps list if it's new
               setCompletedGenerationSteps((prev) => {
-                // Only add if it's a new, meaningful status update.
                 if (
                   prev.length === 0 ||
                   prev[prev.length - 1]?.message !== eventData.message
@@ -540,15 +690,22 @@ const UserStoryPage = () => {
                 return prev;
               });
 
-              setCurrentGenerationStatus(eventData.message); // Update the currently displayed status
+              setCurrentGenerationStatus(eventData.message);
 
               if (eventData.type === "complete") {
-                setGithubResult(eventData); // Store the final result
+                setGithubResult(eventData);
                 showSnackbar(
                   "Salesforce code generated and PR created successfully!",
                   "success"
                 );
-                refetchUserStories(); // Refresh stories to reflect any changes
+                refetchUserStories();
+                // Update the selected story with new github details
+                setSelectedStory((prev) => ({
+                  ...prev,
+                  githubBranch: eventData.githubBranch,
+                  prUrl: eventData.prUrl,
+                  status: "AI DEVELOPED", // Set status to AI Developed
+                }));
               } else if (eventData.type === "error") {
                 setGenerationError(eventData.message);
                 setCurrentGenerationStatus("Process failed.");
@@ -556,11 +713,10 @@ const UserStoryPage = () => {
               }
             } catch (parseError) {
               console.error("Error parsing SSE data:", parseError);
-              // Handle malformed JSON if necessary, but don't stop the stream
             }
           }
         }
-        buffer = buffer.substring(lastIndex); // Keep any incomplete message in the buffer
+        buffer = buffer.substring(lastIndex);
       }
     } catch (err) {
       console.error("Fetch error during Salesforce code generation:", err);
@@ -573,15 +729,10 @@ const UserStoryPage = () => {
         "error"
       );
     } finally {
-      // Ensure the process is marked as complete or failed after stream ends or error
-      // Give a small delay to ensure final status is displayed
       setTimeout(() => {
-        // Only reset activeGenerationStoryId if the process truly finishes (success or error)
-        // and is not just a temporary network hiccup that might restart.
-        // For simplicity, we'll reset it here assuming process completion/failure.
         setIsGeneratingCodeProcess(false);
-        setActiveGenerationStoryId(null); // Reset active generation story
-      }, 1000); // Small delay to allow final status to render
+        setActiveGenerationStoryId(null);
+      }, 1000);
     }
   };
 
@@ -593,12 +744,15 @@ const UserStoryPage = () => {
       testingScenarios,
       collaboratorGithubIds: selectedCollaboratorGithubIds,
       aiEnhancedUserStory: generatedStoryContent,
+      status: storyStatus,
+      priority: storyPriority,
+      estimatedTime: estimatedTime,
     };
 
     try {
-      if (editingStory) {
+      if (selectedStory && activePanel === "edit") {
         await updateUserStory({
-          userStoryId: editingStory._id,
+          userStoryId: selectedStory._id,
           ...storyData,
         }).unwrap();
         showSnackbar("User story updated successfully!");
@@ -606,8 +760,9 @@ const UserStoryPage = () => {
         await createUserStory({ projectId, ...storyData }).unwrap();
         showSnackbar("User story created successfully!");
       }
-      handleCloseDialogs();
+      resetForm();
       refetchUserStories();
+      setActivePanel("list"); // Go back to list after submit
     } catch (err) {
       showSnackbar(err.data?.message || "An error occurred.", "error");
     }
@@ -619,6 +774,8 @@ const UserStoryPage = () => {
       showSnackbar("User story deleted successfully!");
       handleCloseDialogs();
       refetchUserStories();
+      setActivePanel("list"); // Go back to list after delete
+      setSelectedStory(null); // Clear selected story
     } catch (err) {
       showSnackbar(
         err.data?.message || "Failed to delete user story.",
@@ -627,412 +784,714 @@ const UserStoryPage = () => {
     }
   };
 
-  const userStories =
+  const allUserStories =
     userRole === "developer"
       ? developerUserStories
       : userStoriesData?.userStories || [];
 
+  const filteredUserStories = useMemo(() => {
+    return allUserStories.filter((story) => {
+      const matchesSearch = story.userStoryTitle
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesCompletedStatus = showCompleted
+        ? story.status === "COMPLETED"
+        : story.status !== "COMPLETED";
+      return matchesSearch && matchesCompletedStatus;
+    });
+  }, [allUserStories, searchTerm, showCompleted]);
+
+  // Sort stories by creation date, most recent first
+  filteredUserStories.sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
+
+  // Render function for the story creation/edit form
+  const renderStoryForm = () => (
+    <Card
+      sx={{
+        p: 3,
+        height: "100%",
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Typography variant="h6" gutterBottom>
+        {activePanel === "edit" ? "Edit User Story" : "Create New User Story"}
+      </Typography>
+      <Grid container spacing={2} sx={{ pt: 1, flexGrow: 1 }}>
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="User Story Title"
+            value={userStoryTitle}
+            onChange={(e) => setUserStoryTitle(e.target.value)}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Acceptance Criteria"
+            value={acceptanceCriteria}
+            onChange={(e) => setAcceptanceCriteria(e.target.value)}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Testing Scenarios"
+            value={testingScenarios}
+            onChange={(e) => setTestingScenarios(e.target.value)}
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <FormControl fullWidth variant="outlined">
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={storyStatus}
+              label="Status"
+              onChange={(e) => setStoryStatus(e.target.value)}
+            >
+              <MenuItem value="PLANNING">Planning</MenuItem>
+              <MenuItem value="IN REVIEW">In Review</MenuItem>
+              <MenuItem value="COMPLETED">Completed</MenuItem>
+              <MenuItem value="AI DEVELOPED">AI Developed</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <FormControl fullWidth variant="outlined">
+            <InputLabel>Priority</InputLabel>
+            <Select
+              value={storyPriority}
+              label="Priority"
+              onChange={(e) => setStoryPriority(e.target.value)}
+            >
+              <MenuItem value="Low">Low</MenuItem>
+              <MenuItem value="Medium">Medium</MenuItem>
+              <MenuItem value="High">High</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            fullWidth
+            label="Estimated Time (e.g., 8h, 2d)"
+            value={estimatedTime}
+            onChange={(e) => setEstimatedTime(e.target.value)}
+          />
+        </Grid>
+
+        <Grid item xs={12}>
+          <Typography variant="h6" mt={2}>
+            Assign Collaborators
+          </Typography>
+          {collaboratorsLoading ? (
+            <CircularProgress size={24} />
+          ) : (
+            <FormGroup
+              sx={{ display: "flex", flexDirection: "row", flexWrap: "wrap" }}
+            >
+              {collaboratorsData?.collaborators.map((c) => (
+                <FormControlLabel
+                  key={c.githubId}
+                  control={
+                    <Checkbox
+                      checked={selectedCollaboratorGithubIds.includes(
+                        c.githubId
+                      )}
+                      onChange={handleCollaboratorChange}
+                      value={c.githubId}
+                    />
+                  }
+                  label={
+                    <Box display="flex" alignItems="center">
+                      <Avatar
+                        src={c.avatarUrl}
+                        sx={{ width: 24, height: 24, mr: 1 }}
+                      />
+                      {c.username}
+                    </Box>
+                  }
+                />
+              ))}
+            </FormGroup>
+          )}
+        </Grid>
+
+        <Grid item xs={12}>
+          <Box display="flex" justifyContent="flex-end" my={1}>
+            <Button
+              variant="outlined"
+              onClick={handleGenerateStory}
+              disabled={isGenerating}
+              startIcon={<AutoFixHighIcon />}
+            >
+              {isGenerating
+                ? "Generating..."
+                : selectedStory
+                ? "Regenerate with AI"
+                : "Enhance with AI"}
+            </Button>
+          </Box>
+          {generatedStoryContent && (
+            <AIContentBox>
+              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                {generatedStoryContent}
+              </Typography>
+            </AIContentBox>
+          )}
+        </Grid>
+      </Grid>
+      <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
+        <Button onClick={() => setActivePanel("list")}>Cancel</Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={isCreating || isUpdating}
+        >
+          {isCreating || isUpdating ? (
+            <CircularProgress size={24} color="inherit" />
+          ) : activePanel === "edit" ? (
+            "Save Changes"
+          ) : (
+            "Create Story"
+          )}
+        </Button>
+      </Box>
+    </Card>
+  );
+
+  // Render function for the story detail view
+  const renderStoryDetail = () => (
+    <Card
+      sx={{
+        p: 3,
+        height: "100%",
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Box display="flex" justifyContent="space-between" alignItems="center">
+        <IconButton onClick={() => setActivePanel("list")}>
+          <ChevronLeftIcon />
+        </IconButton>
+        {canManageStories && selectedStory && (
+          <Box>
+            <IconButton onClick={() => handleOpenEditForm(selectedStory)}>
+              <EditIcon />
+            </IconButton>
+            <IconButton onClick={() => handleOpenDeleteDialog(selectedStory)}>
+              <DeleteIcon color="error" />
+            </IconButton>
+          </Box>
+        )}
+      </Box>
+
+      {selectedStory ? (
+        <>
+          <Typography variant="h4" gutterBottom mt={2}>
+            {selectedStory.userStoryTitle}
+          </Typography>
+
+          <Grid container spacing={2} mb={2}>
+            <Grid item>
+              <Chip
+                label={`Priority: ${selectedStory.priority}`}
+                color={
+                  selectedStory.priority === "High"
+                    ? "error"
+                    : selectedStory.priority === "Medium"
+                    ? "warning"
+                    : "success"
+                }
+                variant="outlined"
+                sx={{
+                  backgroundColor:
+                    currentTheme.palette.mode === "dark"
+                      ? currentTheme.palette.grey[700]
+                      : undefined,
+                  color: currentTheme.palette.text.primary,
+                  borderColor:
+                    currentTheme.palette.mode === "dark"
+                      ? currentTheme.palette.grey[600]
+                      : undefined,
+                }}
+              />
+            </Grid>
+            <Grid item>
+              <Chip
+                label={`Status: ${selectedStory.status}`}
+                color={
+                  selectedStory.status === "COMPLETED"
+                    ? "success"
+                    : selectedStory.status === "AI DEVELOPED"
+                    ? "secondary"
+                    : selectedStory.status === "IN REVIEW"
+                    ? "warning"
+                    : "info"
+                }
+                variant="outlined"
+                sx={{
+                  backgroundColor:
+                    currentTheme.palette.mode === "dark"
+                      ? currentTheme.palette.grey[700]
+                      : undefined,
+                  color: currentTheme.palette.text.primary,
+                  borderColor:
+                    currentTheme.palette.mode === "dark"
+                      ? currentTheme.palette.grey[600]
+                      : undefined,
+                }}
+              />
+            </Grid>
+            <Grid item>
+              <Chip
+                label={`Estimated: ${selectedStory.estimatedTime}`}
+                variant="outlined"
+                sx={{
+                  backgroundColor:
+                    currentTheme.palette.mode === "dark"
+                      ? currentTheme.palette.grey[700]
+                      : undefined,
+                  color: currentTheme.palette.text.primary,
+                  borderColor:
+                    currentTheme.palette.mode === "dark"
+                      ? currentTheme.palette.grey[600]
+                      : undefined,
+                }}
+              />
+            </Grid>
+            <Grid item>
+              <Chip
+                label={`Created: ${new Date(
+                  selectedStory.createdAt
+                ).toLocaleDateString()}`}
+                variant="outlined"
+                sx={{
+                  backgroundColor:
+                    currentTheme.palette.mode === "dark"
+                      ? currentTheme.palette.grey[700]
+                      : undefined,
+                  color: currentTheme.palette.text.primary,
+                  borderColor:
+                    currentTheme.palette.mode === "dark"
+                      ? currentTheme.palette.grey[600]
+                      : undefined,
+                }}
+              />
+            </Grid>
+          </Grid>
+
+          <Divider sx={{ my: 2 }} />
+
+          <TruncatedText
+            content={selectedStory.description}
+            title="Description"
+          />
+          <TruncatedText
+            content={selectedStory.acceptanceCriteria}
+            title="Acceptance Criteria"
+          />
+          <TruncatedText
+            content={selectedStory.testingScenarios}
+            title="Testing Scenarios"
+          />
+
+          {selectedStory.aiEnhancedUserStory && (
+            <AIContentBox>
+              <Typography
+                variant="subtitle2"
+                color="primary"
+                fontWeight={600}
+                gutterBottom
+              >
+                AI ENHANCED SUGGESTIONS
+              </Typography>
+              <TruncatedText
+                content={selectedStory.aiEnhancedUserStory}
+                maxLines={5}
+              />
+            </AIContentBox>
+          )}
+
+          {/* Display GitHub Branch and PR Link */}
+          {(selectedStory.githubBranch || selectedStory.prUrl) && (
+            <Box
+              mt={2}
+              sx={{
+                p: 1.5,
+                borderRadius: "8px",
+                border: `1px solid ${
+                  currentTheme.palette.mode === "dark"
+                    ? currentTheme.palette.grey[600]
+                    : currentTheme.palette.secondary.light
+                }`,
+                background: currentTheme.palette.background.paper, // Use paper for this box's background
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                color="text.primary"
+                fontWeight={600}
+                mb={1}
+              >
+                GitHub Details:
+              </Typography>
+              {selectedStory.githubBranch && (
+                <Typography variant="body2" color="text.secondary">
+                  Branch:{" "}
+                  <a
+                    href={`${projectGithubRepoUrl}/tree/${selectedStory.githubBranch}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: currentTheme.palette.primary.main,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    {selectedStory.githubBranch}
+                  </a>
+                </Typography>
+              )}
+              {selectedStory.prUrl && (
+                <Typography variant="body2" color="text.secondary">
+                  Pull Request:{" "}
+                  <a
+                    href={selectedStory.prUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: currentTheme.palette.primary.main,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    View PR
+                  </a>
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {selectedStory.collaborators &&
+            selectedStory.collaborators.length > 0 && (
+              <Box mt={2}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Assigned Collaborators:
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {selectedStory.collaborators.map((c) => (
+                    <Chip
+                      key={c.githubId}
+                      avatar={<Avatar src={c.avatarUrl} />}
+                      label={c.username}
+                      size="small"
+                      sx={{
+                        backgroundColor:
+                          currentTheme.palette.mode === "dark"
+                            ? currentTheme.palette.grey[700]
+                            : undefined,
+                        color: currentTheme.palette.text.primary,
+                      }}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            )}
+
+          <Box sx={{ mt: "auto", pt: 3 }}>
+            {" "}
+            {/* mt: 'auto' pushes button to bottom */}
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              onClick={handleGenerateSalesforceCode}
+              disabled={isGeneratingCodeProcess || !projectGithubRepoUrl}
+              startIcon={
+                isGeneratingCodeProcess &&
+                activeGenerationStoryId === selectedStory._id ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <AutoFixHighIcon />
+                )
+              }
+              sx={{ py: 1.5 }}
+            >
+              {isGeneratingCodeProcess &&
+              activeGenerationStoryId === selectedStory._id
+                ? "Generating Code..."
+                : "Generate Salesforce Code"}
+            </Button>
+          </Box>
+        </>
+      ) : (
+        <Typography
+          variant="h6"
+          color="text.secondary"
+          textAlign="center"
+          mt={5}
+        >
+          Select a story from the left sidebar or create a new one.
+        </Typography>
+      )}
+    </Card>
+  );
+
   return (
-    <ThemeProvider theme={freshTheme}>
-      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1200, margin: "0 auto" }}>
-        <HeaderCard>
+    <ThemeProvider theme={currentTheme}>
+      <Box
+        sx={{
+          display: "flex",
+          height: "100vh",
+          backgroundColor: currentTheme.palette.background.default,
+          color: currentTheme.palette.text.primary,
+          // Hide overflow-x to prevent horizontal scrolling due to layout
+          overflowX: "hidden",
+        }}
+      >
+        {/* Left Sidebar */}
+        <Box
+          sx={{
+            width: { xs: "100%", sm: 350 }, // Full width on small screens, fixed on larger
+            flexShrink: 0,
+            borderRight: `1px solid ${
+              currentTheme.palette.mode === "dark" ? "#4a5568" : "#e0e0e0"
+            }`,
+            backgroundColor: currentTheme.palette.background.paper,
+            p: 2,
+            display:
+              activePanel === "list" ? "flex" : { xs: "none", sm: "flex" }, // Show only on list view for small screens
+            flexDirection: "column",
+            overflowY: "auto", // Enable scrolling for sidebar content
+          }}
+        >
           <Box
             display="flex"
             justifyContent="space-between"
             alignItems="center"
+            mb={2}
           >
-            <Box>
-              <Typography variant="h4" component="h1" gutterBottom>
-                User Stories
-              </Typography>
-              <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                Create, manage, and track user stories for your project.
-              </Typography>
-            </Box>
+            <Typography variant="h6" component="h2" fontWeight={700}>
+              User Stories
+            </Typography>
             {canManageStories && (
               <Button
                 variant="contained"
-                onClick={handleOpenCreateDialog}
+                size="small"
+                onClick={handleOpenCreateForm}
                 startIcon={<AddIcon />}
                 sx={{
-                  backgroundColor: "white",
-                  color: "primary.main",
-                  "&:hover": { backgroundColor: "grey.100" },
+                  backgroundColor: currentTheme.palette.primary.main,
+                  color: "white",
+                  "&:hover": {
+                    backgroundColor: currentTheme.palette.primary.dark,
+                  },
                 }}
               >
-                Create Story
+                New
               </Button>
             )}
           </Box>
-        </HeaderCard>
 
-        {storiesLoading ? (
-          <Box display="flex" justifyContent="center" py={5}>
-            <CircularProgress />
-          </Box>
-        ) : userStories?.length === 0 ? (
-          <Box textAlign="center" py={5}>
-            <Typography color="text.secondary">
-              No user stories found.
-            </Typography>
-          </Box>
-        ) : (
-          <Grid container spacing={3}>
-            {userStories?.map((story) => (
-              <Grid item xs={12} sm={6} md={4} key={story._id}>
-                <StoryCard>
-                  <CardContent sx={{ flexGrow: 1 }}>
+          {/* Theme Toggle is now assumed to be in Sidebar.js, removed from here */}
+
+          <TextField
+            fullWidth
+            label="Search stories..."
+            variant="outlined"
+            size="small"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: <SearchIcon sx={{ mr: 1 }} />,
+            }}
+            sx={{ mb: 2 }}
+          />
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showCompleted}
+                onChange={(e) => setShowCompleted(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="Show Completed"
+            sx={{ mb: 2 }}
+          />
+
+          <Divider sx={{ mb: 2 }} />
+
+          {storiesLoading ? (
+            <Box display="flex" justifyContent="center" py={5}>
+              <CircularProgress />
+            </Box>
+          ) : filteredUserStories.length === 0 ? (
+            <Box textAlign="center" py={2}>
+              <Typography color="text.secondary" variant="body2">
+                No user stories found.
+              </Typography>
+            </Box>
+          ) : (
+            <Stack spacing={2} sx={{ flexGrow: 1, overflowY: "auto" }}>
+              {filteredUserStories.map((story) => (
+                <StoryCard
+                  key={story._id}
+                  storyStatus={story.status} // Pass status for dynamic styling
+                  onClick={() => handleViewStory(story)}
+                  sx={{
+                    cursor: "pointer",
+                    backgroundColor:
+                      selectedStory?._id === story._id
+                        ? currentTheme.palette.action.selected
+                        : currentTheme.palette.background.paper,
+                  }}
+                >
+                  <CardContent>
                     <Box
                       display="flex"
                       justifyContent="space-between"
                       alignItems="flex-start"
-                      // Flex container for title and generating button
-                      sx={{ flexWrap: "wrap" }}
+                      mb={0.5}
                     >
-                      <Typography variant="h6" sx={{ pr: 1, flexGrow: 1 }}>
+                      <Typography variant="body1" fontWeight={600} flexGrow={1}>
                         {story.userStoryTitle}
                       </Typography>
-                      {activeGenerationStoryId === story._id &&
-                        isGeneratingCodeProcess && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() =>
-                              handleOpenGenerationDialog(story._id)
-                            }
-                            startIcon={
-                              <CircularProgress size={16} color="inherit" />
-                            }
-                            sx={{
-                              ml: 1, // Margin-left
-                              mt: 0.5, // Margin-top to align with text
-                              color: freshTheme.palette.secondary.main,
-                              borderColor: freshTheme.palette.secondary.main,
-                              "&:hover": {
-                                borderColor: freshTheme.palette.secondary.dark,
-                                color: freshTheme.palette.secondary.dark,
-                              },
-                              textTransform: "none",
-                              borderRadius: "8px",
-                            }}
-                          >
-                            Generating...
-                          </Button>
-                        )}
-                      {canManageStories && (
-                        <IconButton
+                      {story.status === "AI DEVELOPED" && (
+                        <Chip
+                          label="AI DEVELOPED"
+                          color="secondary"
                           size="small"
-                          onClick={(e) => handleMenuClick(e, story._id)}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
+                          sx={{
+                            ml: 1,
+                            fontWeight: 600,
+                            backgroundColor:
+                              currentTheme.palette.mode === "dark"
+                                ? currentTheme.palette.grey[700]
+                                : undefined,
+                            color: currentTheme.palette.secondary.main,
+                          }}
+                        />
                       )}
                     </Box>
-                    <Box display="flex" alignItems="center" my={1}>
-                      <AccessTimeIcon
-                        sx={{
-                          color: "text.secondary",
-                          mr: 1,
-                          fontSize: "1.1rem",
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        Created:{" "}
-                        {new Date(story.createdAt).toLocaleDateString()}
+                    <Box
+                      display="flex"
+                      justifyContent="space-between"
+                      alignItems="center"
+                      variant="caption"
+                      color="text.secondary"
+                    >
+                      <Typography variant="caption">
+                        {story.collaborators?.[0]?.username || "Unassigned"}
                       </Typography>
-                    </Box>
-
-                    <Divider sx={{ my: 2 }} />
-
-                    {story.aiEnhancedUserStory ? (
-                      <AIContentBox>
-                        <Typography
-                          variant="subtitle2"
-                          color="primary"
-                          fontWeight={600}
-                          gutterBottom
-                        >
-                          AI ENHANCED SUGGESTIONS
+                      <Box display="flex" alignItems="center">
+                        <AccessTimeIcon sx={{ fontSize: "0.9rem", mr: 0.5 }} />
+                        <Typography variant="caption">
+                          {story.estimatedTime}
                         </Typography>
-                        <TruncatedText
-                          content={story.aiEnhancedUserStory}
-                          maxLines={5}
-                        />
-                      </AIContentBox>
-                    ) : (
-                      <>
-                        <TruncatedText
-                          content={story.description}
-                          maxLines={5}
-                          title="Description"
-                        />
-                        <TruncatedText
-                          content={story.acceptanceCriteria}
-                          maxLines={3}
-                          title="Acceptance Criteria"
-                        />
-                      </>
-                    )}
-
-                    {/* NEW: Display GitHub Branch and PR Link */}
-                    {(story.githubBranch || story.prUrl) && (
-                      <Box
-                        mt={2}
-                        sx={{
-                          p: 1.5,
-                          borderRadius: "8px",
-                          border: `1px solid ${freshTheme.palette.secondary.light}`,
-                          background: freshTheme.palette.background.default,
-                        }}
-                      >
-                        <Typography
-                          variant="subtitle2"
-                          color="text.primary"
-                          fontWeight={600}
-                          mb={1}
-                        >
-                          GitHub Details:
-                        </Typography>
-                        {story.githubBranch && (
-                          <Typography variant="body2" color="text.secondary">
-                            Branch:{" "}
-                            <a
-                              href={`https://github.com/your-org/your-repo-name/tree/${story.githubBranch}`} // Replace 'your-org/your-repo-name' with dynamic project repo base
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: freshTheme.palette.primary.main,
-                                textDecoration: "underline",
-                              }}
-                            >
-                              {story.githubBranch}
-                            </a>
-                          </Typography>
-                        )}
-                        {story.prUrl && (
-                          <Typography variant="body2" color="text.secondary">
-                            Pull Request:{" "}
-                            <a
-                              href={story.prUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: freshTheme.palette.primary.main,
-                                textDecoration: "underline",
-                              }}
-                            >
-                              View PR
-                            </a>
-                          </Typography>
-                        )}
                       </Box>
-                    )}
-                  </CardContent>
-                  {story.collaborators && story.collaborators.length > 0 && (
-                    <CardContent sx={{ pt: 0 }}>
-                      <Stack direction="row" spacing={1} flexWrap="wrap">
-                        {story.collaborators.map((c) => (
-                          <Chip
-                            key={c.githubId}
-                            avatar={<Avatar src={c.avatarUrl} />}
-                            label={c.username}
-                            size="small"
-                          />
-                        ))}
-                      </Stack>
-                    </CardContent>
-                  )}
-                </StoryCard>
-              </Grid>
-            ))}
-          </Grid>
-        )}
-
-        {/* Action Menu */}
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-        >
-          <MenuItem onClick={handleOpenEditDialog}>
-            <ListItemIcon>
-              <EditIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Edit</ListItemText>
-          </MenuItem>
-          <MenuItem
-            onClick={handleGenerateSalesforceCode}
-            disabled={isGeneratingCodeProcess || !projectGithubRepoUrl}
-          >
-            <ListItemIcon>
-              {isGeneratingCodeProcess ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : (
-                <AutoFixHighIcon fontSize="small" />
-              )}
-            </ListItemIcon>
-            <ListItemText>
-              {isGeneratingCodeProcess &&
-              activeGenerationStoryId === currentStoryId
-                ? "Generating Code..."
-                : "Generate Salesforce Code"}
-            </ListItemText>
-          </MenuItem>
-          <MenuItem onClick={handleOpenDeleteDialog}>
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" color="error" />
-            </ListItemIcon>
-            <ListItemText primaryTypographyProps={{ color: "error" }}>
-              Delete
-            </ListItemText>
-          </MenuItem>
-        </Menu>
-
-        {/* Create / Edit Dialog */}
-        <Dialog
-          open={dialogOpen}
-          onClose={handleCloseDialogs}
-          fullWidth
-          maxWidth="md"
-        >
-          <DialogTitle>
-            {editingStory ? "Edit User Story" : "Create New User Story"}
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ pt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="User Story Title"
-                  value={userStoryTitle}
-                  onChange={(e) => setUserStoryTitle(e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={4}
-                  label="Description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Acceptance Criteria"
-                  value={acceptanceCriteria}
-                  onChange={(e) => setAcceptanceCriteria(e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Testing Scenarios"
-                  value={testingScenarios}
-                  onChange={(e) => setTestingScenarios(e.target.value)}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography variant="h6" mt={2}>
-                  Assign Collaborators
-                </Typography>
-                {collaboratorsLoading ? (
-                  <CircularProgress size={24} />
-                ) : (
-                  <FormGroup sx={{ display: "flex", flexDirection: "row" }}>
-                    {collaboratorsData?.collaborators.map((c) => (
-                      <FormControlLabel
-                        key={c.githubId}
-                        control={
-                          <Checkbox
-                            checked={selectedCollaboratorGithubIds.includes(
-                              c.githubId
-                            )}
-                            onChange={handleCollaboratorChange}
-                            value={c.githubId}
-                          />
-                        }
-                        label={
-                          <Box display="flex" alignItems="center">
-                            <Avatar
-                              src={c.avatarUrl}
-                              sx={{ width: 24, height: 24, mr: 1 }}
-                            />
-                            {c.username}
-                          </Box>
+                    </Box>
+                    <Box mt={1}>
+                      <Chip
+                        label={story.status}
+                        size="small"
+                        className="status-chip" // Use className for styled component target
+                      />
+                      <Chip
+                        label={`Priority: ${story.priority}`}
+                        size="small"
+                        sx={{
+                          ml: 1,
+                          fontWeight: 600,
+                          backgroundColor:
+                            currentTheme.palette.mode === "dark"
+                              ? currentTheme.palette.grey[700]
+                              : undefined,
+                          color: currentTheme.palette.text.primary,
+                          borderColor:
+                            currentTheme.palette.mode === "dark"
+                              ? currentTheme.palette.grey[600]
+                              : undefined,
+                        }}
+                        color={
+                          story.priority === "High"
+                            ? "error"
+                            : story.priority === "Medium"
+                            ? "warning"
+                            : "success"
                         }
                       />
-                    ))}
-                  </FormGroup>
-                )}
-              </Grid>
+                    </Box>
+                  </CardContent>
+                </StoryCard>
+              ))}
+            </Stack>
+          )}
+        </Box>
 
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="flex-end" my={1}>
-                  <Button
-                    variant="outlined"
-                    onClick={handleGenerateStory}
-                    disabled={isGenerating}
-                    startIcon={<AutoFixHighIcon />}
-                  >
-                    {isGenerating
-                      ? "Generating..."
-                      : editingStory
-                      ? "Regenerate with AI"
-                      : "Enhance with AI"}
-                  </Button>
-                </Box>
-                {generatedStoryContent && (
-                  <AIContentBox>
-                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                      {generatedStoryContent}
-                    </Typography>
-                  </AIContentBox>
-                )}
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseDialogs}>Cancel</Button>
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
-              disabled={isCreating || isUpdating}
-            >
-              {isCreating || isUpdating ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : editingStory ? (
-                "Save Changes"
-              ) : (
-                "Create Story"
-              )}
-            </Button>
-          </DialogActions>
-        </Dialog>
+        {/* Right Content Area */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            p: 3,
+            backgroundColor: currentTheme.palette.background.default,
+            overflowY: "auto",
+            display:
+              activePanel !== "list" ? "flex" : { xs: "none", sm: "flex" }, // Hide on small screens when list is active
+            flexDirection: "column", // Ensures content fills height
+          }}
+        >
+          {activePanel === "create" || activePanel === "edit"
+            ? renderStoryForm()
+            : renderStoryDetail()}
+        </Box>
 
         {/* Delete Confirmation Dialog */}
         <Dialog
           open={deleteDialogOpen}
           onClose={handleCloseDialogs}
           maxWidth="xs"
+          sx={{
+            "& .MuiDialog-paper": {
+              backgroundColor: currentTheme.palette.background.paper,
+              color: currentTheme.palette.text.primary,
+            },
+          }}
         >
-          <DialogTitle>Confirm Deletion</DialogTitle>
+          <DialogTitle sx={{ color: currentTheme.palette.text.primary }}>
+            Confirm Deletion
+          </DialogTitle>
           <DialogContent>
-            <Typography>
+            <Typography sx={{ color: currentTheme.palette.text.secondary }}>
               Are you sure you want to delete the story "
               <strong>{storyToDelete?.userStoryTitle}</strong>"? This action
               cannot be undone.
             </Typography>
           </DialogContent>
           <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseDialogs}>Cancel</Button>
+            <Button
+              onClick={handleCloseDialogs}
+              sx={{ color: currentTheme.palette.text.primary }}
+            >
+              Cancel
+            </Button>
             <Button
               onClick={handleDelete}
               variant="contained"
@@ -1052,20 +1511,17 @@ const UserStoryPage = () => {
         <LoadingDialog
           open={
             isGeneratingCodeProcess &&
-            activeGenerationStoryId === currentStoryId
-          } // Only open if process is active for the current story
+            activeGenerationStoryId === selectedStory?._id
+          }
           onClose={(event, reason) => {
-            // Allow closing only if the "Close" button is clicked.
-            // Backdrop click or escape key will not close it if it's open due to generation.
             if (reason === "escapeKeyDown" || reason === "backdropClick") {
-              // Optionally show a message that generation is still in progress
               showSnackbar(
                 "Code generation is in progress. Please use the 'Close' button.",
                 "info"
               );
-              return; // Prevent closing
+              return;
             }
-            handleCloseDialogs(); // This will reset states and close the dialog
+            handleCloseDialogs();
           }}
           aria-labelledby="loading-dialog-title"
         >
@@ -1131,7 +1587,7 @@ const UserStoryPage = () => {
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
-                              color: freshTheme.palette.secondary.main,
+                              color: currentTheme.palette.secondary.main,
                               textDecoration: "underline",
                             }}
                           >
@@ -1145,7 +1601,7 @@ const UserStoryPage = () => {
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
-                              color: freshTheme.palette.secondary.main,
+                              color: currentTheme.palette.secondary.main,
                               textDecoration: "underline",
                             }}
                           >

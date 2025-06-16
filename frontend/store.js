@@ -7,6 +7,7 @@ import { userStoryApiSlice } from "./features/userStoryApiSlice";
 import { codeAnalysisApiSlice } from "./features/codeAnalysisApiSlice";
 import { documentApi } from "./features/documentApiSlice";
 import { developerApiSlice } from "./features/developerApiSlice";
+import { themeApi } from "./features/themeApiSlice";
 
 import { gptApiSlice } from "./features/gptApiSlice";
 import { configurationApiSlice } from "./features/configurationApiSlice";
@@ -17,7 +18,7 @@ import { companyApi } from "./features/companyApi";
 import serviceReducer from "./features/serviceSlice"; // ✅ Import serviceReducer
 import storage from "redux-persist/lib/storage";
 import { persistReducer, persistStore } from "redux-persist";
-import { setupListeners } from '@reduxjs/toolkit/query';
+import { setupListeners } from "@reduxjs/toolkit/query";
 import { userProfileApiSlice } from "./features/userProfileApiSlice";
 
 // Configuration for persisting only the 'service' slice
@@ -28,7 +29,10 @@ const servicePersistConfig = {
 };
 
 // Create persisted service reducer
-const persistedServiceReducer = persistReducer(servicePersistConfig, serviceReducer);
+const persistedServiceReducer = persistReducer(
+  servicePersistConfig,
+  serviceReducer
+);
 
 export const store = configureStore({
   reducer: {
@@ -38,16 +42,14 @@ export const store = configureStore({
     [userStoryApiSlice.reducerPath]: userStoryApiSlice.reducer,
     [codeAnalysisApiSlice.reducerPath]: codeAnalysisApiSlice.reducer,
 
-    [userManagementApi.reducerPath]: userManagementApi.reducer, 
-    
-
-    
+    [userManagementApi.reducerPath]: userManagementApi.reducer,
+    [themeApi.reducerPath]: themeApi.reducer,
 
     [documentApi.reducerPath]: documentApi.reducer,
     [developerApiSlice.reducerPath]: developerApiSlice.reducer,
     [gptApiSlice.reducerPath]: gptApiSlice.reducer,
     [jiraApi.reducerPath]: jiraApi.reducer,
-        [configurationApiSlice.reducerPath]: configurationApiSlice.reducer,
+    [configurationApiSlice.reducerPath]: configurationApiSlice.reducer,
     [companyApi.reducerPath]: companyApi.reducer,
     service: persistedServiceReducer,
 
@@ -57,7 +59,7 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+        ignoredActions: ["persist/PERSIST", "persist/REHYDRATE"],
       },
     }).concat(
       githubApiSlice.middleware,
@@ -65,15 +67,15 @@ export const store = configureStore({
       projectApiSlice.middleware,
       userStoryApiSlice.middleware,
       codeAnalysisApiSlice.middleware,
+      themeApi.middleware,
 
       userManagementApi.middleware,
-
 
       documentApi.middleware,
       developerApiSlice.middleware,
       gptApiSlice.middleware,
       jiraApi.middleware,
-   configurationApiSlice.middleware,
+      configurationApiSlice.middleware,
 
       companyApi.middleware,
       userProfileApiSlice.middleware
