@@ -18,6 +18,7 @@ import serviceReducer from "./features/serviceSlice"; // ✅ Import serviceReduc
 import storage from "redux-persist/lib/storage";
 import { persistReducer, persistStore } from "redux-persist";
 import { setupListeners } from '@reduxjs/toolkit/query';
+import { userProfileApiSlice } from "./features/userProfileApiSlice";
 
 // Configuration for persisting only the 'service' slice
 const servicePersistConfig = {
@@ -51,6 +52,7 @@ export const store = configureStore({
     service: persistedServiceReducer,
 
     auth: authReducer,
+    [userProfileApiSlice.reducerPath]: userProfileApiSlice.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -73,7 +75,8 @@ export const store = configureStore({
       jiraApi.middleware,
    configurationApiSlice.middleware,
 
-      companyApi.middleware
+      companyApi.middleware,
+      userProfileApiSlice.middleware
     ),
 });
 

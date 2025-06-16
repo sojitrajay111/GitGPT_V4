@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const userManagementApi = createApi({
   reducerPath: "userManagementApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user-management`, // Assuming your backend user API is at /api/users
+    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user-management`,  // Updated base URL
     credentials: "include",
   }),
   tagTypes: ["User"], // Define a tag type for caching and invalidation
@@ -53,11 +53,10 @@ export const userManagementApi = createApi({
     // NEW: Endpoint for resetting password
     resetPassword: builder.mutation({
       query: (credentials) => ({
-        url: "/auth/reset-password", // POST to /api/auth/reset-password
+        url: "/auth/reset-password",
         method: "POST",
-        body: credentials, // Contains { token, newPassword }
+        body: credentials,
       }),
-      // No invalidation needed as it doesn't directly affect the 'User' list display
     }),
   }),
 });
@@ -68,5 +67,5 @@ export const {
   useGetUsersQuery,
   useUpdateUserMutation,
   useDeleteUserMutation,
-  useResetPasswordMutation, // NEW: Export the reset password hook
+  useResetPasswordMutation,
 } = userManagementApi;

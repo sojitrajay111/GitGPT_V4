@@ -24,6 +24,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import LockIcon from "@mui/icons-material/Lock";
 import { toast } from "react-toastify";
+import { useUpdateUserProfileMutation, useUpdateUserPasswordMutation, useForgotPasswordMutation } from "@/features/userProfileApiSlice";
 
 export default function ProfileSettings() {
   const { userId } = useParams();
@@ -45,6 +46,9 @@ export default function ProfileSettings() {
   const [forgotPasswordError, setForgotPasswordError] = useState("");
 
   const { data, isLoading, isError, refetch } = useGetUserAndGithubDataQuery(userId);
+  const [updateProfile] = useUpdateUserProfileMutation();
+  const [updatePassword] = useUpdateUserPasswordMutation();
+  const [forgotPassword] = useForgotPasswordMutation();
 
   const defaultUser = {
     username: "Loading...",
@@ -75,34 +79,15 @@ export default function ProfileSettings() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const token = localStorage.getItem("yourAuthTokenKey");
-
-      const response = await fetch("http://localhost:3001/api/users/update", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          userId,
-          username,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update profile");
-      }
-
+      await updateProfile({ userId, username }).unwrap();
       await refetch();
-
       setSnackbarMessage("Profile updated successfully!");
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
       setEditMode(false);
     } catch (error) {
       console.error("Error updating profile:", error);
-      setSnackbarMessage(error.message || "Error updating profile");
+      setSnackbarMessage(error.data?.message || "Error updating profile");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     } finally {
@@ -128,35 +113,34 @@ export default function ProfileSettings() {
         return;
       }
 
-      if (newPassword.length < 6) {
-        setPasswordError("Password must be at least 6 characters long");
+      // Password validation
+      if (newPassword.length < 8) {
+        setPasswordError("Password must be at least 8 characters long");
+        return;
+      }
+
+      if (!/[A-Z]/.test(newPassword)) {
+        setPasswordError("Password must contain at least one uppercase letter");
+        return;
+      }
+
+      if (!/[a-z]/.test(newPassword)) {
+        setPasswordError("Password must contain at least one lowercase letter");
+        return;
+      }
+
+      if (!/[0-9]/.test(newPassword)) {
+        setPasswordError("Password must contain at least one number");
+        return;
+      }
+
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) {
+        setPasswordError("Password must contain at least one special character");
         return;
       }
 
       setIsUpdatingPassword(true);
-      const token = localStorage.getItem("yourAuthTokenKey");
-
-      const response = await fetch(
-        "http://localhost:3001/api/users/update-password",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            userId,
-            currentPassword,
-            newPassword,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update password");
-      }
+      await updatePassword({ userId, currentPassword, newPassword }).unwrap();
 
       setSnackbarMessage("Password updated successfully!");
       setSnackbarSeverity("success");
@@ -167,7 +151,7 @@ export default function ProfileSettings() {
       setConfirmPassword("");
     } catch (error) {
       console.error("Error updating password:", error);
-      setPasswordError(error.message || "Error updating password");
+      setPasswordError(error.data?.message || "Error updating password");
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -182,36 +166,15 @@ export default function ProfileSettings() {
 
     setIsSendingResetLink(true);
     try {
-      const response = await fetch(
-        "http://localhost:3001/api/auth/forgot-password",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email: forgotPasswordEmail }),
-          credentials: "include",
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Failed to send reset link");
-      }
-
-      const data = await response.json();
-      setSnackbarMessage(
-        data.message || "We've sent a password reset link to your email."
-      );
+      await forgotPassword(forgotPasswordEmail).unwrap();
+      setSnackbarMessage("We've sent a password reset link to your email.");
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
       setForgotPasswordDialogOpen(false);
       setForgotPasswordEmail("");
     } catch (error) {
       console.error("Error sending reset link:", error);
-      setForgotPasswordError(
-        error.message || "Error sending reset link. Please try again."
-      );
+      setForgotPasswordError(error.data?.message || "Error sending reset link. Please try again.");
     } finally {
       setIsSendingResetLink(false);
     }
@@ -514,6 +477,7 @@ export default function ProfileSettings() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               error={!!passwordError}
+              helperText={passwordError}
             />
             <TextField
               fullWidth
@@ -552,7 +516,11 @@ export default function ProfileSettings() {
               !newPassword ||
               !confirmPassword ||
               newPassword !== confirmPassword ||
-              newPassword.length < 6
+              newPassword.length < 8 ||
+              !/[A-Z]/.test(newPassword) ||
+              !/[a-z]/.test(newPassword) ||
+              !/[0-9]/.test(newPassword) ||
+              !/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
             }
             variant="contained"
             sx={{
