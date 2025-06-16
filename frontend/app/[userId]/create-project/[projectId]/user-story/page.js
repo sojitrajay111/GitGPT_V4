@@ -38,6 +38,7 @@ import {
   createTheme,
   styled,
   keyframes,
+  useTheme,
 } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
@@ -806,164 +807,223 @@ const UserStoryPage = () => {
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
   );
 
+  const theme = useTheme();
+
+  const inputStyle = {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: "12px",
+      boxShadow:
+        theme.palette.mode === "dark"
+          ? "0 4px 8px rgba(255,255,255,0.05)"
+          : "0 4px 8px rgba(0,0,0,0.1)",
+      backgroundColor: theme.palette.mode === "dark" ? "#121212" : "#fff",
+      "& fieldset": {
+        borderColor: theme.palette.divider,
+      },
+      "&:hover fieldset": {
+        borderColor: theme.palette.primary.main,
+      },
+      "&.Mui-focused fieldset": {
+        borderColor: theme.palette.primary.main,
+      },
+    },
+    "& .MuiInputLabel-root": {
+      color: theme.palette.mode === "dark" ? "#fff" : "#000",
+    },
+    "& .MuiInputBase-input": {
+      color: theme.palette.mode === "dark" ? "#fff" : "#000",
+    },
+  };
+
   // Render function for the story creation/edit form
   const renderStoryForm = () => (
     <Card
       sx={{
-        p: 3,
+        p: 4,
         height: "100%",
         overflowY: "auto",
         display: "flex",
         flexDirection: "column",
+        gap: 3,
+        borderRadius: 4,
+        boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+        backgroundColor: "background.paper",
       }}
     >
-      <Typography variant="h6" gutterBottom>
+      <Typography variant="h5" gutterBottom fontWeight="bold">
         {activePanel === "edit" ? "Edit User Story" : "Create New User Story"}
       </Typography>
-      <Grid container spacing={2} sx={{ pt: 1, flexGrow: 1 }}>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="User Story Title"
-            value={userStoryTitle}
-            onChange={(e) => setUserStoryTitle(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label="Acceptance Criteria"
-            value={acceptanceCriteria}
-            onChange={(e) => setAcceptanceCriteria(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label="Testing Scenarios"
-            value={testingScenarios}
-            onChange={(e) => setTestingScenarios(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <FormControl fullWidth variant="outlined">
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={storyStatus}
-              label="Status"
-              onChange={(e) => setStoryStatus(e.target.value)}
-            >
-              <MenuItem value="PLANNING">Planning</MenuItem>
-              <MenuItem value="IN REVIEW">In Review</MenuItem>
-              <MenuItem value="COMPLETED">Completed</MenuItem>
-              <MenuItem value="AI DEVELOPED">AI Developed</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <FormControl fullWidth variant="outlined">
-            <InputLabel>Priority</InputLabel>
-            <Select
-              value={storyPriority}
-              label="Priority"
-              onChange={(e) => setStoryPriority(e.target.value)}
-            >
-              <MenuItem value="Low">Low</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="High">High</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <TextField
-            fullWidth
-            label="Estimated Time (e.g., 8h, 2d)"
-            value={estimatedTime}
-            onChange={(e) => setEstimatedTime(e.target.value)}
-          />
-        </Grid>
 
-        <Grid item xs={12}>
-          <Typography variant="h6" mt={2}>
-            Assign Collaborators
+      {/* FIELD STYLING APPLIES TO ALL TEXTFIELDS */}
+      <TextField
+        fullWidth
+        label="User Story Title"
+        value={userStoryTitle}
+        onChange={(e) => setUserStoryTitle(e.target.value)}
+        InputLabelProps={{
+          sx: {
+            color: theme.palette.mode === "dark" ? "#ffffff" : "#000000",
+          },
+        }}
+        InputProps={{
+          sx: {
+            backgroundColor:
+              theme.palette.mode === "dark" ? "#2e2e2e" : "#ffffff",
+            color: theme.palette.mode === "dark" ? "#ffffff" : "#000000",
+            borderRadius: 3,
+            paddingX: 2,
+            boxShadow:
+              theme.palette.mode === "dark"
+                ? "inset 4px 4px 10px #1c1c1c, inset -4px -4px 10px #3d3d3d"
+                : "0 1px 4px rgba(0,0,0,0.1)",
+            border: "none",
+          },
+        }}
+        sx={{
+          mt: 2,
+          "& .MuiOutlinedInput-notchedOutline": {
+            border: "none",
+          },
+        }}
+      />
+
+      <TextField
+        fullWidth
+        multiline
+        minRows={4}
+        label="Description"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        sx={inputStyle}
+      />
+
+      <TextField
+        fullWidth
+        multiline
+        minRows={3}
+        label="Acceptance Criteria"
+        value={acceptanceCriteria}
+        onChange={(e) => setAcceptanceCriteria(e.target.value)}
+        sx={inputStyle}
+      />
+
+      <TextField
+        fullWidth
+        multiline
+        minRows={3}
+        label="Testing Scenarios"
+        value={testingScenarios}
+        onChange={(e) => setTestingScenarios(e.target.value)}
+        sx={inputStyle}
+      />
+
+      <FormControl fullWidth sx={inputStyle}>
+        <InputLabel>Status</InputLabel>
+        <Select
+          value={storyStatus}
+          label="Status"
+          onChange={(e) => setStoryStatus(e.target.value)}
+        >
+          <MenuItem value="PLANNING">Planning</MenuItem>
+          <MenuItem value="IN REVIEW">In Review</MenuItem>
+          <MenuItem value="COMPLETED">Completed</MenuItem>
+          <MenuItem value="AI DEVELOPED">AI Developed</MenuItem>
+        </Select>
+      </FormControl>
+
+      <FormControl fullWidth sx={inputStyle}>
+        <InputLabel>Priority</InputLabel>
+        <Select
+          value={storyPriority}
+          label="Priority"
+          onChange={(e) => setStoryPriority(e.target.value)}
+        >
+          <MenuItem value="Low">Low</MenuItem>
+          <MenuItem value="Medium">Medium</MenuItem>
+          <MenuItem value="High">High</MenuItem>
+        </Select>
+      </FormControl>
+
+      <TextField
+        fullWidth
+        label="Estimated Time (e.g., 8h, 2d)"
+        value={estimatedTime}
+        onChange={(e) => setEstimatedTime(e.target.value)}
+        sx={inputStyle}
+      />
+
+      {/* COLLABORATORS */}
+      <Box>
+        <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+          Assign Collaborators
+        </Typography>
+        {collaboratorsLoading ? (
+          <CircularProgress size={24} />
+        ) : (
+          <FormGroup sx={{ flexDirection: "column", gap: 1 }}>
+            {collaboratorsData?.collaborators.map((c) => (
+              <FormControlLabel
+                key={c.githubId}
+                control={
+                  <Checkbox
+                    checked={selectedCollaboratorGithubIds.includes(c.githubId)}
+                    onChange={handleCollaboratorChange}
+                    value={c.githubId}
+                  />
+                }
+                label={
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Avatar src={c.avatarUrl} sx={{ width: 24, height: 24 }} />
+                    {c.username}
+                  </Box>
+                }
+              />
+            ))}
+          </FormGroup>
+        )}
+      </Box>
+
+      {/* GENERATE AI STORY */}
+      <Box display="flex" justifyContent="flex-end">
+        <Button
+          variant="outlined"
+          onClick={handleGenerateStory}
+          disabled={isGenerating}
+          startIcon={<AutoFixHighIcon />}
+          sx={{
+            borderRadius: 2,
+            textTransform: "none",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+          }}
+        >
+          {isGenerating
+            ? "Generating..."
+            : selectedStory
+            ? "Regenerate with AI"
+            : "Enhance with AI"}
+        </Button>
+      </Box>
+
+      {generatedStoryContent && (
+        <AIContentBox>
+          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+            {generatedStoryContent}
           </Typography>
-          {collaboratorsLoading ? (
-            <CircularProgress size={24} />
-          ) : (
-            <FormGroup
-              sx={{ display: "flex", flexDirection: "row", flexWrap: "wrap" }}
-            >
-              {collaboratorsData?.collaborators.map((c) => (
-                <FormControlLabel
-                  key={c.githubId}
-                  control={
-                    <Checkbox
-                      checked={selectedCollaboratorGithubIds.includes(
-                        c.githubId
-                      )}
-                      onChange={handleCollaboratorChange}
-                      value={c.githubId}
-                    />
-                  }
-                  label={
-                    <Box display="flex" alignItems="center">
-                      <Avatar
-                        src={c.avatarUrl}
-                        sx={{ width: 24, height: 24, mr: 1 }}
-                      />
-                      {c.username}
-                    </Box>
-                  }
-                />
-              ))}
-            </FormGroup>
-          )}
-        </Grid>
+        </AIContentBox>
+      )}
 
-        <Grid item xs={12}>
-          <Box display="flex" justifyContent="flex-end" my={1}>
-            <Button
-              variant="outlined"
-              onClick={handleGenerateStory}
-              disabled={isGenerating}
-              startIcon={<AutoFixHighIcon />}
-            >
-              {isGenerating
-                ? "Generating..."
-                : selectedStory
-                ? "Regenerate with AI"
-                : "Enhance with AI"}
-            </Button>
-          </Box>
-          {generatedStoryContent && (
-            <AIContentBox>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                {generatedStoryContent}
-              </Typography>
-            </AIContentBox>
-          )}
-        </Grid>
-      </Grid>
-      <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
+      {/* FINAL ACTION BUTTONS */}
+      <Box display="flex" justifyContent="flex-end" gap={2} mt={1}>
         <Button onClick={() => setActivePanel("list")}>Cancel</Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
           disabled={isCreating || isUpdating}
+          sx={{
+            borderRadius: 2,
+            boxShadow: "0 4px 15px rgba(0,0,0,0.3)",
+            textTransform: "none",
+          }}
         >
           {isCreating || isUpdating ? (
             <CircularProgress size={24} color="inherit" />
