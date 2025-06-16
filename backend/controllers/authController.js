@@ -100,6 +100,10 @@ exports.login = async (req, res) => {
         .json({ success: false, message: "Invalid credentials" }); // Generic message for security
     }
 
+    // Update lastLogin timestamp
+    user.lastLogin = new Date();
+    await user.save();
+
     // Check if JWT_SECRET is loaded
     if (!JWT_SECRET) {
       console.error("JWT_SECRET is not defined. Check your .env file.");

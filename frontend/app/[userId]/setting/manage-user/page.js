@@ -16,6 +16,8 @@ import {
   Alert,
   DialogContentText,
   InputAdornment, // For search icon
+  Select,
+  MenuItem,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { useForm } from "react-hook-form";
@@ -44,6 +46,9 @@ export default function UserManagementSettings() {
   const [searchTerm, setSearchTerm] = useState(""); // New state for search term
   const params = useParams();
   const { userId } = params;
+  const [theme, setTheme] = useState("light");
+  const [selectedJobRole, setSelectedJobRole] = useState("");
+  const [customJobRole, setCustomJobRole] = useState("");
 
   // RTK Query hooks for user management
   const {
@@ -52,6 +57,14 @@ export default function UserManagementSettings() {
     isError: isErrorUsers,
     error: usersError,
   } = useGetUsersQuery(userId);
+
+  useEffect(() => {
+    if (usersData) {
+      console.log("RTK Query usersData received:", usersData);
+      console.log("isLoadingUsers:", isLoadingUsers);
+      console.log("isErrorUsers:", isErrorUsers);
+    }
+  }, [usersData, isLoadingUsers, isErrorUsers]);
 
   const [
     addUser,
@@ -75,6 +88,8 @@ export default function UserManagementSettings() {
     formState: { errors, isValid },
   } = useForm({ mode: "onChange" });
 
+  const jobRoleValue = watch("jobRole");
+
   const usernameValue = watch("username");
 
   useEffect(() => {
@@ -95,6 +110,19 @@ export default function UserManagementSettings() {
     }, 5000);
     return () => clearTimeout(timer);
   }, [addUserSuccess, adduserError, addUserErrorMessage, isErrorUsers, usersError, reset]);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    setTheme(savedTheme);
+    const handleStorage = (e) => {
+      if (e.key === "theme") {
+        setTheme(e.newValue || "light");
+        console.log("Theme updated in page.js from localStorage:", e.newValue);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   const handleVerifyUsername = async () => {
     if (!usernameValue) {
@@ -130,9 +158,12 @@ export default function UserManagementSettings() {
       return;
     }
 
+    let jobRoleToSend = data.jobRole === 'Custom' ? customJobRole : data.jobRole;
+    const userData = { ...data, jobRole: jobRoleToSend };
+
     setFormMessage("Adding user and sending invitation...");
     try {
-      await addUser({ userData: data, managerId: userId }).unwrap();
+      await addUser({ userData, managerId: userId }).unwrap();
     } catch (error) {
       // Error handled by useEffect and RTK Query's isError state
     }
@@ -175,9 +206,10 @@ export default function UserManagementSettings() {
     if (!searchTerm) return usersData.data;
 
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    return usersData.data.filter(user =>
+    const filtered = usersData.data.filter(user =>
       user.username.toLowerCase().startsWith(lowerCaseSearchTerm)
     );
+    return filtered;
   }, [usersData, searchTerm]);
 
   // Define columns for DataGrid
@@ -186,6 +218,9 @@ export default function UserManagementSettings() {
       field: "index",
       headerName: "Index",
       width: 90,
+      renderHeader: (params) => (
+        <strong>{params.colDef.headerName}</strong>
+      ),
       renderCell: (params) => {
         const currentIndex = filteredUsers.findIndex(user => user._id === params.row._id);
         return currentIndex !== -1 ? currentIndex + 1 : '';
@@ -195,12 +230,65 @@ export default function UserManagementSettings() {
       headerAlign: 'center',
       align: 'center',
     },
-    { field: "username", headerName: "Name", width: 200, flex: 1 },
-    { field: "email", headerName: "Email", width: 250, flex: 1.5 },
+    { field: "username", headerName: "Name", width: 200, flex: 1, renderHeader: (params) => (
+      <strong>{params.colDef.headerName}</strong>
+    ), },
+    { field: "email", headerName: "Email", width: 250, flex: 1.5, renderHeader: (params) => (
+      <strong>{params.colDef.headerName}</strong>
+    ), },
+    {
+      field: "jobRole",
+      headerName: "Job Role",
+      width: 180,
+      flex: 1,
+      renderHeader: (params) => (
+        <strong>{params.colDef.headerName}</strong>
+      ),
+      renderCell: (params) => {
+        return params.row.jobRole || "-";
+      },
+    },
+    {
+      field: "lastLogin",
+      headerName: "Last Login",
+      width: 150,
+      flex: 0.8,
+      renderHeader: (params) => (
+        <strong>{params.colDef.headerName}</strong>
+      ),
+      renderCell: (params) => {
+        const lastLogin = params.row.lastLogin;
+        if (!lastLogin) {
+          return "Never";
+        }
+        const date = new Date(lastLogin);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMinutes = Math.round(diffMs / (1000 * 60));
+        const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffMinutes < 60) {
+          return `${diffMinutes} minutes ago`;
+        } else if (diffHours < 24) {
+          return `${diffHours} hours ago`;
+        } else if (diffDays < 30) {
+          return `${diffDays} days ago`;
+        } else {
+          // Fallback for older dates
+          return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+      },
+      headerAlign: 'center',
+      align: 'center',
+    },
     {
       field: "status",
       headerName: "Status",
       width: 120,
+      renderHeader: (params) => (
+        <strong>{params.colDef.headerName}</strong>
+      ),
       renderCell: (params) => {
         let color;
         switch (params.value) {
@@ -229,6 +317,9 @@ export default function UserManagementSettings() {
       width: 100,
       sortable: false,
       filterable: false,
+      renderHeader: (params) => (
+        <strong>{params.colDef.headerName}</strong>
+      ),
       renderCell: (params) => (
         <Box>
           <IconButton
@@ -247,269 +338,352 @@ export default function UserManagementSettings() {
     },
   ];
 
+  // Card style for the DataGrid and controls (wide, dashboard style)
+  const cardStyle = {
+    background: theme === "dark" ? "#181A20" : "#fff",
+    color: theme === "dark" ? "#F3F4F6" : "#222",
+    borderRadius: 24,
+    boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.18)",
+    padding: 0,
+    width: '100%',
+    minHeight: 600,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "flex-start",
+    position: "relative",
+  };
+
   const inputSx = {
     mb: 2,
-    "& .MuiOutlinedInput-root": {
-      borderRadius: 2,
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 20,
+      background: theme === "dark" ? "#23272F" : "#F0F2F5",
+      boxShadow: theme === "dark"
+        ? "8px 8px 16px rgba(0,0,0,0.4), -8px -8px 16px rgba(50,50,50,0.4)"
+        : "8px 8px 16px rgba(174, 174, 192, 0.4), -8px -8px 16px rgba(255, 255, 255, 1)",
+      transition: 'all 0.3s ease-in-out',
+      '&.Mui-focused': {
+        boxShadow: theme === "dark"
+          ? "inset 4px 4px 8px rgba(0,0,0,0.3), inset -4px -4px 8px rgba(50,50,50,0.3)"
+          : "inset 4px 4px 8px rgba(174, 174, 192, 0.3), inset -4px -4px 8px rgba(255, 255, 255, 0.7)",
+      },
+    },
+    '& .MuiInputBase-input': {
+      color: theme === "dark" ? "#F3F4F6" : "#222",
+    },
+  };
+
+  const buttonSx = {
+    mt: 2,
+    borderRadius: 3,
+    fontWeight: 600,
+    fontSize: 18,
+    boxShadow: "0 4px 16px 0 rgba(66, 133, 244, 0.18)",
+    background: `linear-gradient(135deg, #6366F1 0%, #5F4BFF 100%)`,
+    color: "#fff",
+    '&:hover': {
+      opacity: 0.92,
+      background: `linear-gradient(135deg, #6366F1 0%, #5F4BFF 100%)`,
     },
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, margin: '0 auto' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 3, gap: 2 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setOpenAddUserDialog(true);
-            setUsernameVerifiedAsNew(false);
-            setUsernameVerificationMessage("");
-            setFormMessage("");
-            reset();
-          }}
-          sx={{
-            py: 1,
-            borderRadius: 3,
-            fontWeight: 600,
-            background: `linear-gradient(135deg, #4285F4 0%, #3367D6 100%)`,
-            "&:hover": {
-              opacity: 0.9,
-            },
-            whiteSpace: 'nowrap', // Prevents button text from wrapping
-          }}
-        >
-          Add User
-        </Button>
-        <TextField
-          variant="outlined"
-          placeholder="Search users..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{
-            width: { xs: '100%', sm: 'auto' }, // Full width on small screens, auto on larger
-            minWidth: 200,
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              pr: 1, // Adjust padding to accommodate icon
-            },
-            '& .MuiInputBase-input': {
-              py: '10.5px', // Match button height
-            },
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon color="action" />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Box>
-
-      {formMessage && (
-        <Alert
-          severity={formMessage.includes("✅") ? "success" : "error"}
-          sx={{ mb: 2, borderRadius: 2 }}
-        >
-          {formMessage}
-        </Alert>
-      )}
-
-      <Box
-        sx={{
-          height: 400,
-          width: "100%",
-          "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: "#F0F2F5",
-            borderRadius: 1,
-            borderBottom: 'none'
-          },
-          "& .MuiDataGrid-columnHeaderTitle": {
-            fontWeight: 700,
-            color: "#344054",
-          },
-          borderRadius: 3,
-          overflow: "hidden",
-          border: "1px solid #E0E0E0",
-          '& .MuiDataGrid-cell': {
-            borderBottom: '1px solid rgba(224, 224, 224, 0.5)',
-          },
-          '& .MuiDataGrid-footerContainer': {
-            backgroundColor: '#F0F2F5',
-            borderRadius: 1,
-            borderTop: 'none'
-          },
-        }}
-      >
-        {isLoadingUsers ? (
-          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-            <CircularProgress />
-            <Typography sx={{ ml: 2, color: "#5F6368" }}>Loading users...</Typography>
+    <Box sx={{ minHeight: '100vh', background: theme === "dark" ? "#101014" : "#F5F6FA", py: 3 }}>
+      <Box sx={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+        <Box sx={{ ...cardStyle, pt: 3, pb: 3 }}>
+          <Typography variant="h4" align="center" sx={{ fontWeight: 700, mt: 1, mb: 0.5 }}>
+            User Management
+          </Typography>
+          <Typography align="center" sx={{ color: theme === "dark" ? '#B0B3B8' : '#6B7280', mb: 2, mt: 0 }}>
+            Manage your users and invitations
+          </Typography>
+          <Box sx={{ width: '100%', px: 3, mb: 2, display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setOpenAddUserDialog(true);
+                setUsernameVerifiedAsNew(false);
+                setUsernameVerificationMessage("");
+                setFormMessage("");
+                reset();
+              }}
+              sx={{
+                ...buttonSx,
+                height: 48,
+                minWidth: 150,
+                borderRadius: 2.5,
+                boxShadow: '0 2px 8px 0 rgba(66, 133, 244, 0.10)',
+                whiteSpace: 'nowrap',
+                fontSize: 16,
+                px: 3,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              Add User
+            </Button>
+            <TextField
+              variant="outlined"
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{
+                minWidth: 260,
+                mb: 0,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2.5,
+                  height: 48,
+                  background: theme === "dark" ? "#23272F" : "#fff",
+                  boxShadow: '0 2px 8px 0 rgba(66, 133, 244, 0.10)',
+                  fontSize: 16,
+                  px: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                },
+                '& .MuiInputBase-input': {
+                  color: theme === "dark" ? "#222" : "#222",
+                  py: 0,
+                  fontSize: 16,
+                  height: 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start" sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                    <SearchIcon color="action" sx={{ fontSize: 22 }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
           </Box>
-        ) : (
-          <DataGrid
-            rows={filteredUsers} // Use filteredUsers here
-            getRowId={(row) => row._id}
-            columns={columns}
-            pageSizeOptions={[5, 10, 20]}
-            initialState={{
-              pagination: {
-                paginationModel: { pageSize: 5, page: 0 },
-              },
-            }}
-            disableRowSelectionOnClick
-            sx={{ border: "none" }}
-          />
-        )}
-      </Box>
-
-      {/* Add User Dialog */}
-      <Dialog
-        open={openAddUserDialog}
-        onClose={() => setOpenAddUserDialog(false)}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 3, boxShadow: '0px 8px 24px rgba(0,0,0,0.1)' } }}
-      >
-        <DialogTitle
-          sx={{
-            bgcolor: '#4285F4',
-            color: 'white',
-            fontWeight: 'bold',
-            borderTopLeftRadius: 3,
-            borderTopRightRadius: 3
-          }}
-        >
-          Add New User
-        </DialogTitle>
-        <form onSubmit={handleSubmit(handleAddUser)}>
-          <DialogContent sx={{ py: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ...inputSx }}>
-              <TextField
-                autoFocus
-                margin="dense"
-                label="Username"
-                type="text"
-                fullWidth
-                variant="outlined"
-                {...register("username", { required: "Username is required" })}
-                error={!!errors.username}
-                helperText={errors.username?.message || usernameVerificationMessage}
-                sx={{ flexGrow: 1 }}
-              />
+          {formMessage && (
+            <Alert
+              severity={formMessage.includes("✅") ? "success" : "error"}
+              sx={{ mb: 2, borderRadius: 2, width: '90%', mx: 'auto' }}
+            >
+              {formMessage}
+            </Alert>
+          )}
+          <Box sx={{ width: '100%', px: 4, pb: 2 }}>
+            <Box
+              sx={{
+                height: 440,
+                width: "100%",
+                background: theme === "dark" ? "#23272F" : "#F7F8FA",
+                borderRadius: 3,
+                boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.18)",
+                border: 'none',
+                p: 2,
+                mt: 0,
+              }}
+            >
+              {isLoadingUsers ? (
+                <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                  <CircularProgress />
+                  <Typography sx={{ ml: 2, color: theme === "dark" ? "#B0B3B8" : "#5F6368" }}>Loading users...</Typography>
+                </Box>
+              ) : (
+                <DataGrid
+                  rows={filteredUsers}
+                  getRowId={(row) => row._id}
+                  columns={columns}
+                  pageSizeOptions={[5, 10, 20]}
+                  initialState={{
+                    pagination: {
+                      paginationModel: { pageSize: 5, page: 0 },
+                    },
+                  }}
+                  disableRowSelectionOnClick
+                  sx={{ border: "none", background: 'transparent' }}
+                />
+              )}
+            </Box>
+          </Box>
+          {/* Add User Dialog */}
+          <Dialog
+            open={openAddUserDialog}
+            onClose={() => setOpenAddUserDialog(false)}
+            fullWidth
+            maxWidth="sm"
+            PaperProps={{ sx: { borderRadius: 4, boxShadow: '0px 8px 32px rgba(31,38,135,0.18)', background: theme === "dark" ? "#181A20" : "#fff" } }}
+          >
+            <DialogTitle
+              sx={{
+                bgcolor: theme === "dark" ? '#23272F' : '#6366F1',
+                color: 'white',
+                fontWeight: 'bold',
+                borderTopLeftRadius: 4,
+                borderTopRightRadius: 4,
+                fontSize: 22,
+                letterSpacing: 1,
+                py: 2,
+              }}
+            >
+              Add New User
+            </DialogTitle>
+            <form onSubmit={handleSubmit(handleAddUser)}>
+              <DialogContent sx={{ py: 3, px: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ...inputSx }}>
+                  <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Username"
+                    type="text"
+                    fullWidth
+                    variant="outlined"
+                    {...register("username", { required: "Username is required" })}
+                    error={!!errors.username}
+                    helperText={errors.username?.message || usernameVerificationMessage}
+                    sx={{ flexGrow: 1, ...inputSx }}
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={handleVerifyUsername}
+                    disabled={!usernameValue || isCheckingExistence || !!errors.username}
+                    sx={{
+                      whiteSpace: 'nowrap',
+                      py: '12px',
+                      borderRadius: 2.5,
+                      borderColor: usernameVerifiedAsNew ? '#4CAF50' : (usernameVerificationMessage.includes("❌") ? '#F44336' : '#6366F1'),
+                      color: usernameVerifiedAsNew ? '#4CAF50' : (usernameVerificationMessage.includes("❌") ? '#F44336' : '#6366F1'),
+                      '&:hover': {
+                        borderColor: usernameVerifiedAsNew ? '#388E3C' : (usernameVerificationMessage.includes("❌") ? '#D32F2F' : '#5F4BFF'),
+                        color: usernameVerifiedAsNew ? '#388E3C' : (usernameVerificationMessage.includes("❌") ? '#D32F2F' : '#5F4BFF'),
+                        bgcolor: usernameVerifiedAsNew ? '#E8F5E9' : (usernameVerificationMessage.includes("❌") ? '#FFEBEE' : '#E8F0FE'),
+                      },
+                    }}
+                  >
+                    {isCheckingExistence ? <CircularProgress size={20} /> : <VerifyIcon sx={{ mr: 0.5 }} />}
+                    Verify
+                  </Button>
+                </Box>
+                <TextField
+                  margin="dense"
+                  label="User Email"
+                  type="email"
+                  fullWidth
+                  variant="outlined"
+                  {...register("email", {
+                    required: "User Email is required",
+                    pattern: {
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i,
+                      message: "Invalid email address",
+                    },
+                  })}
+                  error={!!errors.email}
+                  helperText={errors.email?.message}
+                  sx={inputSx}
+                />
+                <Box sx={{ mt: 2 }}>
+                  <Select
+                    fullWidth
+                    displayEmpty
+                    value={selectedJobRole || ""}
+                    {...register("jobRole")}
+                    onChange={(e) => {
+                      setSelectedJobRole(e.target.value);
+                      if (e.target.value !== "Custom") setCustomJobRole("");
+                    }}
+                    sx={{ ...inputSx, minWidth: 120, borderRadius: 2.5 }}
+                    renderValue={(selected) => selected || "Select Job Role"}
+                  >
+                    <MenuItem value="Senior Developer">Senior Developer</MenuItem>
+                    <MenuItem value="Junior Developer">Junior Developer</MenuItem>
+                    <MenuItem value="Business Analyst">Business Analyst</MenuItem>
+                    <MenuItem value="Custom">Custom</MenuItem>
+                  </Select>
+                  {selectedJobRole === "Custom" && (
+                    <TextField
+                      margin="dense"
+                      label="Custom Job Role"
+                      fullWidth
+                      value={customJobRole}
+                      onChange={(e) => setCustomJobRole(e.target.value)}
+                      sx={{ ...inputSx, mt: 1 }}
+                    />
+                  )}
+                </Box>
+              </DialogContent>
+              <DialogActions sx={{ px: 4, py: 2 }}>
+                <Button
+                  onClick={() => setOpenAddUserDialog(false)}
+                  sx={{
+                    color: theme === "dark" ? "#B0B3B8" : "#607d8b",
+                    borderRadius: 2.5,
+                    '&:hover': { backgroundColor: theme === "dark" ? "#23272F" : "rgba(96, 125, 139, 0.05)" },
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  sx={{
+                    background: `linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)`,
+                    '&:hover': { opacity: 0.9 },
+                    borderRadius: 2.5,
+                    color: '#fff',
+                    fontWeight: 600,
+                    px: 3,
+                  }}
+                  disabled={isAddingUser || !isValid || !usernameVerifiedAsNew}
+                >
+                  {isAddingUser ? <CircularProgress size={24} color="inherit" /> : "Add User"}
+                </Button>
+              </DialogActions>
+            </form>
+          </Dialog>
+          {/* Delete Confirmation Dialog */}
+          <Dialog
+            open={openConfirmDeleteDialog}
+            onClose={() => setOpenConfirmDeleteDialog(false)}
+            aria-labelledby="alert-dialog-title"
+            aria-describedby="alert-dialog-description"
+            PaperProps={{ sx: { borderRadius: 3, boxShadow: '0px 8px 24px rgba(0,0,0,0.1)', background: theme === "dark" ? "#181A20" : "#fff" } }}
+          >
+            <DialogTitle id="alert-dialog-title" sx={{ fontWeight: 700, color: "#D32F2F" }}>
+              {"Confirm Delete"}
+            </DialogTitle>
+            <DialogContent>
+              <DialogContentText id="alert-dialog-description" sx={{ color: theme === "dark" ? "#B0B3B8" : "#4A4A4A" }}>
+                Are you sure you want to delete this user? This action cannot be undone.
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, py: 2 }}>
               <Button
-                variant="outlined"
-                onClick={handleVerifyUsername}
-                disabled={!usernameValue || isCheckingExistence || !!errors.username}
+                onClick={() => setOpenConfirmDeleteDialog(false)}
                 sx={{
-                  whiteSpace: 'nowrap',
-                  py: '12px',
-                  borderRadius: 2,
-                  borderColor: usernameVerifiedAsNew ? '#4CAF50' : (usernameVerificationMessage.includes("❌") ? '#F44336' : '#4285F4'),
-                  color: usernameVerifiedAsNew ? '#4CAF50' : (usernameVerificationMessage.includes("❌") ? '#F44336' : '#4285F4'),
-                  '&:hover': {
-                    borderColor: usernameVerifiedAsNew ? '#388E3C' : (usernameVerificationMessage.includes("❌") ? '#D32F2F' : '#3367D6'),
-                    color: usernameVerifiedAsNew ? '#388E3C' : (usernameVerificationMessage.includes("❌") ? '#D32F2F' : '#3367D6'),
-                    bgcolor: usernameVerifiedAsNew ? '#E8F5E9' : (usernameVerificationMessage.includes("❌") ? '#FFEBEE' : '#E8F0FE'),
-                  },
+                  color: theme === "dark" ? "#B0B3B8" : "#607d8b",
+                  borderRadius: 2.5,
+                  '&:hover': { backgroundColor: theme === "dark" ? "#23272F" : "rgba(96, 125, 139, 0.05)" },
                 }}
               >
-                {isCheckingExistence ? <CircularProgress size={20} /> : <VerifyIcon sx={{ mr: 0.5 }} />}
-                Verify
+                Cancel
               </Button>
-            </Box>
-
-            <TextField
-              margin="dense"
-              label="User Email"
-              type="email"
-              fullWidth
-              variant="outlined"
-              {...register("email", {
-                required: "User Email is required",
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i,
-                  message: "Invalid email address",
-                },
-              })}
-              error={!!errors.email}
-              helperText={errors.email?.message}
-              sx={inputSx}
-            />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button
-              onClick={() => setOpenAddUserDialog(false)}
-              sx={{
-                color: "#607d8b",
-                borderRadius: 2,
-                "&:hover": { backgroundColor: "rgba(96, 125, 139, 0.05)" },
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{
-                background: `linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)`,
-                "&:hover": {
-                  opacity: 0.9,
-                },
-                borderRadius: 2,
-              }}
-              disabled={isAddingUser || !isValid || !usernameVerifiedAsNew}
-            >
-              {isAddingUser ? <CircularProgress size={24} color="inherit" /> : "Add User"}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={openConfirmDeleteDialog}
-        onClose={() => setOpenConfirmDeleteDialog(false)}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-        PaperProps={{ sx: { borderRadius: 3, boxShadow: '0px 8px 24px rgba(0,0,0,0.1)' } }}
-      >
-        <DialogTitle id="alert-dialog-title" sx={{ fontWeight: 700, color: "#D32F2F" }}>
-          {"Confirm Delete"}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="alert-dialog-description" sx={{ color: "#4A4A4A" }}>
-            Are you sure you want to delete this user? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            onClick={() => setOpenConfirmDeleteDialog(false)}
-            sx={{
-              color: "#607d8b",
-              borderRadius: 2,
-              "&:hover": { backgroundColor: "rgba(96, 125, 139, 0.05)" },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={executeDelete}
-            color="error"
-            variant="contained"
-            autoFocus
-            sx={{
-              background: "linear-gradient(135deg, #FF5252 0%, #D32F2F 100%)",
-              "&:hover": {
-                opacity: 0.9,
-              },
-              borderRadius: 2,
-            }}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <Button
+                onClick={executeDelete}
+                color="error"
+                variant="contained"
+                autoFocus
+                sx={{
+                  background: "linear-gradient(135deg, #FF5252 0%, #D32F2F 100%)",
+                  '&:hover': { opacity: 0.9 },
+                  borderRadius: 2.5,
+                  color: '#fff',
+                  fontWeight: 600,
+                  px: 3,
+                }}
+              >
+                Delete
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </Box>
+      </Box>
     </Box>
   );
 }

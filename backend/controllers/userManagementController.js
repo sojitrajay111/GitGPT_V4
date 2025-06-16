@@ -71,7 +71,7 @@ exports.checkUserExistence = async (req, res) => {
  * @access Private (Auth required for the manager)
  */
 exports.addUser = async (req, res) => {
-  const { username, email, role = 'developer' } = req.body; // Default role to 'developer' if not provided
+  const { username, email, role = 'developer', jobRole = '' } = req.body; // Accept jobRole if provided
   const { managerId } = req.params; // Get the managerId from the URL params
 
   if (!username || !email || !managerId) {
@@ -113,7 +113,8 @@ exports.addUser = async (req, res) => {
       status: 'Pending',
       password: '', // Password will be set via the reset-password flow
       // Conditionally add managerId and companyId if the role is 'developer'
-      ...(role === 'developer' && { managerId: managerId, companyId: companyId })
+      ...(role === 'developer' && { managerId: managerId, companyId: companyId }),
+      ...(role === 'developer' && { jobRole }),
     });
 
     // Generate and save verification token
@@ -147,7 +148,7 @@ exports.addUser = async (req, res) => {
       }
     });
 
-    res.status(201).json({ success: true, message: 'User added and invitation email sent.', user: { id: newUser._id, username: newUser.username, email: newUser.email, status: newUser.status, role: newUser.role, managerId: newUser.managerId, companyId: newUser.companyId } });
+    res.status(201).json({ success: true, message: 'User added and invitation email sent.', user: { id: newUser._id, username: newUser.username, email: newUser.email, status: newUser.status, role: newUser.role, managerId: newUser.managerId, companyId: newUser.companyId, jobRole: newUser.jobRole } });
 
   } catch (error) {
     console.error('Error adding user:', error);
@@ -312,7 +313,7 @@ exports.getUsersByManager = async (req, res) => {
 
   try {
     // Find users where role is 'developer' and managerId matches the provided managerId
-    const developers = await User.find({ role: 'developer', managerId: managerId });
+    const developers = await User.find({ role: 'developer', managerId: managerId }).select('username email status role managerId companyId jobRole lastLogin');
     res.status(200).json({ success: true, data: developers });
   } catch (error) {
     console.error('Error fetching developers by manager ID:', error);

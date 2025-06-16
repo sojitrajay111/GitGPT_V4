@@ -23,7 +23,7 @@ export const userManagementApi = createApi({
       query: ({ userData, managerId }) => ({
         url: `/${managerId}/add-user`, // POST to /api/users/:managerId/add-user
         method: "POST",
-        body: userData,
+        body: userData, // userData can include jobRole
       }),
       invalidatesTags: ["User"], // Invalidate 'User' tag to refetch users after adding
     }),

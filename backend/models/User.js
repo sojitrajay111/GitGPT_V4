@@ -45,6 +45,16 @@ const userSchema = new mongoose.Schema(
       required: function() { return this.role === 'developer'; }, // Required only if role is 'developer'
       default: null, // Default to null for non-developers or if not set
     },
+    // Optional job role for developers (e.g., Senior Developer, Analyst, etc.)
+    jobRole: {
+      type: String,
+      default: '',
+    },
+    // Timestamp for the user's last successful login
+    lastLogin: {
+      type: Date,
+      default: null, // Default to null if never logged in
+    },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt timestamps
