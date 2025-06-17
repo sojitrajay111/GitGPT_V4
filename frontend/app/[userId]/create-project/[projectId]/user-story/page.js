@@ -31,7 +31,7 @@ import {
   Select,
   MenuItem,
   IconButton,
-  Switch, // Added for the back button in detail view
+  Switch,
 } from "@mui/material";
 import {
   ThemeProvider,
@@ -47,7 +47,7 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import SearchIcon from "@mui/icons-material/Search";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft"; // For back navigation
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 
 import {
   useGetUserStoriesQuery,
@@ -63,7 +63,7 @@ import {
   useGetCollaboratorPermissionsQuery,
   useGetDeveloperUserStoriesQuery,
 } from "@/features/developerApiSlice";
-import { useGetThemeQuery } from "@/features/themeApiSlice"; // Import new theme hook
+import { useGetThemeQuery } from "@/features/themeApiSlice";
 
 // Keyframes for futuristic loading animation
 const rotate = keyframes`
@@ -87,19 +87,29 @@ const getAppTheme = (mode) =>
   createTheme({
     palette: {
       mode: mode,
-      primary: { main: mode === "dark" ? "#90CAF9" : "#5e72e4" },
-      secondary: { main: mode === "dark" ? "#F48FB1" : "#11cdef" },
+      primary: {
+        main: mode === "dark" ? "#80b0ff" : "#5e72e4", // Adjusted for better visibility on dark, kept original for light
+      },
+      secondary: {
+        main: mode === "dark" ? "#e0b0ff" : "#11cdef", // Adjusted for better visibility on dark
+      },
       success: { main: "#2dce89" },
       error: { main: "#f5365c" },
-      warning: { main: "#fb6340" }, // Added warning color for 'In Review'
-      info: { main: "#11cdef" }, // Added info color for 'Planning'
+      warning: { main: "#fb6340" },
+      info: { main: "#11cdef" },
       background: {
-        default: mode === "dark" ? "#1a202c" : "#f8f9fe",
-        paper: mode === "dark" ? "#2d3748" : "#ffffff",
+        default: mode === "dark" ? "#222222" : "#f0f2f5", // Lighter background for light, darker for dark
+        paper: mode === "dark" ? "#2d2d2d" : "#ffffff", // Card/panel background
       },
       text: {
         primary: mode === "dark" ? "#e0e0e0" : "#32325d",
         secondary: mode === "dark" ? "#b0b0b0" : "#525f7f",
+      },
+      divider: mode === "dark" ? "#4a4a4a" : "#e9ecef",
+      action: {
+        selected:
+          mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)", // For selected list item
+        hover: mode === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)",
       },
     },
     typography: {
@@ -108,6 +118,7 @@ const getAppTheme = (mode) =>
       h6: { fontWeight: 600, fontSize: "1.1rem" },
       body1: { fontSize: "0.95rem" },
       body2: { fontSize: "0.85rem" },
+      caption: { fontSize: "0.75rem" },
     },
     components: {
       MuiButton: {
@@ -117,6 +128,34 @@ const getAppTheme = (mode) =>
             padding: "8px 20px",
             fontWeight: 600,
             textTransform: "none",
+            boxShadow:
+              mode === "dark"
+                ? "0 4px 10px rgba(0,0,0,0.5), 0 -2px 10px rgba(255,255,255,0.05)"
+                : "0 4px 10px rgba(0, 0, 0, 0.1), 0 -2px 10px rgba(0,0,0,0.02)",
+            "&:hover": {
+              boxShadow:
+                mode === "dark"
+                  ? "0 6px 14px rgba(0,0,0,0.6), 0 -3px 14px rgba(255,255,255,0.07)"
+                  : "0 6px 14px rgba(0, 0, 0, 0.15), 0 -3px 14px rgba(0,0,0,0.03)",
+            },
+          },
+          contained: {
+            backgroundColor: mode === "dark" ? "#80b0ff" : "#5e72e4",
+            color: mode === "dark" ? "#1a202c" : "#ffffff", // Darker text on light primary for dark mode
+            "&:hover": {
+              backgroundColor: mode === "dark" ? "#9ac0ff" : "#5262c9",
+            },
+          },
+          outlined: {
+            borderColor: mode === "dark" ? "#4a4a4a" : "#e9ecef",
+            color: mode === "dark" ? "#e0e0e0" : "#5e72e4",
+            "&:hover": {
+              borderColor: mode === "dark" ? "#80b0ff" : "#5e72e4",
+              backgroundColor:
+                mode === "dark"
+                  ? "rgba(128,176,255,0.05)"
+                  : "rgba(94,114,228,0.05)",
+            },
           },
         },
       },
@@ -126,16 +165,16 @@ const getAppTheme = (mode) =>
             borderRadius: "16px",
             boxShadow:
               mode === "dark"
-                ? "0 4px 20px rgba(0, 0, 0, 0.4)"
-                : "0 4px 20px rgba(0, 0, 0, 0.03)",
-            border: `1px solid ${mode === "dark" ? "#4a5568" : "#e9ecef"}`,
+                ? "5px 5px 10px rgba(0,0,0,0.4), -5px -5px 10px rgba(45,45,45,0.3)" // Soft neumorphic effect
+                : "5px 5px 10px rgba(0,0,0,0.05), -5px -5px 10px rgba(255,255,255,0.8)", // Soft neumorphic effect
+            border: `1px solid ${mode === "dark" ? "#3a3a3a" : "#e0e0e0"}`,
             transition: "all 0.3s ease",
             "&:hover": {
-              transform: "translateY(-3px)",
+              transform: "translateY(-2px)", // Less aggressive lift for softer feel
               boxShadow:
                 mode === "dark"
-                  ? "0 7px 14px rgba(0, 0, 0, 0.5), 0 3px 6px rgba(0, 0, 0, 0.3)"
-                  : "0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08)",
+                  ? "8px 8px 15px rgba(0,0,0,0.5), -8px -8px 15px rgba(45,45,45,0.4)"
+                  : "8px 8px 15px rgba(0,0,0,0.08), -8px -8px 15px rgba(255,255,255,0.9)",
             },
           },
         },
@@ -147,21 +186,27 @@ const getAppTheme = (mode) =>
         styleOverrides: {
           root: {
             "& .MuiOutlinedInput-root": {
+              borderRadius: "12px",
+              backgroundColor: mode === "dark" ? "#1a1a1a" : "#e0e0e0", // Deeper inset color for dark, lighter for light
               "& fieldset": {
-                borderColor: mode === "dark" ? "#6b7280" : undefined,
+                border: "none", // No default border
               },
               "&:hover fieldset": {
-                borderColor: mode === "dark" ? "#90CAF9" : undefined,
+                border: "none", // No border on hover
               },
               "&.Mui-focused fieldset": {
-                borderColor: mode === "dark" ? "#90CAF9" : undefined,
+                border: `1px solid ${mode === "dark" ? "#80b0ff" : "#5e72e4"}`, // Subtle border on focus
               },
+              boxShadow:
+                mode === "dark"
+                  ? "inset 3px 3px 6px rgba(0,0,0,0.6), inset -3px -3px 6px rgba(40,40,40,0.3)" // Inset shadow for dark
+                  : "inset 3px 3px 6px rgba(0,0,0,0.1), inset -3px -3px 6px rgba(255,255,255,0.7)", // Inset shadow for light
             },
             "& .MuiInputLabel-root": {
-              color: mode === "dark" ? "#b0b0b0" : undefined,
+              color: mode === "dark" ? "#b0b0b0" : "#525f7f", // Label color
             },
             "& .MuiInputBase-input": {
-              color: mode === "dark" ? "#e0e0e0" : undefined,
+              color: mode === "dark" ? "#e0e0e0" : "#32325d", // Input text color
             },
           },
         },
@@ -169,26 +214,85 @@ const getAppTheme = (mode) =>
       MuiSelect: {
         styleOverrides: {
           root: {
+            borderRadius: "12px",
+            backgroundColor: mode === "dark" ? "#1a1a1a" : "#e0e0e0",
             "& .MuiOutlinedInput-notchedOutline": {
-              borderColor: mode === "dark" ? "#6b7280" : undefined,
+              border: "none",
             },
             "&:hover .MuiOutlinedInput-notchedOutline": {
-              borderColor: mode === "dark" ? "#90CAF9" : undefined,
+              border: "none",
             },
             "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-              borderColor: mode === "dark" ? "#90CAF9" : undefined,
+              border: `1px solid ${mode === "dark" ? "#80b0ff" : "#5e72e4"}`,
             },
-            color: mode === "dark" ? "#e0e0e0" : undefined,
+            color: mode === "dark" ? "#e0e0e0" : "#32325d",
+            boxShadow:
+              mode === "dark"
+                ? "inset 3px 3px 6px rgba(0,0,0,0.6), inset -3px -3px 6px rgba(40,40,40,0.3)"
+                : "inset 3px 3px 6px rgba(0,0,0,0.1), inset -3px -3px 6px rgba(255,255,255,0.7)",
           },
           icon: {
-            color: mode === "dark" ? "#e0e0e0" : undefined,
+            color: mode === "dark" ? "#e0e0e0" : "#525f7f",
           },
         },
       },
       MuiInputLabel: {
         styleOverrides: {
           root: {
-            color: mode === "dark" ? "#b0b0b0" : undefined,
+            color: mode === "dark" ? "#b0b0b0" : "#525f7f",
+          },
+        },
+      },
+      MuiChip: {
+        styleOverrides: {
+          root: {
+            borderRadius: "8px", // More rounded chips
+            fontWeight: 600,
+            fontSize: "0.7rem",
+            height: "24px", // Smaller height
+            backgroundColor: mode === "dark" ? "#3a3a3a" : "#e9ecef", // Default chip background
+            color: mode === "dark" ? "#e0e0e0" : "#525f7f", // Default chip text color
+          },
+          outlined: {
+            borderColor: mode === "dark" ? "#4a4a4a" : "#d0d0d0",
+          },
+          colorSecondary: {
+            backgroundColor: mode === "dark" ? "#4a3a5a" : "#e3f2fd", // AI DEVELOPED chip background
+            color: mode === "dark" ? "#e0b0ff" : "#1976d2", // AI DEVELOPED chip text
+          },
+          colorSuccess: {
+            backgroundColor: mode === "dark" ? "#2a4a3a" : "#e8f5e9", // COMPLETED chip background
+            color: mode === "dark" ? "#81c784" : "#2e7d32", // COMPLETED chip text
+          },
+          colorWarning: {
+            backgroundColor: mode === "dark" ? "#4a3a2a" : "#fff3e0", // IN REVIEW chip background
+            color: mode === "dark" ? "#ffb74d" : "#ed6c02", // IN REVIEW chip text
+          },
+          colorInfo: {
+            backgroundColor: mode === "dark" ? "#2a3a4a" : "#e1f5fe", // PLANNING chip background
+            color: mode === "dark" ? "#64b5f6" : "#0288d1", // PLANNING chip text
+          },
+          colorError: {
+            backgroundColor: mode === "dark" ? "#4a2a2a" : "#ffebee", // HIGH PRIORITY chip background
+            color: mode === "dark" ? "#ef9a9a" : "#d32f2f", // HIGH PRIORITY chip text
+          },
+        },
+      },
+      MuiDivider: {
+        styleOverrides: {
+          root: {
+            backgroundColor: mode === "dark" ? "#4a4a4a" : "#e0e0e0", // Match divider to overall theme
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            color: mode === "dark" ? "#e0e0e0" : "#525f7f",
+            "&:hover": {
+              backgroundColor:
+                mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+            },
           },
         },
       },
@@ -199,39 +303,59 @@ const getAppTheme = (mode) =>
 const HeaderCard = styled(Card)(({ theme }) => ({
   background:
     theme.palette.mode === "dark"
-      ? "linear-gradient(87deg, #3a506b 0, #1c2a3b 100%)"
+      ? "linear-gradient(87deg, #323232 0, #1c1c1c 100%)" // Darker gradient for header
       : "linear-gradient(87deg, #5e72e4 0, #825ee4 100%)",
   color: "white",
   padding: theme.spacing(3),
-  marginBottom: theme.spacing(4), // This might be overridden by the main layout, but good to keep
-  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+  marginBottom: theme.spacing(4),
+  boxShadow: "none", // Header card has distinct shadow handled by its own gradient
+  borderRadius: "16px", // Ensure consistent border radius
 }));
 
-// Corrected StoryCard styled component for dynamic border and text color
 const StoryCard = styled(Card)(({ theme, storyStatus }) => {
   let borderColor;
-  let statusTextColor;
+  let statusChipBgColor;
+  let statusChipTextColor;
 
+  // Use theme palette for status colors
   switch (storyStatus) {
     case "AI DEVELOPED":
       borderColor = theme.palette.secondary.main;
-      statusTextColor = theme.palette.secondary.main;
+      statusChipBgColor =
+        theme.palette.components.MuiChip.styleOverrides.colorSecondary
+          .backgroundColor;
+      statusChipTextColor =
+        theme.palette.components.MuiChip.styleOverrides.colorSecondary.color;
       break;
     case "COMPLETED":
       borderColor = theme.palette.success.main;
-      statusTextColor = theme.palette.success.main;
+      statusChipBgColor =
+        theme.palette.components.MuiChip.styleOverrides.colorSuccess
+          .backgroundColor;
+      statusChipTextColor =
+        theme.palette.components.MuiChip.styleOverrides.colorSuccess.color;
       break;
     case "IN REVIEW":
       borderColor = theme.palette.warning.main;
-      statusTextColor = theme.palette.warning.main;
+      statusChipBgColor =
+        theme.palette.components.MuiChip.styleOverrides.colorWarning
+          .backgroundColor;
+      statusChipTextColor =
+        theme.palette.components.MuiChip.styleOverrides.colorWarning.color;
       break;
     case "PLANNING":
       borderColor = theme.palette.info.main;
-      statusTextColor = theme.palette.info.main;
+      statusChipBgColor =
+        theme.palette.components?.MuiChip.styleOverrides.colorInfo
+          .backgroundColor;
+      statusChipTextColor =
+        theme.palette.components?.MuiChip.styleOverrides.colorInfo.color;
       break;
     default:
       borderColor = theme.palette.primary.main;
-      statusTextColor = theme.palette.text.secondary;
+      statusChipBgColor =
+        theme.palette.components?.MuiChip.styleOverrides.root.backgroundColor;
+      statusChipTextColor = theme.palette.text.secondary;
       break;
   }
 
@@ -243,19 +367,19 @@ const StoryCard = styled(Card)(({ theme, storyStatus }) => {
     backgroundColor: theme.palette.background.paper,
     color: theme.palette.text.primary,
     "& .status-chip": {
-      backgroundColor:
-        theme.palette.mode === "dark"
-          ? theme.palette.action.selected
-          : theme.palette.grey[100],
-      color: statusTextColor,
+      backgroundColor: statusChipBgColor,
+      color: statusChipTextColor,
       fontWeight: 600,
+      borderRadius: "8px", // Ensure consistent chip border radius
     },
-    // Ensure text color is appropriate for the theme
     "& .MuiTypography-root": {
       color: theme.palette.text.primary,
     },
     "& .MuiTypography-caption, & .MuiTypography-body2": {
       color: theme.palette.text.secondary,
+    },
+    "&:hover": {
+      backgroundColor: theme.palette.action.hover, // Subtle hover effect
     },
   };
 });
@@ -263,23 +387,28 @@ const StoryCard = styled(Card)(({ theme, storyStatus }) => {
 const AIContentBox = styled(Box)(({ theme }) => ({
   background:
     theme.palette.mode === "dark"
-      ? "linear-gradient(120deg, #2a3447 0%, #1c2a3b 100%)"
-      : "linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)",
-  border: `1px solid ${theme.palette.mode === "dark" ? "#4a5568" : "#dee2e6"}`,
+      ? "#1a1a1a" // Flat dark background for content box
+      : "#e0e0e0", // Flat light background for content box
+  border: `1px solid ${theme.palette.mode === "dark" ? "#3a3a3a" : "#d0d0d0"}`,
   borderRadius: "12px",
   padding: theme.spacing(2),
   marginTop: theme.spacing(2),
   color: theme.palette.text.primary,
+  boxShadow:
+    theme.palette.mode === "dark"
+      ? "inset 3px 3px 6px rgba(0,0,0,0.6), inset -3px -3px 6px rgba(40,40,40,0.3)"
+      : "inset 3px 3px 6px rgba(0,0,0,0.1), inset -3px -3px 6px rgba(255,255,255,0.7)",
 }));
 
 // Styled Dialog for advanced loading
 const LoadingDialog = styled(Dialog)(({ theme }) => ({
   "& .MuiDialog-paper": {
     borderRadius: "20px",
-    background: "linear-gradient(145deg, #1a2a4a 0%, #0a1525 100%)",
+    background: "linear-gradient(145deg, #181818 0%, #000000 100%)", // Darker, more dramatic gradient
     color: "#e0e0e0",
-    boxShadow: "0 8px 30px rgba(0, 0, 0, 0.5)",
-    border: "1px solid #0f3460",
+    boxShadow:
+      "8px 8px 20px rgba(0,0,0,0.6), -8px -8px 20px rgba(40,40,40,0.3)",
+    border: "1px solid #3a3a3a",
     padding: theme.spacing(3),
     maxWidth: "500px",
     width: "90%",
@@ -381,18 +510,14 @@ const UserStoryPage = () => {
   const { userId, projectId } = params;
 
   // State for forms and views
-  // 'list': shows the list of stories (default when no story is selected)
-  // 'create': shows the form for creating a new story
-  // 'view': shows the details of a selected story
-  // 'edit': shows the form for editing a selected story
-  const [activePanel, setActivePanel] = useState("create"); // Set to 'create' by default as per request
-  const [selectedStory, setSelectedStory] = useState(null); // The story currently being viewed/edited
+  const [activePanel, setActivePanel] = useState("list"); // Set to 'list' by default based on image
+  const [selectedStory, setSelectedStory] = useState(null);
 
   // State for delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [storyToDelete, setStoryToDelete] = useState(null);
 
-  // NEW: State for code generation loading and status
+  // State for code generation loading and status
   const [isGeneratingCodeProcess, setIsGeneratingCodeProcess] = useState(false);
   const [currentGenerationStatus, setCurrentGenerationStatus] = useState("");
   const [completedGenerationSteps, setCompletedGenerationSteps] = useState([]);
@@ -408,9 +533,9 @@ const UserStoryPage = () => {
   const [selectedCollaboratorGithubIds, setSelectedCollaboratorGithubIds] =
     useState([]);
   const [generatedStoryContent, setGeneratedStoryContent] = useState("");
-  const [storyStatus, setStoryStatus] = useState("PLANNING"); // NEW: Status
-  const [storyPriority, setStoryPriority] = useState("Medium"); // NEW: Priority
-  const [estimatedTime, setEstimatedTime] = useState(""); // NEW: Estimated Time
+  const [storyStatus, setStoryStatus] = useState("PLANNING");
+  const [storyPriority, setStoryPriority] = useState("Medium");
+  const [estimatedTime, setEstimatedTime] = useState("");
 
   // State for search and filter
   const [searchTerm, setSearchTerm] = useState("");
@@ -429,31 +554,13 @@ const UserStoryPage = () => {
     isLoading: isThemeLoading,
     isError: isThemeError,
   } = useGetThemeQuery(userId, {
-    skip: !userId, // Skip query if userId is not available
+    skip: !userId,
   });
 
-  const themeMode = themeData?.theme || "light"; // Default to 'light' if data is not yet loaded or error
+  const themeMode = themeData?.theme || "light";
 
-  // Remove useEffect for initial theme from localStorage
-  // useEffect(() => {
-  //   const storedTheme = localStorage.getItem("theme") || "light";
-  //   setThemeMode(storedTheme);
-
-  //   const handleStorageChange = () => {
-  //     setThemeMode(localStorage.getItem("theme") || "light");
-  //   };
-  //   window.addEventListener("storage", handleStorageChange);
-  //   return () => {
-  //     window.removeEventListener("storage", handleStorageChange);
-  //   };
-  // }, []);
-
-  // NEW ADDITION: Effect to apply the theme class to the document element (html tag)
-  // This ensures the global 'dark' class is always in sync with page.js's themeMode state,
-  // especially important for initial load and consistency across components.
   useEffect(() => {
     if (!isThemeLoading && !isThemeError && themeMode) {
-      // Only apply once theme data is fetched
       document.documentElement.classList.toggle("dark", themeMode === "dark");
     }
   }, [themeMode, isThemeLoading, isThemeError]);
@@ -466,10 +573,7 @@ const UserStoryPage = () => {
   const userRole = userData?.user?.role;
   const githubId = userData?.githubData?.githubId;
 
-  // Placeholder for project's GitHub Repo URL.
-  // IMPORTANT: REPLACE WITH ACTUAL PROJECT REPO URL LOGIC
-  // This should ideally come from a project-specific API call
-  const projectGithubRepoUrl = "https://github.com/your-org/your-repo-name";
+  const projectGithubRepoUrl = "https://github.com/your-org/your-repo-name"; // Placeholder
 
   const { data: developerPermissions } = useGetCollaboratorPermissionsQuery(
     { projectId, githubId },
@@ -514,16 +618,14 @@ const UserStoryPage = () => {
     setStoryStatus("PLANNING");
     setStoryPriority("Medium");
     setEstimatedTime("");
-    setSelectedStory(null); // Clear selected story
+    setSelectedStory(null);
   };
 
-  // Open form for creating new story
   const handleOpenCreateForm = () => {
     resetForm();
     setActivePanel("create");
   };
 
-  // Open form for editing existing story
   const handleOpenEditForm = (story) => {
     setSelectedStory(story);
     setUserStoryTitle(story.userStoryTitle);
@@ -540,13 +642,11 @@ const UserStoryPage = () => {
     setActivePanel("edit");
   };
 
-  // View a specific story
   const handleViewStory = (story) => {
     setSelectedStory(story);
     setActivePanel("view");
   };
 
-  // Open dialog for deleting
   const handleOpenDeleteDialog = (story) => {
     setStoryToDelete(story);
     setDeleteDialogOpen(true);
@@ -554,23 +654,13 @@ const UserStoryPage = () => {
 
   const handleCloseDialogs = () => {
     setDeleteDialogOpen(false);
-    // When closing the main dialog, also ensure the generation dialog is closed if it's open,
-    // but only if the generation process is truly done or user explicitly closes it after error/completion.
     if (!isGeneratingCodeProcess) {
       setIsGeneratingCodeProcess(false);
-      setCompletedGenerationSteps([]); // Clear steps on close
-      setCurrentGenerationStatus(""); // Clear current status
-      setGenerationError(null); // Clear any errors
-      setGithubResult(null); // Clear result
-      setActiveGenerationStoryId(null); // Reset active generation story
-    }
-  };
-
-  // Handler for opening the generation dialog manually (from "Generating..." button)
-  const handleOpenGenerationDialog = (storyId) => {
-    // Only open if this story is the one actively generating
-    if (activeGenerationStoryId === storyId && isGeneratingCodeProcess) {
-      setIsGeneratingCodeProcess(true);
+      setCompletedGenerationSteps([]);
+      setCurrentGenerationStatus("");
+      setGenerationError(null);
+      setGithubResult(null);
+      setActiveGenerationStoryId(null);
     }
   };
 
@@ -607,7 +697,7 @@ const UserStoryPage = () => {
   };
 
   const handleGenerateSalesforceCode = async () => {
-    const storyToGenerate = selectedStory; // Use the currently selected story
+    const storyToGenerate = selectedStory;
     if (!storyToGenerate?._id) {
       showSnackbar("Please select a user story first.", "warning");
       return;
@@ -700,12 +790,11 @@ const UserStoryPage = () => {
                   "success"
                 );
                 refetchUserStories();
-                // Update the selected story with new github details
                 setSelectedStory((prev) => ({
                   ...prev,
                   githubBranch: eventData.githubBranch,
                   prUrl: eventData.prUrl,
-                  status: "AI DEVELOPED", // Set status to AI Developed
+                  status: "AI DEVELOPED",
                 }));
               } else if (eventData.type === "error") {
                 setGenerationError(eventData.message);
@@ -763,7 +852,7 @@ const UserStoryPage = () => {
       }
       resetForm();
       refetchUserStories();
-      setActivePanel("list"); // Go back to list after submit
+      setActivePanel("list");
     } catch (err) {
       showSnackbar(err.data?.message || "An error occurred.", "error");
     }
@@ -775,8 +864,8 @@ const UserStoryPage = () => {
       showSnackbar("User story deleted successfully!");
       handleCloseDialogs();
       refetchUserStories();
-      setActivePanel("list"); // Go back to list after delete
-      setSelectedStory(null); // Clear selected story
+      setActivePanel("list");
+      setSelectedStory(null);
     } catch (err) {
       showSnackbar(
         err.data?.message || "Failed to delete user story.",
@@ -802,38 +891,11 @@ const UserStoryPage = () => {
     });
   }, [allUserStories, searchTerm, showCompleted]);
 
-  // Sort stories by creation date, most recent first
   filteredUserStories.sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
   );
 
   const theme = useTheme();
-
-  const inputStyle = {
-    "& .MuiOutlinedInput-root": {
-      borderRadius: "12px",
-      boxShadow:
-        theme.palette.mode === "dark"
-          ? "0 4px 8px rgba(255,255,255,0.05)"
-          : "0 4px 8px rgba(0,0,0,0.1)",
-      backgroundColor: theme.palette.mode === "dark" ? "#121212" : "#fff",
-      "& fieldset": {
-        borderColor: theme.palette.divider,
-      },
-      "&:hover fieldset": {
-        borderColor: theme.palette.primary.main,
-      },
-      "&.Mui-focused fieldset": {
-        borderColor: theme.palette.primary.main,
-      },
-    },
-    "& .MuiInputLabel-root": {
-      color: theme.palette.mode === "dark" ? "#fff" : "#000",
-    },
-    "& .MuiInputBase-input": {
-      color: theme.palette.mode === "dark" ? "#fff" : "#000",
-    },
-  };
 
   // Render function for the story creation/edit form
   const renderStoryForm = () => (
@@ -846,7 +908,7 @@ const UserStoryPage = () => {
         flexDirection: "column",
         gap: 3,
         borderRadius: 4,
-        boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+        // Card shadow is handled by MuiCard styleOverrides, avoid duplication
         backgroundColor: "background.paper",
       }}
     >
@@ -854,37 +916,12 @@ const UserStoryPage = () => {
         {activePanel === "edit" ? "Edit User Story" : "Create New User Story"}
       </Typography>
 
-      {/* FIELD STYLING APPLIES TO ALL TEXTFIELDS */}
       <TextField
         fullWidth
         label="User Story Title"
         value={userStoryTitle}
         onChange={(e) => setUserStoryTitle(e.target.value)}
-        InputLabelProps={{
-          sx: {
-            color: theme.palette.mode === "dark" ? "#ffffff" : "#000000",
-          },
-        }}
-        InputProps={{
-          sx: {
-            backgroundColor:
-              theme.palette.mode === "dark" ? "#2e2e2e" : "#ffffff",
-            color: theme.palette.mode === "dark" ? "#ffffff" : "#000000",
-            borderRadius: 3,
-            paddingX: 2,
-            boxShadow:
-              theme.palette.mode === "dark"
-                ? "inset 4px 4px 10px #1c1c1c, inset -4px -4px 10px #3d3d3d"
-                : "0 1px 4px rgba(0,0,0,0.1)",
-            border: "none",
-          },
-        }}
-        sx={{
-          mt: 2,
-          "& .MuiOutlinedInput-notchedOutline": {
-            border: "none",
-          },
-        }}
+        // MUI TextField style overrides in getAppTheme handle this
       />
 
       <TextField
@@ -894,7 +931,7 @@ const UserStoryPage = () => {
         label="Description"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        sx={inputStyle}
+        // MUI TextField style overrides in getAppTheme handle this
       />
 
       <TextField
@@ -904,7 +941,7 @@ const UserStoryPage = () => {
         label="Acceptance Criteria"
         value={acceptanceCriteria}
         onChange={(e) => setAcceptanceCriteria(e.target.value)}
-        sx={inputStyle}
+        // MUI TextField style overrides in getAppTheme handle this
       />
 
       <TextField
@@ -914,15 +951,16 @@ const UserStoryPage = () => {
         label="Testing Scenarios"
         value={testingScenarios}
         onChange={(e) => setTestingScenarios(e.target.value)}
-        sx={inputStyle}
+        // MUI TextField style overrides in getAppTheme handle this
       />
 
-      <FormControl fullWidth sx={inputStyle}>
+      <FormControl fullWidth>
         <InputLabel>Status</InputLabel>
         <Select
           value={storyStatus}
           label="Status"
           onChange={(e) => setStoryStatus(e.target.value)}
+          // MUI Select style overrides in getAppTheme handle this
         >
           <MenuItem value="PLANNING">Planning</MenuItem>
           <MenuItem value="IN REVIEW">In Review</MenuItem>
@@ -931,12 +969,13 @@ const UserStoryPage = () => {
         </Select>
       </FormControl>
 
-      <FormControl fullWidth sx={inputStyle}>
+      <FormControl fullWidth>
         <InputLabel>Priority</InputLabel>
         <Select
           value={storyPriority}
           label="Priority"
           onChange={(e) => setStoryPriority(e.target.value)}
+          // MUI Select style overrides in getAppTheme handle this
         >
           <MenuItem value="Low">Low</MenuItem>
           <MenuItem value="Medium">Medium</MenuItem>
@@ -949,7 +988,7 @@ const UserStoryPage = () => {
         label="Estimated Time (e.g., 8h, 2d)"
         value={estimatedTime}
         onChange={(e) => setEstimatedTime(e.target.value)}
-        sx={inputStyle}
+        // MUI TextField style overrides in getAppTheme handle this
       />
 
       {/* COLLABORATORS */}
@@ -969,12 +1008,20 @@ const UserStoryPage = () => {
                     checked={selectedCollaboratorGithubIds.includes(c.githubId)}
                     onChange={handleCollaboratorChange}
                     value={c.githubId}
+                    sx={{
+                      color: theme.palette.text.secondary, // Checkbox color
+                      "&.Mui-checked": {
+                        color: theme.palette.primary.main,
+                      },
+                    }}
                   />
                 }
                 label={
                   <Box display="flex" alignItems="center" gap={1}>
                     <Avatar src={c.avatarUrl} sx={{ width: 24, height: 24 }} />
-                    {c.username}
+                    <Typography variant="body2" color="text.primary">
+                      {c.username}
+                    </Typography>
                   </Box>
                 }
               />
@@ -991,9 +1038,10 @@ const UserStoryPage = () => {
           disabled={isGenerating}
           startIcon={<AutoFixHighIcon />}
           sx={{
-            borderRadius: 2,
+            borderRadius: "12px", // Adjusted to match general button radius
             textTransform: "none",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            // Box shadow handled by MuiButton styleOverrides
+            // Border and text color handled by MuiButton style overrides for 'outlined'
           }}
         >
           {isGenerating
@@ -1014,16 +1062,14 @@ const UserStoryPage = () => {
 
       {/* FINAL ACTION BUTTONS */}
       <Box display="flex" justifyContent="flex-end" gap={2} mt={1}>
-        <Button onClick={() => setActivePanel("list")}>Cancel</Button>
+        <Button onClick={() => setActivePanel("list")} variant="outlined">
+          Cancel
+        </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
           disabled={isCreating || isUpdating}
-          sx={{
-            borderRadius: 2,
-            boxShadow: "0 4px 15px rgba(0,0,0,0.3)",
-            textTransform: "none",
-          }}
+          // Button styles are managed by MuiButton style overrides
         >
           {isCreating || isUpdating ? (
             <CircularProgress size={24} color="inherit" />
@@ -1049,12 +1095,18 @@ const UserStoryPage = () => {
       }}
     >
       <Box display="flex" justifyContent="space-between" alignItems="center">
-        <IconButton onClick={() => setActivePanel("list")}>
+        <IconButton
+          onClick={() => setActivePanel("list")}
+          sx={{ color: theme.palette.text.secondary }}
+        >
           <ChevronLeftIcon />
         </IconButton>
         {canManageStories && selectedStory && (
           <Box>
-            <IconButton onClick={() => handleOpenEditForm(selectedStory)}>
+            <IconButton
+              onClick={() => handleOpenEditForm(selectedStory)}
+              sx={{ color: theme.palette.text.secondary }}
+            >
               <EditIcon />
             </IconButton>
             <IconButton onClick={() => handleOpenDeleteDialog(selectedStory)}>
@@ -1066,8 +1118,25 @@ const UserStoryPage = () => {
 
       {selectedStory ? (
         <>
-          <Typography variant="h4" gutterBottom mt={2}>
+          <Typography
+            variant="h4"
+            gutterBottom
+            mt={2}
+            sx={{
+              color: theme.palette.text.primary,
+              fontWeight: 700,
+              fontSize: "2rem", // Slightly larger for main title
+            }}
+          >
             {selectedStory.userStoryTitle}
+          </Typography>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            mb={2}
+            sx={{ fontStyle: "italic" }}
+          >
+            Story #{selectedStory._id.substring(selectedStory._id.length - 4)}
           </Typography>
 
           <Grid container spacing={2} mb={2}>
@@ -1081,18 +1150,7 @@ const UserStoryPage = () => {
                     ? "warning"
                     : "success"
                 }
-                variant="outlined"
-                sx={{
-                  backgroundColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[700]
-                      : undefined,
-                  color: currentTheme.palette.text.primary,
-                  borderColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[600]
-                      : undefined,
-                }}
+                // Root chip styles handle background and text color
               />
             </Grid>
             <Grid item>
@@ -1107,35 +1165,13 @@ const UserStoryPage = () => {
                     ? "warning"
                     : "info"
                 }
-                variant="outlined"
-                sx={{
-                  backgroundColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[700]
-                      : undefined,
-                  color: currentTheme.palette.text.primary,
-                  borderColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[600]
-                      : undefined,
-                }}
+                // Root chip styles handle background and text color
               />
             </Grid>
             <Grid item>
               <Chip
                 label={`Estimated: ${selectedStory.estimatedTime}`}
-                variant="outlined"
-                sx={{
-                  backgroundColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[700]
-                      : undefined,
-                  color: currentTheme.palette.text.primary,
-                  borderColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[600]
-                      : undefined,
-                }}
+                // Default chip colors applied
               />
             </Grid>
             <Grid item>
@@ -1143,18 +1179,7 @@ const UserStoryPage = () => {
                 label={`Created: ${new Date(
                   selectedStory.createdAt
                 ).toLocaleDateString()}`}
-                variant="outlined"
-                sx={{
-                  backgroundColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[700]
-                      : undefined,
-                  color: currentTheme.palette.text.primary,
-                  borderColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[600]
-                      : undefined,
-                }}
+                // Default chip colors applied
               />
             </Grid>
           </Grid>
@@ -1198,12 +1223,12 @@ const UserStoryPage = () => {
               sx={{
                 p: 1.5,
                 borderRadius: "8px",
-                border: `1px solid ${
-                  currentTheme.palette.mode === "dark"
-                    ? currentTheme.palette.grey[600]
-                    : currentTheme.palette.secondary.light
-                }`,
-                background: currentTheme.palette.background.paper, // Use paper for this box's background
+                border: `1px solid ${theme.palette.divider}`,
+                background: theme.palette.background.default, // Use default background for this section
+                boxShadow:
+                  theme.palette.mode === "dark"
+                    ? "3px 3px 6px rgba(0,0,0,0.3), -3px -3px 6px rgba(40,40,40,0.2)" // subtle raised effect
+                    : "3px 3px 6px rgba(0,0,0,0.05), -3px -3px 6px rgba(255,255,255,0.6)",
               }}
             >
               <Typography
@@ -1222,7 +1247,7 @@ const UserStoryPage = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      color: currentTheme.palette.primary.main,
+                      color: theme.palette.primary.main,
                       textDecoration: "underline",
                     }}
                   >
@@ -1238,7 +1263,7 @@ const UserStoryPage = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      color: currentTheme.palette.primary.main,
+                      color: theme.palette.primary.main,
                       textDecoration: "underline",
                     }}
                   >
@@ -1263,11 +1288,8 @@ const UserStoryPage = () => {
                       label={c.username}
                       size="small"
                       sx={{
-                        backgroundColor:
-                          currentTheme.palette.mode === "dark"
-                            ? currentTheme.palette.grey[700]
-                            : undefined,
-                        color: currentTheme.palette.text.primary,
+                        backgroundColor: theme.palette.action.selected, // Use selected color for assigned collaborator chips
+                        color: theme.palette.text.primary,
                       }}
                     />
                   ))}
@@ -1276,8 +1298,6 @@ const UserStoryPage = () => {
             )}
 
           <Box sx={{ mt: "auto", pt: 3 }}>
-            {" "}
-            {/* mt: 'auto' pushes button to bottom */}
             <Button
               variant="contained"
               color="primary"
@@ -1292,7 +1312,7 @@ const UserStoryPage = () => {
                   <AutoFixHighIcon />
                 )
               }
-              sx={{ py: 1.5 }}
+              sx={{ py: 1.5, borderRadius: "12px" }}
             >
               {isGeneratingCodeProcess &&
               activeGenerationStoryId === selectedStory._id
@@ -1322,24 +1342,25 @@ const UserStoryPage = () => {
           height: "100vh",
           backgroundColor: currentTheme.palette.background.default,
           color: currentTheme.palette.text.primary,
-          // Hide overflow-x to prevent horizontal scrolling due to layout
           overflowX: "hidden",
         }}
       >
         {/* Left Sidebar */}
         <Box
           sx={{
-            width: { xs: "100%", sm: 350 }, // Full width on small screens, fixed on larger
+            width: { xs: "100%", sm: 350 },
             flexShrink: 0,
-            borderRight: `1px solid ${
-              currentTheme.palette.mode === "dark" ? "#4a5568" : "#e0e0e0"
-            }`,
+            borderRight: `1px solid ${currentTheme.palette.divider}`,
             backgroundColor: currentTheme.palette.background.paper,
             p: 2,
             display:
-              activePanel === "list" ? "flex" : { xs: "none", sm: "flex" }, // Show only on list view for small screens
+              activePanel === "list" ? "flex" : { xs: "none", sm: "flex" },
             flexDirection: "column",
-            overflowY: "auto", // Enable scrolling for sidebar content
+            overflowY: "auto",
+            boxShadow:
+              currentTheme.palette.mode === "dark"
+                ? "5px 0 10px rgba(0,0,0,0.3)" // Shadow on sidebar edge
+                : "5px 0 10px rgba(0,0,0,0.05)",
           }}
         >
           <Box
@@ -1358,8 +1379,11 @@ const UserStoryPage = () => {
                 onClick={handleOpenCreateForm}
                 startIcon={<AddIcon />}
                 sx={{
+                  borderRadius: "12px",
                   backgroundColor: currentTheme.palette.primary.main,
-                  color: "white",
+                  color: currentTheme.palette.getContrastText(
+                    currentTheme.palette.primary.main
+                  ),
                   "&:hover": {
                     backgroundColor: currentTheme.palette.primary.dark,
                   },
@@ -1370,19 +1394,37 @@ const UserStoryPage = () => {
             )}
           </Box>
 
-          {/* Theme Toggle is now assumed to be in Sidebar.js, removed from here */}
-
           <TextField
             fullWidth
             label="Search stories..."
-            variant="outlined"
             size="small"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
-              startAdornment: <SearchIcon sx={{ mr: 1 }} />,
+              startAdornment: (
+                <SearchIcon
+                  sx={{ mr: 1, color: currentTheme.palette.text.secondary }}
+                />
+              ),
+              sx: {
+                borderRadius: "25px", // Fully rounded search bar
+                paddingLeft: "10px",
+                backgroundColor:
+                  currentTheme.palette.mode === "dark" ? "#1a1a1a" : "#ffffff",
+                boxShadow:
+                  currentTheme.palette.mode === "dark"
+                    ? "inset 2px 2px 5px rgba(0,0,0,0.5), inset -2px -2px 5px rgba(40,40,40,0.2)"
+                    : "inset 2px 2px 5px rgba(0,0,0,0.05), inset -2px -2px 5px rgba(255,255,255,0.5)",
+                "& fieldset": { border: "none" },
+              },
             }}
-            sx={{ mb: 2 }}
+            InputLabelProps={{
+              sx: { color: currentTheme.palette.text.secondary },
+            }}
+            sx={{
+              mb: 2,
+              // Shadow and border already handled by InputProps.sx
+            }}
           />
 
           <FormControlLabel
@@ -1391,9 +1433,27 @@ const UserStoryPage = () => {
                 checked={showCompleted}
                 onChange={(e) => setShowCompleted(e.target.checked)}
                 color="primary"
+                sx={{
+                  "& .MuiSwitch-switchBase.Mui-checked": {
+                    color: currentTheme.palette.primary.main,
+                    "&:hover": {
+                      backgroundColor: currentTheme.palette.action.hover,
+                    },
+                  },
+                  "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                    backgroundColor: currentTheme.palette.primary.main,
+                  },
+                  "& .MuiSwitch-track": {
+                    backgroundColor: currentTheme.palette.divider,
+                  },
+                }}
               />
             }
-            label="Show Completed"
+            label={
+              <Typography variant="body2" color="text.primary">
+                Show Completed
+              </Typography>
+            }
             sx={{ mb: 2 }}
           />
 
@@ -1414,7 +1474,7 @@ const UserStoryPage = () => {
               {filteredUserStories.map((story) => (
                 <StoryCard
                   key={story._id}
-                  storyStatus={story.status} // Pass status for dynamic styling
+                  storyStatus={story.status}
                   onClick={() => handleViewStory(story)}
                   sx={{
                     cursor: "pointer",
@@ -1439,15 +1499,7 @@ const UserStoryPage = () => {
                           label="AI DEVELOPED"
                           color="secondary"
                           size="small"
-                          sx={{
-                            ml: 1,
-                            fontWeight: 600,
-                            backgroundColor:
-                              currentTheme.palette.mode === "dark"
-                                ? currentTheme.palette.grey[700]
-                                : undefined,
-                            color: currentTheme.palette.secondary.main,
-                          }}
+                          sx={{ ml: 1 }} // Styles are in MuiChip overrides
                         />
                       )}
                     </Box>
@@ -1457,12 +1509,19 @@ const UserStoryPage = () => {
                       alignItems="center"
                       variant="caption"
                       color="text.secondary"
+                      mt={0.5} // Added margin top to separate from title/chip row
                     >
                       <Typography variant="caption">
                         {story.collaborators?.[0]?.username || "Unassigned"}
                       </Typography>
                       <Box display="flex" alignItems="center">
-                        <AccessTimeIcon sx={{ fontSize: "0.9rem", mr: 0.5 }} />
+                        <AccessTimeIcon
+                          sx={{
+                            fontSize: "0.9rem",
+                            mr: 0.5,
+                            color: currentTheme.palette.text.secondary,
+                          }}
+                        />
                         <Typography variant="caption">
                           {story.estimatedTime}
                         </Typography>
@@ -1472,24 +1531,13 @@ const UserStoryPage = () => {
                       <Chip
                         label={story.status}
                         size="small"
-                        className="status-chip" // Use className for styled component target
+                        className="status-chip"
+                        // Styles are in MuiChip overrides
                       />
                       <Chip
                         label={`Priority: ${story.priority}`}
                         size="small"
-                        sx={{
-                          ml: 1,
-                          fontWeight: 600,
-                          backgroundColor:
-                            currentTheme.palette.mode === "dark"
-                              ? currentTheme.palette.grey[700]
-                              : undefined,
-                          color: currentTheme.palette.text.primary,
-                          borderColor:
-                            currentTheme.palette.mode === "dark"
-                              ? currentTheme.palette.grey[600]
-                              : undefined,
-                        }}
+                        sx={{ ml: 1 }} // Styles are in MuiChip overrides
                         color={
                           story.priority === "High"
                             ? "error"
@@ -1514,8 +1562,8 @@ const UserStoryPage = () => {
             backgroundColor: currentTheme.palette.background.default,
             overflowY: "auto",
             display:
-              activePanel !== "list" ? "flex" : { xs: "none", sm: "flex" }, // Hide on small screens when list is active
-            flexDirection: "column", // Ensures content fills height
+              activePanel !== "list" ? "flex" : { xs: "none", sm: "flex" },
+            flexDirection: "column",
           }}
         >
           {activePanel === "create" || activePanel === "edit"
@@ -1532,10 +1580,17 @@ const UserStoryPage = () => {
             "& .MuiDialog-paper": {
               backgroundColor: currentTheme.palette.background.paper,
               color: currentTheme.palette.text.primary,
+              borderRadius: "16px", // Ensure consistent dialog border radius
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "5px 5px 10px rgba(0,0,0,0.4), -5px -5px 10px rgba(45,45,45,0.3)"
+                  : "5px 5px 10px rgba(0,0,0,0.05), -5px -5px 10px rgba(255,255,255,0.8)",
             },
           }}
         >
-          <DialogTitle sx={{ color: currentTheme.palette.text.primary }}>
+          <DialogTitle
+            sx={{ color: currentTheme.palette.text.primary, fontWeight: 600 }}
+          >
             Confirm Deletion
           </DialogTitle>
           <DialogContent>
@@ -1548,6 +1603,7 @@ const UserStoryPage = () => {
           <DialogActions sx={{ p: "16px 24px" }}>
             <Button
               onClick={handleCloseDialogs}
+              variant="outlined" // Use outlined for cancel
               sx={{ color: currentTheme.palette.text.primary }}
             >
               Cancel
@@ -1602,7 +1658,15 @@ const UserStoryPage = () => {
                 <StatusMessage>{currentGenerationStatus}</StatusMessage>
                 <LinearProgress
                   color="primary"
-                  sx={{ my: 2, height: 8, borderRadius: 5 }}
+                  sx={{
+                    my: 2,
+                    height: 8,
+                    borderRadius: 5,
+                    backgroundColor:
+                      theme.palette.mode === "dark"
+                        ? "#3a3a3a"
+                        : "rgba(0,0,0,0.1)",
+                  }}
                 />
               </>
             ) : (

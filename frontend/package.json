@@ -28,6 +28,7 @@
     "class-variance-authority": "^0.7.1",
     "classnames": "^2.5.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.18.1",
     "jose": "^6.0.11",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.511.0",
@@ -52,7 +53,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22.15.27",
-    "tailwindcss": "^4",
+    "tailwindcss": "^4.1.10",
     "tw-animate-css": "^1.3.4"
   }
 }

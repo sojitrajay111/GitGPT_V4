@@ -8,10 +8,8 @@ import { codeAnalysisApiSlice } from "./features/codeAnalysisApiSlice";
 import { documentApi } from "./features/documentApiSlice";
 import { developerApiSlice } from "./features/developerApiSlice";
 import { themeApi } from "./features/themeApiSlice";
-
 import { gptApiSlice } from "./features/gptApiSlice";
 import { configurationApiSlice } from "./features/configurationApiSlice";
-
 import { jiraApi } from "./features/jiraSlice";
 import { userManagementApi } from "./features/usermanagementSlice";
 import { companyApi } from "./features/companyApi";
@@ -20,6 +18,7 @@ import storage from "redux-persist/lib/storage";
 import { persistReducer, persistStore } from "redux-persist";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { userProfileApiSlice } from "./features/userProfileApiSlice";
+import { projectMetricsApiSlice } from "./features/projectMetricsApiSlice";
 
 // Configuration for persisting only the 'service' slice
 const servicePersistConfig = {
@@ -41,16 +40,16 @@ export const store = configureStore({
     [projectApiSlice.reducerPath]: projectApiSlice.reducer,
     [userStoryApiSlice.reducerPath]: userStoryApiSlice.reducer,
     [codeAnalysisApiSlice.reducerPath]: codeAnalysisApiSlice.reducer,
-
     [userManagementApi.reducerPath]: userManagementApi.reducer,
     [themeApi.reducerPath]: themeApi.reducer,
-
     [documentApi.reducerPath]: documentApi.reducer,
     [developerApiSlice.reducerPath]: developerApiSlice.reducer,
     [gptApiSlice.reducerPath]: gptApiSlice.reducer,
     [jiraApi.reducerPath]: jiraApi.reducer,
     [configurationApiSlice.reducerPath]: configurationApiSlice.reducer,
     [companyApi.reducerPath]: companyApi.reducer,
+    [projectMetricsApiSlice.reducerPath]: projectMetricsApiSlice.reducer,
+
     service: persistedServiceReducer,
 
     auth: authReducer,
@@ -68,17 +67,15 @@ export const store = configureStore({
       userStoryApiSlice.middleware,
       codeAnalysisApiSlice.middleware,
       themeApi.middleware,
-
       userManagementApi.middleware,
-
       documentApi.middleware,
       developerApiSlice.middleware,
       gptApiSlice.middleware,
       jiraApi.middleware,
       configurationApiSlice.middleware,
-
       companyApi.middleware,
-      userProfileApiSlice.middleware
+      userProfileApiSlice.middleware,
+      projectMetricsApiSlice.middleware
     ),
 });
 

@@ -25,10 +25,9 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.15.1",
     "multer": "^2.0.0",
-
     "nodemailer": "^7.0.3",
+    "octokit": "^4.1.4",
     "simple-git": "^3.28.0"
-
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
