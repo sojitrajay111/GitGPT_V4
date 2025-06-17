@@ -102,7 +102,7 @@ const Sidebar = ({
   ];
 
   // Dynamic class for theme
-  const sidebarBg = theme === "dark" ? "bg-gray-900" : "bg-white";
+  const sidebarBg = theme === "dark" ? "bg-black" : "bg-white";
   const textColor = theme === "dark" ? "text-gray-200" : "text-gray-800";
   const borderColor = theme === "dark" ? "border-gray-700" : "border-gray-200";
   const hoverBg = theme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-100";

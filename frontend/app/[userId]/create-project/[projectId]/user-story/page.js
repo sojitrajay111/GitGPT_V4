@@ -65,10 +65,16 @@ import {
 } from "@/features/developerApiSlice";
 import { useGetThemeQuery } from "@/features/themeApiSlice";
 
-// Keyframes for futuristic loading animation
+// Enhanced Keyframes for futuristic loading animation
 const rotate = keyframes`
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+`;
+
+const float = keyframes`
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
 `;
 
 const fadeIn = keyframes`
@@ -82,79 +88,162 @@ const pulse = keyframes`
   100% { transform: scale(1); opacity: 0.7; }
 `;
 
-// Theme definitions
+const neonGlow = keyframes`
+  0% { text-shadow: 0 0 5px rgba(0, 255, 255, 0.5), 0 0 10px rgba(0, 255, 255, 0.5); }
+  50% { text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.8); }
+  100% { text-shadow: 0 0 5px rgba(0, 255, 255, 0.5), 0 0 10px rgba(0, 255, 255, 0.5); }
+`;
+
+const cardHover = keyframes`
+  0% { transform: perspective(1000px) rotateX(0deg) rotateY(0deg); }
+  50% { transform: perspective(1000px) rotateX(2deg) rotateY(2deg); }
+  100% { transform: perspective(1000px) rotateX(0deg) rotateY(0deg); }
+`;
+
+// Enhanced Theme definitions with 3D effects
 const getAppTheme = (mode) =>
   createTheme({
     palette: {
       mode: mode,
       primary: {
-        main: mode === "dark" ? "#80b0ff" : "#5e72e4", // Adjusted for better visibility on dark, kept original for light
+        main: mode === "dark" ? "#80b0ff" : "#5e72e4",
+        contrastText: mode === "dark" ? "#1a202c" : "#ffffff",
       },
       secondary: {
-        main: mode === "dark" ? "#e0b0ff" : "#11cdef", // Adjusted for better visibility on dark
+        main: mode === "dark" ? "#e0b0ff" : "#11cdef",
       },
       success: { main: "#2dce89" },
       error: { main: "#f5365c" },
       warning: { main: "#fb6340" },
       info: { main: "#11cdef" },
       background: {
-        default: mode === "dark" ? "#222222" : "#f0f2f5", // Lighter background for light, darker for dark
-        paper: mode === "dark" ? "#2d2d2d" : "#ffffff", // Card/panel background
+        default: mode === "dark" ? "#121212" : "#f5f7fa",
+        paper: mode === "dark" ? "#1e1e1e" : "#ffffff",
       },
       text: {
         primary: mode === "dark" ? "#e0e0e0" : "#32325d",
         secondary: mode === "dark" ? "#b0b0b0" : "#525f7f",
       },
-      divider: mode === "dark" ? "#4a4a4a" : "#e9ecef",
+      divider: mode === "dark" ? "#333333" : "#e0e0e0",
       action: {
         selected:
-          mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)", // For selected list item
-        hover: mode === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)",
+          mode === "dark" ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
+        hover: mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+      },
+      custom: {
+        glassEffect:
+          mode === "dark"
+            ? "rgba(30, 30, 30, 0.7)"
+            : "rgba(255, 255, 255, 0.7)",
+        glassBorder:
+          mode === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
+        depthShadow:
+          mode === "dark"
+            ? "0 10px 20px rgba(0, 0, 0, 0.5), 0 6px 6px rgba(0, 0, 0, 0.4)"
+            : "0 10px 20px rgba(0, 0, 0, 0.1), 0 6px 6px rgba(0, 0, 0, 0.08)",
+        innerShadow:
+          mode === "dark"
+            ? "inset 3px 3px 6px rgba(0, 0, 0, 0.5), inset -3px -3px 6px rgba(60, 60, 60, 0.3)"
+            : "inset 3px 3px 6px rgba(0, 0, 0, 0.1), inset -3px -3px 6px rgba(255, 255, 255, 0.8)",
+        neonPrimary:
+          mode === "dark"
+            ? "rgba(128, 176, 255, 0.8)"
+            : "rgba(94, 114, 228, 0.8)",
       },
     },
     typography: {
       fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
-      h4: { fontWeight: 700, fontSize: "1.8rem" },
-      h6: { fontWeight: 600, fontSize: "1.1rem" },
-      body1: { fontSize: "0.95rem" },
-      body2: { fontSize: "0.85rem" },
-      caption: { fontSize: "0.75rem" },
+      h4: {
+        fontWeight: 800,
+        fontSize: "2rem",
+        letterSpacing: "-0.5px",
+      },
+      h5: {
+        fontWeight: 700,
+        fontSize: "1.5rem",
+        letterSpacing: "-0.25px",
+      },
+      h6: {
+        fontWeight: 600,
+        fontSize: "1.1rem",
+        letterSpacing: "-0.1px",
+      },
+      body1: {
+        fontSize: "0.95rem",
+        lineHeight: 1.6,
+      },
+      body2: {
+        fontSize: "0.85rem",
+        lineHeight: 1.5,
+      },
+      caption: {
+        fontSize: "0.75rem",
+        lineHeight: 1.4,
+      },
     },
     components: {
       MuiButton: {
         styleOverrides: {
           root: {
             borderRadius: "12px",
-            padding: "8px 20px",
+            padding: "10px 22px",
             fontWeight: 600,
             textTransform: "none",
-            boxShadow:
-              mode === "dark"
-                ? "0 4px 10px rgba(0,0,0,0.5), 0 -2px 10px rgba(255,255,255,0.05)"
-                : "0 4px 10px rgba(0, 0, 0, 0.1), 0 -2px 10px rgba(0,0,0,0.02)",
+            transition: "all 0.3s ease",
+            position: "relative",
+            overflow: "hidden",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              background:
+                mode === "dark"
+                  ? "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%)"
+                  : "linear-gradient(135deg, rgba(0,0,0,0.05) 0%, transparent 100%)",
+              opacity: 0,
+              transition: "opacity 0.3s ease",
+            },
             "&:hover": {
+              transform: "translateY(-2px)",
               boxShadow:
                 mode === "dark"
-                  ? "0 6px 14px rgba(0,0,0,0.6), 0 -3px 14px rgba(255,255,255,0.07)"
-                  : "0 6px 14px rgba(0, 0, 0, 0.15), 0 -3px 14px rgba(0,0,0,0.03)",
+                  ? "0 8px 20px rgba(0,0,0,0.6), 0 -4px 10px rgba(255,255,255,0.05)"
+                  : "0 8px 20px rgba(0, 0, 0, 0.15), 0 -4px 10px rgba(0,0,0,0.03)",
+              "&::before": {
+                opacity: 1,
+              },
+            },
+            "&:active": {
+              transform: "translateY(0)",
             },
           },
           contained: {
             backgroundColor: mode === "dark" ? "#80b0ff" : "#5e72e4",
-            color: mode === "dark" ? "#1a202c" : "#ffffff", // Darker text on light primary for dark mode
+            color: mode === "dark" ? "#1a202c" : "#ffffff",
+            boxShadow:
+              mode === "dark"
+                ? "0 4px 15px rgba(128, 176, 255, 0.3)"
+                : "0 4px 15px rgba(94, 114, 228, 0.3)",
             "&:hover": {
               backgroundColor: mode === "dark" ? "#9ac0ff" : "#5262c9",
+              boxShadow:
+                mode === "dark"
+                  ? "0 6px 20px rgba(128, 176, 255, 0.4)"
+                  : "0 6px 20px rgba(94, 114, 228, 0.4)",
             },
           },
           outlined: {
-            borderColor: mode === "dark" ? "#4a4a4a" : "#e9ecef",
+            borderColor: mode === "dark" ? "#4a4a4a" : "#e0e0e0",
             color: mode === "dark" ? "#e0e0e0" : "#5e72e4",
             "&:hover": {
               borderColor: mode === "dark" ? "#80b0ff" : "#5e72e4",
               backgroundColor:
                 mode === "dark"
-                  ? "rgba(128,176,255,0.05)"
-                  : "rgba(94,114,228,0.05)",
+                  ? "rgba(128,176,255,0.08)"
+                  : "rgba(94,114,228,0.08)",
             },
           },
         },
@@ -165,48 +254,71 @@ const getAppTheme = (mode) =>
             borderRadius: "16px",
             boxShadow:
               mode === "dark"
-                ? "5px 5px 10px rgba(0,0,0,0.4), -5px -5px 10px rgba(45,45,45,0.3)" // Soft neumorphic effect
-                : "5px 5px 10px rgba(0,0,0,0.05), -5px -5px 10px rgba(255,255,255,0.8)", // Soft neumorphic effect
+                ? "8px 8px 16px rgba(0,0,0,0.5), -8px -8px 16px rgba(40,40,40,0.3)"
+                : "8px 8px 16px rgba(0,0,0,0.1), -8px -8px 16px rgba(255,255,255,0.8)",
             border: `1px solid ${mode === "dark" ? "#3a3a3a" : "#e0e0e0"}`,
-            transition: "all 0.3s ease",
+            transition: "all 0.3s ease, transform 0.5s ease",
+            transformStyle: "preserve-3d",
+            perspective: "1000px",
             "&:hover": {
-              transform: "translateY(-2px)", // Less aggressive lift for softer feel
+              transform:
+                "translateY(-5px) perspective(1000px) rotateX(1deg) rotateY(1deg)",
               boxShadow:
                 mode === "dark"
-                  ? "8px 8px 15px rgba(0,0,0,0.5), -8px -8px 15px rgba(45,45,45,0.4)"
-                  : "8px 8px 15px rgba(0,0,0,0.08), -8px -8px 15px rgba(255,255,255,0.9)",
+                  ? "12px 12px 24px rgba(0,0,0,0.6), -12px -12px 24px rgba(50,50,50,0.4)"
+                  : "12px 12px 24px rgba(0,0,0,0.15), -12px -12px 24px rgba(255,255,255,0.9)",
             },
           },
         },
       },
       MuiDialog: {
-        styleOverrides: { paper: { borderRadius: "16px" } },
+        styleOverrides: {
+          paper: {
+            borderRadius: "20px",
+            transformStyle: "preserve-3d",
+            perspective: "1000px",
+          },
+        },
       },
       MuiTextField: {
         styleOverrides: {
           root: {
             "& .MuiOutlinedInput-root": {
               borderRadius: "12px",
-              backgroundColor: mode === "dark" ? "#1a1a1a" : "#e0e0e0", // Deeper inset color for dark, lighter for light
+              backgroundColor: mode === "dark" ? "#1a1a1a" : "#f0f0f0",
+              transition: "all 0.3s ease",
               "& fieldset": {
-                border: "none", // No default border
+                border: "none",
               },
               "&:hover fieldset": {
-                border: "none", // No border on hover
+                border: "none",
               },
               "&.Mui-focused fieldset": {
-                border: `1px solid ${mode === "dark" ? "#80b0ff" : "#5e72e4"}`, // Subtle border on focus
+                border: `2px solid ${mode === "dark" ? "#80b0ff" : "#5e72e4"}`,
+                boxShadow:
+                  mode === "dark"
+                    ? "0 0 10px rgba(128, 176, 255, 0.5)"
+                    : "0 0 10px rgba(94, 114, 228, 0.3)",
               },
               boxShadow:
                 mode === "dark"
-                  ? "inset 3px 3px 6px rgba(0,0,0,0.6), inset -3px -3px 6px rgba(40,40,40,0.3)" // Inset shadow for dark
-                  : "inset 3px 3px 6px rgba(0,0,0,0.1), inset -3px -3px 6px rgba(255,255,255,0.7)", // Inset shadow for light
+                  ? "inset 4px 4px 8px rgba(0,0,0,0.6), inset -4px -4px 8px rgba(50,50,50,0.3)"
+                  : "inset 4px 4px 8px rgba(0,0,0,0.1), inset -4px -4px 8px rgba(255,255,255,0.7)",
             },
             "& .MuiInputLabel-root": {
-              color: mode === "dark" ? "#b0b0b0" : "#525f7f", // Label color
+              color: mode === "dark" ? "#b0b0b0" : "#525f7f",
+              transform: "translate(14px, 14px) scale(1)",
+              "&.Mui-focused": {
+                color: mode === "dark" ? "#80b0ff" : "#5e72e4",
+                transform: "translate(14px, -9px) scale(0.75)",
+              },
+              "&.MuiFormLabel-filled": {
+                transform: "translate(14px, -9px) scale(0.75)",
+              },
             },
             "& .MuiInputBase-input": {
-              color: mode === "dark" ? "#e0e0e0" : "#32325d", // Input text color
+              color: mode === "dark" ? "#e0e0e0" : "#32325d",
+              padding: "12px 14px",
             },
           },
         },
@@ -215,7 +327,8 @@ const getAppTheme = (mode) =>
         styleOverrides: {
           root: {
             borderRadius: "12px",
-            backgroundColor: mode === "dark" ? "#1a1a1a" : "#e0e0e0",
+            backgroundColor: mode === "dark" ? "#1a1a1a" : "#f0f0f0",
+            transition: "all 0.3s ease",
             "& .MuiOutlinedInput-notchedOutline": {
               border: "none",
             },
@@ -223,13 +336,17 @@ const getAppTheme = (mode) =>
               border: "none",
             },
             "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-              border: `1px solid ${mode === "dark" ? "#80b0ff" : "#5e72e4"}`,
+              border: `2px solid ${mode === "dark" ? "#80b0ff" : "#5e72e4"}`,
+              boxShadow:
+                mode === "dark"
+                  ? "0 0 10px rgba(128, 176, 255, 0.5)"
+                  : "0 0 10px rgba(94, 114, 228, 0.3)",
             },
             color: mode === "dark" ? "#e0e0e0" : "#32325d",
             boxShadow:
               mode === "dark"
-                ? "inset 3px 3px 6px rgba(0,0,0,0.6), inset -3px -3px 6px rgba(40,40,40,0.3)"
-                : "inset 3px 3px 6px rgba(0,0,0,0.1), inset -3px -3px 6px rgba(255,255,255,0.7)",
+                ? "inset 4px 4px 8px rgba(0,0,0,0.6), inset -4px -4px 8px rgba(50,50,50,0.3)"
+                : "inset 4px 4px 8px rgba(0,0,0,0.1), inset -4px -4px 8px rgba(255,255,255,0.7)",
           },
           icon: {
             color: mode === "dark" ? "#e0e0e0" : "#525f7f",
@@ -246,42 +363,50 @@ const getAppTheme = (mode) =>
       MuiChip: {
         styleOverrides: {
           root: {
-            borderRadius: "8px", // More rounded chips
+            borderRadius: "8px",
             fontWeight: 600,
             fontSize: "0.7rem",
-            height: "24px", // Smaller height
-            backgroundColor: mode === "dark" ? "#3a3a3a" : "#e9ecef", // Default chip background
-            color: mode === "dark" ? "#e0e0e0" : "#525f7f", // Default chip text color
+            height: "24px",
+            transition: "all 0.3s ease",
+            backgroundColor: mode === "dark" ? "#2a2a2a" : "#e9ecef",
+            color: mode === "dark" ? "#e0e0e0" : "#525f7f",
+            "&:hover": {
+              transform: "translateY(-1px)",
+              boxShadow:
+                mode === "dark"
+                  ? "0 4px 8px rgba(0,0,0,0.3)"
+                  : "0 4px 8px rgba(0,0,0,0.1)",
+            },
           },
           outlined: {
             borderColor: mode === "dark" ? "#4a4a4a" : "#d0d0d0",
           },
           colorSecondary: {
-            backgroundColor: mode === "dark" ? "#4a3a5a" : "#e3f2fd", // AI DEVELOPED chip background
-            color: mode === "dark" ? "#e0b0ff" : "#1976d2", // AI DEVELOPED chip text
+            backgroundColor: mode === "dark" ? "#4a3a5a" : "#e3f2fd",
+            color: mode === "dark" ? "#e0b0ff" : "#1976d2",
           },
           colorSuccess: {
-            backgroundColor: mode === "dark" ? "#2a4a3a" : "#e8f5e9", // COMPLETED chip background
-            color: mode === "dark" ? "#81c784" : "#2e7d32", // COMPLETED chip text
+            backgroundColor: mode === "dark" ? "#2a4a3a" : "#e8f5e9",
+            color: mode === "dark" ? "#81c784" : "#2e7d32",
           },
           colorWarning: {
-            backgroundColor: mode === "dark" ? "#4a3a2a" : "#fff3e0", // IN REVIEW chip background
-            color: mode === "dark" ? "#ffb74d" : "#ed6c02", // IN REVIEW chip text
+            backgroundColor: mode === "dark" ? "#4a3a2a" : "#fff3e0",
+            color: mode === "dark" ? "#ffb74d" : "#ed6c02",
           },
           colorInfo: {
-            backgroundColor: mode === "dark" ? "#2a3a4a" : "#e1f5fe", // PLANNING chip background
-            color: mode === "dark" ? "#64b5f6" : "#0288d1", // PLANNING chip text
+            backgroundColor: mode === "dark" ? "#2a3a4a" : "#e1f5fe",
+            color: mode === "dark" ? "#64b5f6" : "#0288d1",
           },
           colorError: {
-            backgroundColor: mode === "dark" ? "#4a2a2a" : "#ffebee", // HIGH PRIORITY chip background
-            color: mode === "dark" ? "#ef9a9a" : "#d32f2f", // HIGH PRIORITY chip text
+            backgroundColor: mode === "dark" ? "#4a2a2a" : "#ffebee",
+            color: mode === "dark" ? "#ef9a9a" : "#d32f2f",
           },
         },
       },
       MuiDivider: {
         styleOverrides: {
           root: {
-            backgroundColor: mode === "dark" ? "#4a4a4a" : "#e0e0e0", // Match divider to overall theme
+            backgroundColor: mode === "dark" ? "#333333" : "#e0e0e0",
           },
         },
       },
@@ -289,27 +414,70 @@ const getAppTheme = (mode) =>
         styleOverrides: {
           root: {
             color: mode === "dark" ? "#e0e0e0" : "#525f7f",
+            transition: "all 0.3s ease",
             "&:hover": {
               backgroundColor:
-                mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+                mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+              transform: "scale(1.1)",
             },
+          },
+        },
+      },
+      MuiSwitch: {
+        styleOverrides: {
+          switchBase: {
+            "&.Mui-checked": {
+              color: mode === "dark" ? "#80b0ff" : "#5e72e4",
+              "& + .MuiSwitch-track": {
+                backgroundColor: mode === "dark" ? "#80b0ff" : "#5e72e4",
+                opacity: 0.7,
+              },
+            },
+          },
+          track: {
+            backgroundColor: mode === "dark" ? "#4a4a4a" : "#e0e0e0",
+          },
+          thumb: {
+            boxShadow:
+              mode === "dark"
+                ? "0 2px 4px rgba(0,0,0,0.5)"
+                : "0 2px 4px rgba(0,0,0,0.2)",
           },
         },
       },
     },
   });
 
-// Styled components
+// Enhanced Styled components with 3D effects
 const HeaderCard = styled(Card)(({ theme }) => ({
   background:
     theme.palette.mode === "dark"
-      ? "linear-gradient(87deg, #323232 0, #1c1c1c 100%)" // Darker gradient for header
-      : "linear-gradient(87deg, #5e72e4 0, #825ee4 100%)",
+      ? "linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)"
+      : "linear-gradient(135deg, #5e72e4 0%, #825ee4 100%)",
   color: "white",
-  padding: theme.spacing(3),
+  padding: theme.spacing(4),
   marginBottom: theme.spacing(4),
-  boxShadow: "none", // Header card has distinct shadow handled by its own gradient
-  borderRadius: "16px", // Ensure consistent border radius
+  boxShadow:
+    theme.palette.mode === "dark"
+      ? "0 10px 30px rgba(0,0,0,0.5), 0 -5px 15px rgba(255,255,255,0.05)"
+      : "0 10px 30px rgba(0,0,0,0.2), 0 -5px 15px rgba(255,255,255,0.1)",
+  borderRadius: "20px",
+  position: "relative",
+  overflow: "hidden",
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    top: "-50%",
+    left: "-50%",
+    width: "200%",
+    height: "200%",
+    background:
+      theme.palette.mode === "dark"
+        ? "linear-gradient(45deg, rgba(128,176,255,0.1) 0%, transparent 50%, rgba(224,176,255,0.1) 100%)"
+        : "linear-gradient(45deg, rgba(255,255,255,0.2) 0%, transparent 50%, rgba(255,255,255,0.2) 100%)",
+    animation: `${rotate} 20s linear infinite`,
+    opacity: 0.5,
+  },
 }));
 
 const StoryCard = styled(Card)(({ theme, storyStatus }) => {
@@ -317,31 +485,30 @@ const StoryCard = styled(Card)(({ theme, storyStatus }) => {
   let statusChipBgColor;
   let statusChipTextColor;
 
-  // Use theme palette for status colors
   switch (storyStatus) {
     case "AI DEVELOPED":
       borderColor = theme.palette.secondary.main;
       statusChipBgColor =
-        theme.palette.components.MuiChip.styleOverrides.colorSecondary
+        theme.palette.components?.MuiChip.styleOverrides.colorSecondary
           .backgroundColor;
       statusChipTextColor =
-        theme.palette.components.MuiChip.styleOverrides.colorSecondary.color;
+        theme.palette.components?.MuiChip.styleOverrides.colorSecondary.color;
       break;
     case "COMPLETED":
       borderColor = theme.palette.success.main;
       statusChipBgColor =
-        theme.palette.components.MuiChip.styleOverrides.colorSuccess
+        theme.palette.components?.MuiChip.styleOverrides.colorSuccess
           .backgroundColor;
       statusChipTextColor =
-        theme.palette.components.MuiChip.styleOverrides.colorSuccess.color;
+        theme.palette.components?.MuiChip.styleOverrides.colorSuccess.color;
       break;
     case "IN REVIEW":
       borderColor = theme.palette.warning.main;
       statusChipBgColor =
-        theme.palette.components.MuiChip.styleOverrides.colorWarning
+        theme.palette.components?.MuiChip.styleOverrides.colorWarning
           .backgroundColor;
       statusChipTextColor =
-        theme.palette.components.MuiChip.styleOverrides.colorWarning.color;
+        theme.palette.components?.MuiChip.styleOverrides.colorWarning.color;
       break;
     case "PLANNING":
       borderColor = theme.palette.info.main;
@@ -366,11 +533,17 @@ const StoryCard = styled(Card)(({ theme, storyStatus }) => {
     height: "100%",
     backgroundColor: theme.palette.background.paper,
     color: theme.palette.text.primary,
+    transition: "all 0.3s ease",
+    transformStyle: "preserve-3d",
     "& .status-chip": {
       backgroundColor: statusChipBgColor,
       color: statusChipTextColor,
       fontWeight: 600,
-      borderRadius: "8px", // Ensure consistent chip border radius
+      borderRadius: "8px",
+      boxShadow:
+        theme.palette.mode === "dark"
+          ? "0 2px 4px rgba(0,0,0,0.3)"
+          : "0 2px 4px rgba(0,0,0,0.1)",
     },
     "& .MuiTypography-root": {
       color: theme.palette.text.primary,
@@ -379,61 +552,118 @@ const StoryCard = styled(Card)(({ theme, storyStatus }) => {
       color: theme.palette.text.secondary,
     },
     "&:hover": {
-      backgroundColor: theme.palette.action.hover, // Subtle hover effect
+      transform:
+        "translateY(-5px) perspective(1000px) rotateX(1deg) rotateY(1deg)",
+      boxShadow:
+        theme.palette.mode === "dark"
+          ? "12px 12px 24px rgba(0,0,0,0.6), -12px -12px 24px rgba(50,50,50,0.4)"
+          : "12px 12px 24px rgba(0,0,0,0.15), -12px -12px 24px rgba(255,255,255,0.9)",
+      backgroundColor: theme.palette.action.hover,
     },
   };
 });
 
-const AIContentBox = styled(Box)(({ theme }) => ({
-  background:
-    theme.palette.mode === "dark"
-      ? "#1a1a1a" // Flat dark background for content box
-      : "#e0e0e0", // Flat light background for content box
-  border: `1px solid ${theme.palette.mode === "dark" ? "#3a3a3a" : "#d0d0d0"}`,
-  borderRadius: "12px",
-  padding: theme.spacing(2),
-  marginTop: theme.spacing(2),
-  color: theme.palette.text.primary,
-  boxShadow:
-    theme.palette.mode === "dark"
-      ? "inset 3px 3px 6px rgba(0,0,0,0.6), inset -3px -3px 6px rgba(40,40,40,0.3)"
-      : "inset 3px 3px 6px rgba(0,0,0,0.1), inset -3px -3px 6px rgba(255,255,255,0.7)",
-}));
-
-// Styled Dialog for advanced loading
-const LoadingDialog = styled(Dialog)(({ theme }) => ({
-  "& .MuiDialog-paper": {
-    borderRadius: "20px",
-    background: "linear-gradient(145deg, #181818 0%, #000000 100%)", // Darker, more dramatic gradient
-    color: "#e0e0e0",
+const GlassCard = styled(Card)(({ theme }) => ({
+  background: theme.palette.custom.glassEffect,
+  backdropFilter: "blur(10px)",
+  border: `1px solid ${theme.palette.custom.glassBorder}`,
+  boxShadow: theme.palette.custom.depthShadow,
+  borderRadius: "20px",
+  padding: theme.spacing(3),
+  transition: "all 0.3s ease",
+  "&:hover": {
+    transform: "translateY(-5px)",
     boxShadow:
-      "8px 8px 20px rgba(0,0,0,0.6), -8px -8px 20px rgba(40,40,40,0.3)",
-    border: "1px solid #3a3a3a",
-    padding: theme.spacing(3),
-    maxWidth: "500px",
-    width: "90%",
-    textAlign: "center",
+      theme.palette.mode === "dark"
+        ? "0 15px 35px rgba(0,0,0,0.6), 0 -10px 20px rgba(50,50,50,0.4)"
+        : "0 15px 35px rgba(0,0,0,0.15), 0 -10px 20px rgba(255,255,255,0.9)",
   },
 }));
 
-// Styled component for animated progress icon
+const AIContentBox = styled(Box)(({ theme }) => ({
+  background:
+    theme.palette.mode === "dark"
+      ? "rgba(30, 30, 30, 0.7)"
+      : "rgba(240, 240, 240, 0.7)",
+  backdropFilter: "blur(5px)",
+  border: `1px solid ${theme.palette.mode === "dark" ? "#3a3a3a" : "#d0d0d0"}`,
+  borderRadius: "16px",
+  padding: theme.spacing(3),
+  marginTop: theme.spacing(3),
+  color: theme.palette.text.primary,
+  boxShadow: theme.palette.custom.innerShadow,
+  position: "relative",
+  overflow: "hidden",
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "4px",
+    height: "100%",
+    background: theme.palette.secondary.main,
+  },
+}));
+
+const LoadingDialog = styled(Dialog)(({ theme }) => ({
+  "& .MuiDialog-paper": {
+    borderRadius: "24px",
+    background:
+      theme.palette.mode === "dark"
+        ? "linear-gradient(145deg, #181818 0%, #000000 100%)"
+        : "linear-gradient(145deg, #f5f7fa 0%, #e0e0e0 100%)",
+    color: theme.palette.text.primary,
+    boxShadow:
+      theme.palette.mode === "dark"
+        ? "0 20px 50px rgba(0,0,0,0.8), 0 10px 20px rgba(0,0,0,0.6)"
+        : "0 20px 50px rgba(0,0,0,0.2), 0 10px 20px rgba(0,0,0,0.1)",
+    border:
+      theme.palette.mode === "dark"
+        ? "1px solid rgba(255,255,255,0.1)"
+        : "1px solid rgba(0,0,0,0.1)",
+    padding: theme.spacing(4),
+    maxWidth: "500px",
+    width: "90%",
+    textAlign: "center",
+    transformStyle: "preserve-3d",
+    perspective: "1000px",
+    "&::before": {
+      content: '""',
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      background:
+        theme.palette.mode === "dark"
+          ? "linear-gradient(45deg, rgba(128,176,255,0.1) 0%, transparent 50%, rgba(224,176,255,0.1) 100%)"
+          : "linear-gradient(45deg, rgba(94,114,228,0.1) 0%, transparent 50%, rgba(17,205,239,0.1) 100%)",
+      animation: `${rotate} 20s linear infinite`,
+      opacity: 0.5,
+    },
+  },
+}));
+
 const AnimatedIcon = styled(Box)(({ theme }) => ({
   fontSize: "4rem",
   marginBottom: theme.spacing(3),
   color: theme.palette.primary.main,
-  animation: `${rotate} 2s linear infinite`,
+  animation: `${rotate} 2s linear infinite, ${float} 3s ease-in-out infinite`,
   display: "inline-block",
+  filter:
+    theme.palette.mode === "dark"
+      ? "drop-shadow(0 0 5px rgba(128, 176, 255, 0.7))"
+      : "drop-shadow(0 0 5px rgba(94, 114, 228, 0.5))",
 }));
 
-// Styled for status messages
 const StatusMessage = styled(Typography)(({ theme }) => ({
   fontSize: "1.1rem",
   fontWeight: 600,
-  color: "#ffffff",
+  color: theme.palette.text.primary,
   marginBottom: theme.spacing(2),
+  animation: theme.palette.mode === "dark" ? `${neonGlow} 2s infinite` : "none",
 }));
 
-// Styled for completed steps list
 const CompletedStepsList = styled(Box)(({ theme }) => ({
   maxHeight: "150px",
   overflowY: "auto",
@@ -448,26 +678,31 @@ const CompletedStepsList = styled(Box)(({ theme }) => ({
     background: "transparent",
   },
   "&::-webkit-scrollbar-thumb": {
-    background: "#888",
+    background: theme.palette.mode === "dark" ? "#555" : "#888",
     borderRadius: "3px",
   },
 }));
 
 const CompletedStepItem = styled(Typography)(({ theme }) => ({
   fontSize: "0.9rem",
-  color: "#b0b0b0",
+  color: theme.palette.text.secondary,
   display: "flex",
   alignItems: "center",
-  marginBottom: theme.spacing(0.5),
+  marginBottom: theme.spacing(1),
   animation: `${fadeIn} 0.5s ease-out`,
   "& svg": {
     marginRight: theme.spacing(1),
     color: theme.palette.success.main,
+    filter:
+      theme.palette.mode === "dark"
+        ? "drop-shadow(0 0 3px rgba(45, 206, 137, 0.5))"
+        : "none",
   },
 }));
 
 const TruncatedText = ({ content, maxLines = 5, title }) => {
   const [expanded, setExpanded] = useState(false);
+  const theme = useTheme();
   const lines = content ? content.split("\n") : [];
   const needsTruncation = lines.length > maxLines;
 
@@ -477,25 +712,52 @@ const TruncatedText = ({ content, maxLines = 5, title }) => {
       : lines.slice(0, maxLines).join("\n") + (needsTruncation ? "..." : "");
 
   return (
-    <Box mb={1.5}>
+    <Box mb={2}>
       {title && (
         <Typography
           variant="body2"
           color="text.primary"
-          fontWeight={500}
-          mb={0.5}
+          fontWeight={600}
+          mb={1}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            "&::before": {
+              content: '""',
+              display: "inline-block",
+              width: "4px",
+              height: "16px",
+              backgroundColor: theme.palette.primary.main,
+              marginRight: "8px",
+              borderRadius: "2px",
+            },
+          }}
         >
           {title}
         </Typography>
       )}
-      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+      <Typography
+        variant="body2"
+        sx={{
+          whiteSpace: "pre-wrap",
+          lineHeight: 1.6,
+        }}
+      >
         {displayedContent}
       </Typography>
       {needsTruncation && (
         <Button
           onClick={() => setExpanded(!expanded)}
           size="small"
-          sx={{ mt: 1, p: 0 }}
+          sx={{
+            mt: 1,
+            p: 0,
+            color: theme.palette.primary.main,
+            "&:hover": {
+              backgroundColor: "transparent",
+              textDecoration: "underline",
+            },
+          }}
         >
           {expanded ? "Show Less" : "Read More"}
         </Button>
@@ -510,7 +772,7 @@ const UserStoryPage = () => {
   const { userId, projectId } = params;
 
   // State for forms and views
-  const [activePanel, setActivePanel] = useState("list"); // Set to 'list' by default based on image
+  const [activePanel, setActivePanel] = useState("list");
   const [selectedStory, setSelectedStory] = useState(null);
 
   // State for delete dialog
@@ -899,17 +1161,13 @@ const UserStoryPage = () => {
 
   // Render function for the story creation/edit form
   const renderStoryForm = () => (
-    <Card
+    <GlassCard
       sx={{
-        p: 4,
         height: "100%",
         overflowY: "auto",
         display: "flex",
         flexDirection: "column",
         gap: 3,
-        borderRadius: 4,
-        // Card shadow is handled by MuiCard styleOverrides, avoid duplication
-        backgroundColor: "background.paper",
       }}
     >
       <Typography variant="h5" gutterBottom fontWeight="bold">
@@ -921,7 +1179,6 @@ const UserStoryPage = () => {
         label="User Story Title"
         value={userStoryTitle}
         onChange={(e) => setUserStoryTitle(e.target.value)}
-        // MUI TextField style overrides in getAppTheme handle this
       />
 
       <TextField
@@ -931,7 +1188,6 @@ const UserStoryPage = () => {
         label="Description"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        // MUI TextField style overrides in getAppTheme handle this
       />
 
       <TextField
@@ -941,7 +1197,6 @@ const UserStoryPage = () => {
         label="Acceptance Criteria"
         value={acceptanceCriteria}
         onChange={(e) => setAcceptanceCriteria(e.target.value)}
-        // MUI TextField style overrides in getAppTheme handle this
       />
 
       <TextField
@@ -951,7 +1206,6 @@ const UserStoryPage = () => {
         label="Testing Scenarios"
         value={testingScenarios}
         onChange={(e) => setTestingScenarios(e.target.value)}
-        // MUI TextField style overrides in getAppTheme handle this
       />
 
       <FormControl fullWidth>
@@ -960,7 +1214,6 @@ const UserStoryPage = () => {
           value={storyStatus}
           label="Status"
           onChange={(e) => setStoryStatus(e.target.value)}
-          // MUI Select style overrides in getAppTheme handle this
         >
           <MenuItem value="PLANNING">Planning</MenuItem>
           <MenuItem value="IN REVIEW">In Review</MenuItem>
@@ -975,7 +1228,6 @@ const UserStoryPage = () => {
           value={storyPriority}
           label="Priority"
           onChange={(e) => setStoryPriority(e.target.value)}
-          // MUI Select style overrides in getAppTheme handle this
         >
           <MenuItem value="Low">Low</MenuItem>
           <MenuItem value="Medium">Medium</MenuItem>
@@ -988,7 +1240,6 @@ const UserStoryPage = () => {
         label="Estimated Time (e.g., 8h, 2d)"
         value={estimatedTime}
         onChange={(e) => setEstimatedTime(e.target.value)}
-        // MUI TextField style overrides in getAppTheme handle this
       />
 
       {/* COLLABORATORS */}
@@ -1009,7 +1260,7 @@ const UserStoryPage = () => {
                     onChange={handleCollaboratorChange}
                     value={c.githubId}
                     sx={{
-                      color: theme.palette.text.secondary, // Checkbox color
+                      color: theme.palette.text.secondary,
                       "&.Mui-checked": {
                         color: theme.palette.primary.main,
                       },
@@ -1038,10 +1289,8 @@ const UserStoryPage = () => {
           disabled={isGenerating}
           startIcon={<AutoFixHighIcon />}
           sx={{
-            borderRadius: "12px", // Adjusted to match general button radius
+            borderRadius: "12px",
             textTransform: "none",
-            // Box shadow handled by MuiButton styleOverrides
-            // Border and text color handled by MuiButton style overrides for 'outlined'
           }}
         >
           {isGenerating
@@ -1069,7 +1318,6 @@ const UserStoryPage = () => {
           onClick={handleSubmit}
           variant="contained"
           disabled={isCreating || isUpdating}
-          // Button styles are managed by MuiButton style overrides
         >
           {isCreating || isUpdating ? (
             <CircularProgress size={24} color="inherit" />
@@ -1080,14 +1328,13 @@ const UserStoryPage = () => {
           )}
         </Button>
       </Box>
-    </Card>
+    </GlassCard>
   );
 
   // Render function for the story detail view
   const renderStoryDetail = () => (
-    <Card
+    <GlassCard
       sx={{
-        p: 3,
         height: "100%",
         overflowY: "auto",
         display: "flex",
@@ -1105,7 +1352,7 @@ const UserStoryPage = () => {
           <Box>
             <IconButton
               onClick={() => handleOpenEditForm(selectedStory)}
-              sx={{ color: theme.palette.text.secondary }}
+              color="text.primary"
             >
               <EditIcon />
             </IconButton>
@@ -1122,10 +1369,11 @@ const UserStoryPage = () => {
             variant="h4"
             gutterBottom
             mt={2}
+            color="text.primary"
             sx={{
-              color: theme.palette.text.primary,
-              fontWeight: 700,
-              fontSize: "2rem", // Slightly larger for main title
+              fontWeight: 800,
+              fontSize: "2.2rem",
+              lineHeight: 1.2,
             }}
           >
             {selectedStory.userStoryTitle}
@@ -1150,7 +1398,6 @@ const UserStoryPage = () => {
                     ? "warning"
                     : "success"
                 }
-                // Root chip styles handle background and text color
               />
             </Grid>
             <Grid item>
@@ -1165,21 +1412,16 @@ const UserStoryPage = () => {
                     ? "warning"
                     : "info"
                 }
-                // Root chip styles handle background and text color
               />
             </Grid>
             <Grid item>
-              <Chip
-                label={`Estimated: ${selectedStory.estimatedTime}`}
-                // Default chip colors applied
-              />
+              <Chip label={`Estimated: ${selectedStory.estimatedTime}`} />
             </Grid>
             <Grid item>
               <Chip
                 label={`Created: ${new Date(
                   selectedStory.createdAt
                 ).toLocaleDateString()}`}
-                // Default chip colors applied
               />
             </Grid>
           </Grid>
@@ -1203,9 +1445,23 @@ const UserStoryPage = () => {
             <AIContentBox>
               <Typography
                 variant="subtitle2"
-                color="primary"
+                color="text.primary"
                 fontWeight={600}
                 gutterBottom
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  "&::before": {
+                    content: '""',
+                    display: "inline-block",
+                    width: "4px",
+                    height: "16px",
+                    backgroundColor: theme.palette.secondary.main,
+                    marginRight: "8px",
+                    borderRadius: "2px",
+                  },
+                }}
               >
                 AI ENHANCED SUGGESTIONS
               </Typography>
@@ -1216,31 +1472,27 @@ const UserStoryPage = () => {
             </AIContentBox>
           )}
 
-          {/* Display GitHub Branch and PR Link */}
           {(selectedStory.githubBranch || selectedStory.prUrl) && (
             <Box
               mt={2}
               sx={{
-                p: 1.5,
-                borderRadius: "8px",
+                p: 2,
+                borderRadius: "12px",
                 border: `1px solid ${theme.palette.divider}`,
-                background: theme.palette.background.default, // Use default background for this section
-                boxShadow:
-                  theme.palette.mode === "dark"
-                    ? "3px 3px 6px rgba(0,0,0,0.3), -3px -3px 6px rgba(40,40,40,0.2)" // subtle raised effect
-                    : "3px 3px 6px rgba(0,0,0,0.05), -3px -3px 6px rgba(255,255,255,0.6)",
+                backgroundColor: theme.palette.background.paper,
+                boxShadow: theme.palette.custom?.innerShadow,
               }}
             >
               <Typography
                 variant="subtitle2"
-                color="text.primary"
+                sx={{ color: "black" }}
                 fontWeight={600}
                 mb={1}
               >
                 GitHub Details:
               </Typography>
               {selectedStory.githubBranch && (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "black" }}>
                   Branch:{" "}
                   <a
                     href={`${projectGithubRepoUrl}/tree/${selectedStory.githubBranch}`}
@@ -1256,7 +1508,7 @@ const UserStoryPage = () => {
                 </Typography>
               )}
               {selectedStory.prUrl && (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "black" }}>
                   Pull Request:{" "}
                   <a
                     href={selectedStory.prUrl}
@@ -1287,9 +1539,9 @@ const UserStoryPage = () => {
                       avatar={<Avatar src={c.avatarUrl} />}
                       label={c.username}
                       size="small"
+                      color="text.primary"
                       sx={{
-                        backgroundColor: theme.palette.action.selected, // Use selected color for assigned collaborator chips
-                        color: theme.palette.text.primary,
+                        backgroundColor: theme.palette.action.selected,
                       }}
                     />
                   ))}
@@ -1312,7 +1564,14 @@ const UserStoryPage = () => {
                   <AutoFixHighIcon />
                 )
               }
-              sx={{ py: 1.5, borderRadius: "12px" }}
+              sx={{
+                py: 1.5,
+                borderRadius: "12px",
+                boxShadow:
+                  theme.palette.mode === "dark"
+                    ? "0 0 15px rgba(128, 176, 255, 0.5)"
+                    : "0 0 15px rgba(94, 114, 228, 0.3)",
+              }}
             >
               {isGeneratingCodeProcess &&
               activeGenerationStoryId === selectedStory._id
@@ -1331,7 +1590,7 @@ const UserStoryPage = () => {
           Select a story from the left sidebar or create a new one.
         </Typography>
       )}
-    </Card>
+    </GlassCard>
   );
 
   return (
@@ -1343,6 +1602,20 @@ const UserStoryPage = () => {
           backgroundColor: currentTheme.palette.background.default,
           color: currentTheme.palette.text.primary,
           overflowX: "hidden",
+          position: "relative",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background:
+              currentTheme.palette.mode === "dark"
+                ? "radial-gradient(circle at 20% 30%, rgba(128, 176, 255, 0.1) 0%, transparent 30%), radial-gradient(circle at 80% 70%, rgba(224, 176, 255, 0.1) 0%, transparent 30%)"
+                : "radial-gradient(circle at 20% 30%, rgba(94, 114, 228, 0.1) 0%, transparent 30%), radial-gradient(circle at 80% 70%, rgba(17, 205, 239, 0.1) 0%, transparent 30%)",
+            zIndex: 0,
+          },
         }}
       >
         {/* Left Sidebar */}
@@ -1352,24 +1625,40 @@ const UserStoryPage = () => {
             flexShrink: 0,
             borderRight: `1px solid ${currentTheme.palette.divider}`,
             backgroundColor: currentTheme.palette.background.paper,
-            p: 2,
+            p: 3,
             display:
               activePanel === "list" ? "flex" : { xs: "none", sm: "flex" },
             flexDirection: "column",
             overflowY: "auto",
             boxShadow:
               currentTheme.palette.mode === "dark"
-                ? "5px 0 10px rgba(0,0,0,0.3)" // Shadow on sidebar edge
-                : "5px 0 10px rgba(0,0,0,0.05)",
+                ? "5px 0 15px rgba(0,0,0,0.5)"
+                : "5px 0 15px rgba(0,0,0,0.1)",
+            zIndex: 1,
+            position: "relative",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              background:
+                currentTheme.palette.mode === "dark"
+                  ? "linear-gradient(45deg, rgba(128,176,255,0.05) 0%, transparent 50%, rgba(224,176,255,0.05) 100%)"
+                  : "linear-gradient(45deg, rgba(94,114,228,0.05) 0%, transparent 50%, rgba(17,205,239,0.05) 100%)",
+              opacity: 0.3,
+              zIndex: -1,
+            },
           }}
         >
           <Box
             display="flex"
             justifyContent="space-between"
             alignItems="center"
-            mb={2}
+            mb={3}
           >
-            <Typography variant="h6" component="h2" fontWeight={700}>
+            <Typography variant="h5" component="h2" fontWeight={700}>
               User Stories
             </Typography>
             {canManageStories && (
@@ -1380,13 +1669,6 @@ const UserStoryPage = () => {
                 startIcon={<AddIcon />}
                 sx={{
                   borderRadius: "12px",
-                  backgroundColor: currentTheme.palette.primary.main,
-                  color: currentTheme.palette.getContrastText(
-                    currentTheme.palette.primary.main
-                  ),
-                  "&:hover": {
-                    backgroundColor: currentTheme.palette.primary.dark,
-                  },
                 }}
               >
                 New
@@ -1401,61 +1683,58 @@ const UserStoryPage = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
-              startAdornment: (
+              endAdornment: (
                 <SearchIcon
                   sx={{ mr: 1, color: currentTheme.palette.text.secondary }}
                 />
               ),
               sx: {
-                borderRadius: "25px", // Fully rounded search bar
-                paddingLeft: "10px",
+                borderRadius: "25px",
+                paddingLeft: "12px",
                 backgroundColor:
                   currentTheme.palette.mode === "dark" ? "#1a1a1a" : "#ffffff",
-                boxShadow:
-                  currentTheme.palette.mode === "dark"
-                    ? "inset 2px 2px 5px rgba(0,0,0,0.5), inset -2px -2px 5px rgba(40,40,40,0.2)"
-                    : "inset 2px 2px 5px rgba(0,0,0,0.05), inset -2px -2px 5px rgba(255,255,255,0.5)",
+                boxShadow: currentTheme.palette.custom.innerShadow,
                 "& fieldset": { border: "none" },
               },
             }}
             InputLabelProps={{
               sx: { color: currentTheme.palette.text.secondary },
             }}
-            sx={{
-              mb: 2,
-              // Shadow and border already handled by InputProps.sx
-            }}
-          />
-
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showCompleted}
-                onChange={(e) => setShowCompleted(e.target.checked)}
-                color="primary"
-                sx={{
-                  "& .MuiSwitch-switchBase.Mui-checked": {
-                    color: currentTheme.palette.primary.main,
-                    "&:hover": {
-                      backgroundColor: currentTheme.palette.action.hover,
-                    },
-                  },
-                  "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-                    backgroundColor: currentTheme.palette.primary.main,
-                  },
-                  "& .MuiSwitch-track": {
-                    backgroundColor: currentTheme.palette.divider,
-                  },
-                }}
-              />
-            }
-            label={
-              <Typography variant="body2" color="text.primary">
-                Show Completed
-              </Typography>
-            }
             sx={{ mb: 2 }}
           />
+
+          <Box
+            sx={{
+              boxShadow:
+                "rgba(0, 0, 0, 0.09) 0px 2px 1px, " +
+                "rgba(0, 0, 0, 0.09) 0px 4px 2px, " +
+                "rgba(0, 0, 0, 0.09) 0px 8px 4px, " +
+                "rgba(0, 0, 0, 0.09) 0px 16px 8px, " +
+                "rgba(0, 0, 0, 0.09) 0px 32px 16px",
+              p: 2,
+              borderRadius: 2,
+              mb: 2,
+              backgroundColor: (theme) =>
+                theme.palette.mode === "dark"
+                  ? theme.palette.background.paper
+                  : "white",
+            }}
+          >
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showCompleted}
+                  onChange={(e) => setShowCompleted(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.primary">
+                  Show Completed
+                </Typography>
+              }
+            />
+          </Box>
 
           <Divider sx={{ mb: 2 }} />
 
@@ -1499,7 +1778,7 @@ const UserStoryPage = () => {
                           label="AI DEVELOPED"
                           color="secondary"
                           size="small"
-                          sx={{ ml: 1 }} // Styles are in MuiChip overrides
+                          sx={{ ml: 1 }}
                         />
                       )}
                     </Box>
@@ -1509,7 +1788,7 @@ const UserStoryPage = () => {
                       alignItems="center"
                       variant="caption"
                       color="text.secondary"
-                      mt={0.5} // Added margin top to separate from title/chip row
+                      mt={0.5}
                     >
                       <Typography variant="caption">
                         {story.collaborators?.[0]?.username || "Unassigned"}
@@ -1532,12 +1811,11 @@ const UserStoryPage = () => {
                         label={story.status}
                         size="small"
                         className="status-chip"
-                        // Styles are in MuiChip overrides
                       />
                       <Chip
                         label={`Priority: ${story.priority}`}
                         size="small"
-                        sx={{ ml: 1 }} // Styles are in MuiChip overrides
+                        sx={{ ml: 1 }}
                         color={
                           story.priority === "High"
                             ? "error"
@@ -1559,11 +1837,12 @@ const UserStoryPage = () => {
           sx={{
             flexGrow: 1,
             p: 3,
-            backgroundColor: currentTheme.palette.background.default,
+            backgroundColor: "transparent",
             overflowY: "auto",
             display:
               activePanel !== "list" ? "flex" : { xs: "none", sm: "flex" },
             flexDirection: "column",
+            zIndex: 1,
           }}
         >
           {activePanel === "create" || activePanel === "edit"
@@ -1580,16 +1859,15 @@ const UserStoryPage = () => {
             "& .MuiDialog-paper": {
               backgroundColor: currentTheme.palette.background.paper,
               color: currentTheme.palette.text.primary,
-              borderRadius: "16px", // Ensure consistent dialog border radius
-              boxShadow:
-                theme.palette.mode === "dark"
-                  ? "5px 5px 10px rgba(0,0,0,0.4), -5px -5px 10px rgba(45,45,45,0.3)"
-                  : "5px 5px 10px rgba(0,0,0,0.05), -5px -5px 10px rgba(255,255,255,0.8)",
+              borderRadius: "20px",
+              boxShadow: currentTheme.palette.custom.depthShadow,
+              border: `1px solid ${currentTheme.palette.divider}`,
+              transformStyle: "preserve-3d",
             },
           }}
         >
           <DialogTitle
-            sx={{ color: currentTheme.palette.text.primary, fontWeight: 600 }}
+            sx={{ color: currentTheme.palette.text.primary, fontWeight: 700 }}
           >
             Confirm Deletion
           </DialogTitle>
@@ -1603,7 +1881,7 @@ const UserStoryPage = () => {
           <DialogActions sx={{ p: "16px 24px" }}>
             <Button
               onClick={handleCloseDialogs}
-              variant="outlined" // Use outlined for cancel
+              variant="outlined"
               sx={{ color: currentTheme.palette.text.primary }}
             >
               Cancel
@@ -1623,7 +1901,7 @@ const UserStoryPage = () => {
           </DialogActions>
         </Dialog>
 
-        {/* NEW: Advanced Code Generation Loading Dialog */}
+        {/* Advanced Code Generation Loading Dialog */}
         <LoadingDialog
           open={
             isGeneratingCodeProcess &&
@@ -1690,6 +1968,8 @@ const UserStoryPage = () => {
                           color: "success.main",
                           mb: 2,
                           animation: `${pulse} 1.5s infinite`,
+                          filter:
+                            "drop-shadow(0 0 5px rgba(45, 206, 137, 0.5))",
                         }}
                       />
                       <Typography color="success.main" variant="h6" mb={1}>
@@ -1758,6 +2038,8 @@ const UserStoryPage = () => {
             </Button>
           </DialogActions>
         </LoadingDialog>
+
+        {/* Snackbar for notifications */}
 
         {/* Snackbar for notifications */}
         <Snackbar
