@@ -328,7 +328,7 @@ exports.getUsersByManager = async (req, res) => {
  */
 exports.updateUser = async (req, res) => {
   const { id } = req.params;
-  const { username, email, status } = req.body;
+  const { username, email, status, jobRole } = req.body;
 
   try {
     const user = await User.findById(id);
@@ -341,6 +341,7 @@ exports.updateUser = async (req, res) => {
     user.username = username || user.username;
     user.email = email || user.email;
     user.status = status || user.status; // Allow status update
+    user.jobRole = jobRole || user.jobRole; // Allow jobRole update
 
     await user.save();
     res.status(200).json({ success: true, message: 'User updated successfully.', data: user });
