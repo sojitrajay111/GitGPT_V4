@@ -795,6 +795,7 @@ const UserStoryPage = () => {
   const [selectedCollaboratorGithubIds, setSelectedCollaboratorGithubIds] =
     useState([]);
   const [generatedStoryContent, setGeneratedStoryContent] = useState("");
+  // NEW: Initialize with default values for new fields
   const [storyStatus, setStoryStatus] = useState("PLANNING");
   const [storyPriority, setStoryPriority] = useState("Medium");
   const [estimatedTime, setEstimatedTime] = useState("");
@@ -877,9 +878,9 @@ const UserStoryPage = () => {
     setTestingScenarios("");
     setSelectedCollaboratorGithubIds([]);
     setGeneratedStoryContent("");
-    setStoryStatus("PLANNING");
-    setStoryPriority("Medium");
-    setEstimatedTime("");
+    setStoryStatus("PLANNING"); // Reset to default status
+    setStoryPriority("Medium"); // Reset to default priority
+    setEstimatedTime(""); // Reset to empty estimated time
     setSelectedStory(null);
   };
 
@@ -898,6 +899,7 @@ const UserStoryPage = () => {
       story.collaborators?.map((c) => c.githubId) || []
     );
     setGeneratedStoryContent(story.aiEnhancedUserStory || "");
+    // Set form fields with existing story data
     setStoryStatus(story.status || "PLANNING");
     setStoryPriority(story.priority || "Medium");
     setEstimatedTime(story.estimatedTime || "");
@@ -949,6 +951,7 @@ const UserStoryPage = () => {
         testingScenarios,
       }).unwrap();
       setGeneratedStoryContent(result.aiEnhancedText);
+      setStoryStatus("IN REVIEW"); // Set status to 'IN REVIEW' when AI content is generated
       showSnackbar("AI content generated successfully!");
     } catch (err) {
       showSnackbar(
@@ -1056,7 +1059,7 @@ const UserStoryPage = () => {
                   ...prev,
                   githubBranch: eventData.githubBranch,
                   prUrl: eventData.prUrl,
-                  status: "AI DEVELOPED",
+                  status: "AI DEVELOPED", // Status updated when code is generated and PR created
                 }));
               } else if (eventData.type === "error") {
                 setGenerationError(eventData.message);
@@ -1096,6 +1099,7 @@ const UserStoryPage = () => {
       testingScenarios,
       collaboratorGithubIds: selectedCollaboratorGithubIds,
       aiEnhancedUserStory: generatedStoryContent,
+      // NEW: Include status, priority, and estimatedTime in the payload
       status: storyStatus,
       priority: storyPriority,
       estimatedTime: estimatedTime,
@@ -1208,12 +1212,17 @@ const UserStoryPage = () => {
         onChange={(e) => setTestingScenarios(e.target.value)}
       />
 
+      {/* NEW: Status Field - Read-only for AI-generated status, editable otherwise */}
       <FormControl fullWidth>
         <InputLabel>Status</InputLabel>
         <Select
           value={storyStatus}
           label="Status"
           onChange={(e) => setStoryStatus(e.target.value)}
+          // Disable status field if story has prUrl or githubBranch, indicating AI/PR flow control
+          disabled={
+            selectedStory && (selectedStory.prUrl || selectedStory.githubBranch)
+          }
         >
           <MenuItem value="PLANNING">Planning</MenuItem>
           <MenuItem value="IN REVIEW">In Review</MenuItem>
@@ -1222,6 +1231,7 @@ const UserStoryPage = () => {
         </Select>
       </FormControl>
 
+      {/* NEW: Priority Field */}
       <FormControl fullWidth>
         <InputLabel>Priority</InputLabel>
         <Select
@@ -1235,6 +1245,7 @@ const UserStoryPage = () => {
         </Select>
       </FormControl>
 
+      {/* NEW: Estimated Time Field */}
       <TextField
         fullWidth
         label="Estimated Time (e.g., 8h, 2d)"

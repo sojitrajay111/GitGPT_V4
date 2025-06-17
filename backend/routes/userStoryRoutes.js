@@ -8,6 +8,7 @@ const {
   deleteUserStory,
   generateAiStoryContent,
   generateSalesforceCodeAndPush,
+  handleGitHubWebhook, // NEW: Export the GitHub webhook handler
 } = require("../controllers/userStoryController");
 
 // Route to create a new user story
@@ -24,10 +25,15 @@ router.delete("/:userStoryId", authenticateUser, deleteUserStory);
 
 // Route for AI content generation
 router.post("/generate-ai-story", authenticateUser, generateAiStoryContent);
+
+// Route for AI Salesforce Code Generation and GitHub Push/PR
 router.post(
   "/:userStoryId/generate-salesforce-code",
   authenticateUser,
   generateSalesforceCodeAndPush
 );
+
+// NEW: Route for GitHub Webhook
+router.post("/github/webhook", handleGitHubWebhook);
 
 module.exports = router;
