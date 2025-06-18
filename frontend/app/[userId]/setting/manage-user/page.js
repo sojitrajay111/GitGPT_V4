@@ -7,7 +7,7 @@ import {
   Typography,
   Alert,
   useMediaQuery, // Import useMediaQuery hook
-  useTheme,      // Import useTheme hook
+  useTheme, // Import useTheme hook
 } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { useParams } from "next/navigation";
@@ -28,7 +28,8 @@ import UserDataGrid from "@/components/user_management_components/UserDataGrid";
 export default function UserManagementSettings() {
   const [openAddUserDialog, setOpenAddUserDialog] = useState(false);
   const [usernameVerifiedAsNew, setUsernameVerifiedAsNew] = useState("");
-  const [usernameVerificationMessage, setUsernameVerificationMessage] = useState("");
+  const [usernameVerificationMessage, setUsernameVerificationMessage] =
+    useState("");
   const [formMessage, setFormMessage] = useState("");
   const [openConfirmDeleteDialog, setOpenConfirmDeleteDialog] = useState(false);
   const [userToDeleteId, setUserToDeleteId] = useState(null);
@@ -47,8 +48,8 @@ export default function UserManagementSettings() {
   const [editUserStatus, setEditUserStatus] = useState(false); // true for Active, false for Inactive
 
   const muiTheme = useTheme(); // Get MUI theme to access breakpoints
-  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm')); // Up to small screens
-  const isTablet = useMediaQuery(muiTheme.breakpoints.between('sm', 'md')); // Between small and medium screens
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm")); // Up to small screens
+  const isTablet = useMediaQuery(muiTheme.breakpoints.between("sm", "md")); // Between small and medium screens
 
   const {
     data: usersData,
@@ -74,14 +75,23 @@ export default function UserManagementSettings() {
 
   const [
     addUser,
-    { isLoading: isAddingUser, isSuccess: addUserSuccess, isError: adduserError, error: addUserErrorMessage },
+    {
+      isLoading: isAddingUser,
+      isSuccess: addUserSuccess,
+      isError: adduserError,
+      error: addUserErrorMessage,
+    },
   ] = useAddUserMutation();
 
   const [updateUser, { isLoading: isUpdatingUser }] = useUpdateUserMutation();
   const [deleteUser, { isLoading: isDeletingUser }] = useDeleteUserMutation();
   const [
     checkUserExistence,
-    { isLoading: isCheckingExistence, isError: checkExistenceError, error: checkExistenceErrorMessage },
+    {
+      isLoading: isCheckingExistence,
+      isError: checkExistenceError,
+      error: checkExistenceErrorMessage,
+    },
   ] = useCheckUserExistenceMutation();
 
   const {
@@ -106,16 +116,33 @@ export default function UserManagementSettings() {
       setOpenAddUserDialog(false);
     }
     if (adduserError) {
-      setFormMessage(`❌ Error adding user: ${addUserErrorMessage?.data?.message || addUserErrorMessage?.message || 'Unknown error'}`);
+      setFormMessage(
+        `❌ Error adding user: ${
+          addUserErrorMessage?.data?.message ||
+          addUserErrorMessage?.message ||
+          "Unknown error"
+        }`
+      );
     }
     if (isErrorUsers) {
-      setFormMessage(`❌ Error fetching users: ${usersError?.data?.message || usersError?.message || 'Unknown error'}`);
+      setFormMessage(
+        `❌ Error fetching users: ${
+          usersError?.data?.message || usersError?.message || "Unknown error"
+        }`
+      );
     }
     const timer = setTimeout(() => {
       setFormMessage("");
     }, 3000);
     return () => clearTimeout(timer);
-  }, [addUserSuccess, adduserError, addUserErrorMessage, isErrorUsers, usersError, reset]);
+  }, [
+    addUserSuccess,
+    adduserError,
+    addUserErrorMessage,
+    isErrorUsers,
+    usersError,
+    reset,
+  ]);
 
   useEffect(() => {
     if (themeData && themeData.theme) {
@@ -130,7 +157,10 @@ export default function UserManagementSettings() {
     const handleStorage = (e) => {
       if (e.key === "theme") {
         setTheme(e.newValue || "light");
-        console.log("Theme updated in page.js from localStorage (storage event):", e.newValue);
+        console.log(
+          "Theme updated in page.js from localStorage (storage event):",
+          e.newValue
+        );
       }
     };
     window.addEventListener("storage", handleStorage);
@@ -139,7 +169,10 @@ export default function UserManagementSettings() {
 
   const handleVerifyUsername = async () => {
     if (!usernameValue) {
-      setError("username", { type: "manual", message: "Username is required for verification." });
+      setError("username", {
+        type: "manual",
+        message: "Username is required for verification.",
+      });
       setUsernameVerifiedAsNew(false);
       setUsernameVerificationMessage("");
       return;
@@ -150,8 +183,13 @@ export default function UserManagementSettings() {
       const result = await checkUserExistence(usernameValue).unwrap();
       if (result.exists) {
         setUsernameVerifiedAsNew(false);
-        setError("username", { type: "manual", message: "A user with this username already exists." });
-        setUsernameVerificationMessage("❌ User already exists with this username.");
+        setError("username", {
+          type: "manual",
+          message: "A user with this username already exists.",
+        });
+        setUsernameVerificationMessage(
+          "❌ User already exists with this username."
+        );
       } else {
         setUsernameVerifiedAsNew(true);
         setUsernameVerificationMessage("✅ Username is new and available!");
@@ -159,8 +197,15 @@ export default function UserManagementSettings() {
       }
     } catch (err) {
       setUsernameVerifiedAsNew(false);
-      setError("username", { type: "manual", message: "Failed to verify username. Please try again." });
-      setUsernameVerificationMessage(`❌ Verification failed: ${err.data?.message || err.message || 'Unknown error'}`);
+      setError("username", {
+        type: "manual",
+        message: "Failed to verify username. Please try again.",
+      });
+      setUsernameVerificationMessage(
+        `❌ Verification failed: ${
+          err.data?.message || err.message || "Unknown error"
+        }`
+      );
       console.error("Username verification error:", err);
     }
   };
@@ -171,19 +216,21 @@ export default function UserManagementSettings() {
       return;
     }
 
-    let jobRoleToSend = data.jobRole === 'Custom' ? customJobRole : data.jobRole;
+    let jobRoleToSend =
+      data.jobRole === "Custom" ? customJobRole : data.jobRole;
     const userData = { ...data, jobRole: jobRoleToSend };
 
     setFormMessage("Adding user and sending invitation...");
     try {
       await addUser({ userData, managerId: userId }).unwrap();
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   const handleEditUser = (user) => {
     if (user.status === "Pending") {
-      setFormMessage("❌ Cannot edit a user with 'Pending' status. User must accept invitation first.");
+      setFormMessage(
+        "❌ Cannot edit a user with 'Pending' status. User must accept invitation first."
+      );
       return;
     }
     setCurrentUserToEdit(user);
@@ -196,7 +243,8 @@ export default function UserManagementSettings() {
   const handleUpdateUserSubmit = async () => {
     if (!currentUserToEdit) return;
 
-    let jobRoleToSend = editJobRole === 'Custom' ? editCustomJobRole : editJobRole;
+    let jobRoleToSend =
+      editJobRole === "Custom" ? editCustomJobRole : editJobRole;
     const newStatus = editUserStatus ? "Active" : "Inactive";
 
     const updatedData = {
@@ -211,7 +259,11 @@ export default function UserManagementSettings() {
       setOpenEditUserDialog(false);
       setCurrentUserToEdit(null);
     } catch (error) {
-      setFormMessage(`❌ Failed to update user: ${error?.data?.message || error?.message || 'Unknown error'}`);
+      setFormMessage(
+        `❌ Failed to update user: ${
+          error?.data?.message || error?.message || "Unknown error"
+        }`
+      );
       console.error("Failed to update user:", error);
     }
   };
@@ -229,7 +281,11 @@ export default function UserManagementSettings() {
         await deleteUser(userToDeleteId).unwrap();
         setFormMessage("✅ User deleted successfully!");
       } catch (error) {
-        setFormMessage(`❌ Failed to delete user: ${error?.data?.message || error?.message || 'Unknown error'}`);
+        setFormMessage(
+          `❌ Failed to delete user: ${
+            error?.data?.message || error?.message || "Unknown error"
+          }`
+        );
       } finally {
         setUserToDeleteId(null);
       }
@@ -241,23 +297,24 @@ export default function UserManagementSettings() {
     if (!searchTerm) return usersData.data;
 
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    const filtered = usersData.data.filter(user =>
+    const filtered = usersData.data.filter((user) =>
       user.username.toLowerCase().startsWith(lowerCaseSearchTerm)
     );
     return filtered;
   }, [usersData, searchTerm]);
 
   // Define the new box shadow
-  const newBoxShadow = "rgba(50, 50, 93, 0.25) 0px 50px 100px -20px, rgba(0, 0, 0, 0.3) 0px 30px 60px -30px, rgba(10, 37, 64, 0.35) 0px -2px 6px 0px inset";
+  const newBoxShadow =
+    "rgba(50, 50, 93, 0.25) 0px 50px 100px -20px, rgba(0, 0, 0, 0.3) 0px 30px 60px -30px, rgba(10, 37, 64, 0.35) 0px -2px 6px 0px inset";
 
   const cardStyle = {
     background: theme === "dark" ? "#181A20" : "#fff",
     color: theme === "dark" ? "#F3F4F6" : "#222",
-    borderRadius: 24,
+    borderRadius: 2,
     // Apply new box shadow to the main card container
     boxShadow: newBoxShadow,
     padding: 0,
-    width: '100%',
+
     minHeight: 600,
     display: "flex",
     flexDirection: "column",
@@ -268,51 +325,72 @@ export default function UserManagementSettings() {
 
   const inputSx = {
     mb: 2,
-    '& .MuiOutlinedInput-root': {
+    "& .MuiOutlinedInput-root": {
       borderRadius: 20,
       background: `${theme === "dark" ? "#23272F" : "#E8EDF2"}`,
-      boxShadow: theme === "dark"
-        ? "inset 4px 4px 8px rgba(0,0,0,0.6), inset -4px -4px 8px rgba(40,40,40,0.3)"
-        : "inset 4px 4px 8px rgba(0, 0, 0, 0.25), inset -4px -4px 8px rgba(255, 255, 255, 0.9)",
-     
+      boxShadow:
+        theme === "dark"
+          ? "inset 4px 4px 8px rgba(0,0,0,0.6), inset -4px -4px 8px rgba(40,40,40,0.3)"
+          : "inset 4px 4px 8px rgba(0, 0, 0, 0.25), inset -4px -4px 8px rgba(255, 255, 255, 0.9)",
+
       // Ensure autofill background matches theme
-      '& input:-webkit-autofill': {
-        WebkitBoxShadow: `0 0 0 1000px ${theme === "dark" ? "#23272F" : "#E8EDF2"} inset !important`,
-        WebkitTextFillColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
+      "& input:-webkit-autofill": {
+        WebkitBoxShadow: `0 0 0 1000px ${
+          theme === "dark" ? "#23272F" : "#E8EDF2"
+        } inset !important`,
+        WebkitTextFillColor: `${
+          theme === "dark" ? "#F3F4F6" : "#222"
+        } !important`,
         caretColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
       },
-      '& input:-webkit-autofill:hover': {
-        WebkitBoxShadow: `0 0 0 1000px ${theme === "dark" ? "#23272F" : "#E8EDF2"} inset !important`,
-        WebkitTextFillColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
+      "& input:-webkit-autofill:hover": {
+        WebkitBoxShadow: `0 0 0 1000px ${
+          theme === "dark" ? "#23272F" : "#E8EDF2"
+        } inset !important`,
+        WebkitTextFillColor: `${
+          theme === "dark" ? "#F3F4F6" : "#222"
+        } !important`,
         caretColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
       },
-      '& input:-webkit-autofill:focus': {
-        WebkitBoxShadow: `0 0 0 1000px ${theme === "dark" ? "#23272F" : "#E8EDF2"} inset !important`,
-        WebkitTextFillColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
+      "& input:-webkit-autofill:focus": {
+        WebkitBoxShadow: `0 0 0 1000px ${
+          theme === "dark" ? "#23272F" : "#E8EDF2"
+        } inset !important`,
+        WebkitTextFillColor: `${
+          theme === "dark" ? "#F3F4F6" : "#222"
+        } !important`,
         caretColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
       },
-      '& input:-webkit-autofill:active': {
-        WebkitBoxShadow: `0 0 0 1000px ${theme === "dark" ? "#23272F" : "#E8EDF2"} inset !important`,
-        WebkitTextFillColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
+      "& input:-webkit-autofill:active": {
+        WebkitBoxShadow: `0 0 0 1000px ${
+          theme === "dark" ? "#23272F" : "#E8EDF2"
+        } inset !important`,
+        WebkitTextFillColor: `${
+          theme === "dark" ? "#F3F4F6" : "#222"
+        } !important`,
         caretColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
       },
-     
-      '&.Mui-focused': {
-        boxShadow: theme === "dark"
-          ? "inset 5px 5px 10px rgba(0,0,0,0.7), inset -5px -5px 10px rgba(50,50,50,0.5)"
-          : "inset 5px 5px 10px rgba(174, 174, 192, 0.5), inset -5px -5px 10px rgba(255, 255, 255, 1)",
+
+      "&.Mui-focused": {
+        boxShadow:
+          theme === "dark"
+            ? "inset 5px 5px 10px rgba(0,0,0,0.7), inset -5px -5px 10px rgba(50,50,50,0.5)"
+            : "inset 5px 5px 10px rgba(174, 174, 192, 0.5), inset -5px -5px 10px rgba(255, 255, 255, 1)",
       },
     },
-    '& .MuiInputBase-input': {
+    "& .MuiInputBase-input": {
       color: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
-      '&::placeholder': {
-        color: theme === "dark" ? "rgba(243, 244, 246, 0.7)" : "rgba(34, 34, 34, 0.7)",
+      "&::placeholder": {
+        color:
+          theme === "dark"
+            ? "rgba(243, 244, 246, 0.7)"
+            : "rgba(34, 34, 34, 0.7)",
       },
     },
-    '& .MuiInputLabel-root': {
+    "& .MuiInputLabel-root": {
       color: `${theme === "dark" ? "#B0B3B8" : "#6B7280"} !important`,
     },
-    '& .MuiInputLabel-root.Mui-focused': {
+    "& .MuiInputLabel-root.Mui-focused": {
       color: theme === "dark" ? "#6366F1" : "#6366F1",
     },
   };
@@ -325,23 +403,21 @@ export default function UserManagementSettings() {
     boxShadow: "0 4px 16px 0 rgba(66, 133, 244, 0.18)",
     background: `linear-gradient(135deg, #6366F1 0%, #5F4BFF 100%)`,
     color: "#fff",
-    '&:hover': {
+    "&:hover": {
       opacity: 0.92,
       background: `linear-gradient(135deg, #6366F1 0%, #5F4BFF 100%)`,
     },
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', background: theme === "dark" ? "#101014" : "#F5F6FA", py: 3 }}>
-      <Box sx={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+    <Box
+      sx={{
+        background: theme === "dark" ? "#101014" : "#F5F6FA",
+        py: 3,
+      }}
+    >
+      <Box sx={{ maxWidth: 1200, margin: "0 auto", width: "100%" }}>
         <Box sx={{ ...cardStyle, pt: 3, pb: 3 }}>
-          <Typography variant="h4" align="center" sx={{ fontWeight: 700, mt: 1, mb: 0.5 }}>
-            User Management
-          </Typography>
-          <Typography align="center" sx={{ color: theme === "dark" ? '#B0B3B8' : '#6B7280', mb: 2, mt: 0 }}>
-            Manage your users and invitations
-          </Typography>
-          
           <SearchAndAddSection
             openAddUserDialog={openAddUserDialog}
             setOpenAddUserDialog={setOpenAddUserDialog}
@@ -355,24 +431,43 @@ export default function UserManagementSettings() {
             theme={theme}
             buttonSx={buttonSx}
           />
-          
+
           {formMessage && (
             <Alert
               severity={formMessage.includes("✅") ? "success" : "error"}
               sx={{
                 mb: 2,
                 borderRadius: 2,
-                width: '90%',
-                mx: 'auto',
-                backgroundColor: theme === "dark" ? (formMessage.includes("✅") ? "#285C2A" : "#6C2C2C") : (formMessage.includes("✅") ? "#D4EDDA" : "#F8D7DA"),
-                color: theme === "dark" ? "#F3F4F6" : (formMessage.includes("✅") ? "#155724" : "#721C24"),
-                border: theme === "dark" ? (formMessage.includes("✅") ? "1px solid #4CAF50" : "1px solid #F44336") : (formMessage.includes("✅") ? "1px solid #C3E6CB" : "1px solid #F5C6CB"),
+                width: "90%",
+                mx: "auto",
+                backgroundColor:
+                  theme === "dark"
+                    ? formMessage.includes("✅")
+                      ? "#285C2A"
+                      : "#6C2C2C"
+                    : formMessage.includes("✅")
+                    ? "#D4EDDA"
+                    : "#F8D7DA",
+                color:
+                  theme === "dark"
+                    ? "#F3F4F6"
+                    : formMessage.includes("✅")
+                    ? "#155724"
+                    : "#721C24",
+                border:
+                  theme === "dark"
+                    ? formMessage.includes("✅")
+                      ? "1px solid #4CAF50"
+                      : "1px solid #F44336"
+                    : formMessage.includes("✅")
+                    ? "1px solid #C3E6CB"
+                    : "1px solid #F5C6CB",
               }}
             >
               {formMessage}
             </Alert>
           )}
-          
+
           <UserDataGrid
             isLoadingUsers={isLoadingUsers}
             filteredUsers={filteredUsers}
