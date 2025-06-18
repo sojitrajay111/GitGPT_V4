@@ -105,20 +105,19 @@ const StatusMessage = styled(Typography)(({ theme }) => ({
 // Styled Box for completed steps list
 const CompletedStepsList = styled(Box)(({ theme }) => ({
   maxHeight: "150px", // Max height for scrolling
-  overflowY: "auto", // Enable vertical scrolling
+  overflowY: "hidden", // Hide vertical scrollbar
+  overflowX: "hidden", // Hide horizontal scrollbar
   textAlign: "left", // Left align text
   paddingLeft: theme.spacing(2), // Left padding
   marginTop: theme.spacing(2), // Top margin
   borderLeft: `2px solid ${theme.palette.secondary.main}`, // Left border as highlight
+  // Remove scrollbar styling to effectively hide it
   "&::-webkit-scrollbar": {
-    width: "6px", // Scrollbar width
+    display: "none", // For Chrome, Safari, and Opera
   },
-  "&::-webkit-scrollbar-track": {
-    background: "transparent", // Transparent track
-  },
-  "&::-webkit-scrollbar-thumb": {
-    background: theme.palette.mode === "dark" ? "#555" : "#888", // Scrollbar thumb color
-    borderRadius: "3px", // Rounded scrollbar thumb
+  "&": {
+    msOverflowStyle: "none", // For Internet Explorer and Edge
+    scrollbarWidth: "none", // For Firefox
   },
 }));
 
@@ -129,7 +128,7 @@ const CompletedStepItem = styled(Typography)(({ theme }) => ({
   display: "flex",
   alignItems: "center", // Align items vertically
   marginBottom: theme.spacing(1), // Bottom margin
-  animation: `${fadeIn} 0.5s ease-out`, // Fade-in animation
+
   "& svg": {
     marginRight: theme.spacing(1), // Right margin for icon
     color: theme.palette.success.main, // Icon color
