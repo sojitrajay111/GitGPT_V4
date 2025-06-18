@@ -365,6 +365,7 @@ export default function ProfileSettings() {
             className={`w-full px-4 py-2.5 rounded-lg ${icon ? 'pl-10' : ''} ${readOnlyInput ? 'cursor-default' : 'cursor-text'} ${isDark ? 'bg-gray-800/50' : 'bg-white/50'} ${isDark ? 'border-gray-700' : 'border-gray-200'} ${isDark ? 'text-gray-100' : 'text-gray-900'} ${isDark ? 'placeholder-gray-400' : 'placeholder-gray-500'} ${isDark ? 'focus:border-blue-500' : 'focus:border-blue-400'} ${isDark ? 'focus:ring-blue-500/20' : 'focus:ring-blue-400/20'} focus:outline-none focus:ring-2 transition-all duration-200 shadow-sm shadow-inner`}
             style={{
               border: `1px solid ${currentTheme.palette.divider}`,
+              boxShadow: 'rgba(50, 50, 93, 0.25) 0px 50px 100px -20px, rgba(0, 0, 0, 0.3) 0px 30px 60px -30px, rgba(10, 37, 64, 0.35) 0px -2px 6px 0px inset',
             }}
           />
         </div>
@@ -653,6 +654,7 @@ export default function ProfileSettings() {
                       readOnlyInput={!editMode}
                     onChange={(e) => setUsername(e.target.value)}
                       editableValue={username}
+                      icon={<PersonOutlineIcon />}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -706,7 +708,8 @@ export default function ProfileSettings() {
                       transition: 'border-color 0.3s',
                       '&:focus': {
                         borderColor: currentTheme.palette.primary.main,
-                      }
+                      },
+                      boxShadow: 'rgba(50, 50, 93, 0.25) 0px 50px 100px -20px, rgba(0, 0, 0, 0.3) 0px 30px 60px -30px, rgba(10, 37, 64, 0.35) 0px -2px 6px 0px inset',
                     }}
                   >
                     <option value="english">English</option>
