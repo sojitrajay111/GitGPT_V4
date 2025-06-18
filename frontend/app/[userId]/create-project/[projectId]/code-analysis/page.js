@@ -40,6 +40,8 @@ import {
 } from "@/features/codeAnalysisApiSlice";
 import { useParams } from "next/navigation";
 import { Button } from "@mui/material";
+import MarkdownRenderer from "@/components/code-analysis/AiResponse";
+import { playErrorSound } from '@/utills/playErrorSound';
 
 // Helper function to parse AI response for code blocks
 const parseAiCodeResponse = (aiResponseText) => {
@@ -385,6 +387,7 @@ const App = () => {
     if (!inputMessage.trim() || !currentChatSessionId || isSendingMessage)
       return;
     const userMessageText = inputMessage;
+    console.log("Sending message:", userMessageText);
     setInputMessage("");
     const tempUserMessage = {
       _id: `temp-user-${Date.now()}`,
@@ -407,6 +410,11 @@ const App = () => {
       }
     } catch (err) {
       console.error("Failed to send message:", err);
+      console.error("Error sending code analysis message:", err.message);
+      if (err.response && err.response.promptFeedback) {
+        console.error("Prompt Feedback:", err.response.promptFeedback);
+      }
+      playErrorSound();
       const systemErrorMessage = {
         _id: `error-send-${Date.now()}`,
         sessionId: currentChatSessionId,
@@ -583,7 +591,7 @@ const App = () => {
     const isAI = msg.sender === "ai";
     const isSystem = msg.sender === "system";
 
-    const codeBlocksFromAi = isAI ? parseAiCodeResponse(msg.text) : [];
+     const codeBlocksFromAi = isAI ? parseAiCodeResponse(msg.text) : [];
 
     return (
       <div className={`flex mb-4 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -629,7 +637,12 @@ const App = () => {
             )}
           </div>
           <div className="text-sm whitespace-pre-wrap leading-relaxed break-words">
-            {msg.text}
+            {isAI ? (
+              <MarkdownRenderer content={msg.text} />
+            ) : (
+              msg.text
+            )}
+            {/* {msg.text} */}
           </div>
 
           {isSystem && msg.prUrl && (

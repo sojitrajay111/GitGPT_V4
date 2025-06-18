@@ -411,6 +411,8 @@ const sendCodeAnalysisMessage = async (req, res) => {
   const userId = req.user.id;
 
   try {
+    console.log(`[CodeAnalysis] Starting message processing for session: ${sessionId}, user: ${userId}`);
+    
     if (!text) {
       return res
         .status(400)
@@ -418,86 +420,169 @@ const sendCodeAnalysisMessage = async (req, res) => {
     }
 
     // Verify session ownership
+    console.log(`[CodeAnalysis] Verifying session ownership...`);
     const session = await CodeAnalysisSession.findById(sessionId);
     if (!session || session.userId.toString() !== userId) {
       return res
         .status(403)
         .json({ success: false, message: "Not authorized for this session." });
     }
+    console.log(`[CodeAnalysis] Session ownership verified`);
 
     // Save user message
+    console.log(`[CodeAnalysis] Saving user message...`);
     const userMessage = await CodeAnalysisMessage.create({
       sessionId,
       sender: "user",
       text,
     });
+    console.log(`[CodeAnalysis] User message saved with ID: ${userMessage._id}`);
 
-    // Fetch GitHub data for PAT and username
-    // This will fetch the PAT of the *currently authenticated user* (developer or manager)
-    const githubData = await GitHubData.findOne({ userId });
-    if (!githubData || !githubData.githubPAT) {
+    // Check if the query is Salesforce-related or repository-related
+    console.log(`[CodeAnalysis] Checking if query is Salesforce-related...`);
+    const isSalesforceRelated = text.toLowerCase().includes("salesforce") ||
+      text.toLowerCase().includes("apex") ||
+      text.toLowerCase().includes("soql") ||
+      text.toLowerCase().includes("visualforce") ||
+      text.toLowerCase().includes("lwc") ||
+      text.toLowerCase().includes("lightning") ||
+      text.toLowerCase().includes("sfdc") ||
+      text.toLowerCase().includes("repository") ||
+      text.toLowerCase().includes("github") ||
+      text.toLowerCase().includes("analyze");
+
+    if (!isSalesforceRelated) {
+      console.log(`[CodeAnalysis] Query not Salesforce-related, returning early`);
+      const sorryMessage = "Sorry, I can only assist with Salesforce-related questions or repository-specific code analysis.";
+      await CodeAnalysisMessage.create({
+        sessionId,
+        sender: "system",
+        text: sorryMessage,
+        isError: false,
+      });
       return res.status(400).json({
         success: false,
-        message:
-          "GitHub PAT not found for the user. Please authenticate with GitHub.",
+        message: sorryMessage,
+      });
+    }
+    console.log(`[CodeAnalysis] Query is Salesforce-related, proceeding...`);
+
+    // Fetch GitHub data for PAT and username
+    console.log(`[CodeAnalysis] Fetching GitHub data for user: ${userId}`);
+    const githubData = await GitHubData.findOne({ userId });
+    if (!githubData || !githubData.githubPAT) {
+      console.log(`[CodeAnalysis] GitHub PAT not found for user: ${userId}`);
+      return res.status(400).json({
+        success: false,
+        message: "GitHub PAT not found. Please authenticate with GitHub.",
       });
     }
     const githubPAT = githubData.githubPAT;
     const githubUsername = githubData.githubUsername;
+    console.log(`[CodeAnalysis] GitHub data found for user: ${githubUsername}`);
 
-    // Extract owner and repo from githubRepoName (e.g., "owner/repo")
+    // Extract owner and repo from githubRepoName
+    console.log(`[CodeAnalysis] Extracting repo info from: ${session.githubRepoName}`);
     const [owner, repo] = session.githubRepoName.split("/");
+    console.log(`[CodeAnalysis] Owner: ${owner}, Repo: ${repo}, Branch: ${session.selectedBranch}`);
 
-    // Fetch actual code context from the selected branch
+    // Fetch repository contents
+    console.log(`[CodeAnalysis] Fetching repository contents...`);
     const fetchedCodeFiles = await fetchRepoContents(
       owner,
       repo,
       session.selectedBranch,
-      "", // Start from the root of the repository
+      "",
       githubPAT,
       githubUsername
     );
+    console.log(`[CodeAnalysis] Fetched ${fetchedCodeFiles.length} files from repository`);
 
     let currentBranchCodeContext = "";
     if (fetchedCodeFiles.length > 0) {
-      currentBranchCodeContext = fetchedCodeFiles
-        .map((file) => `// File: ${file.path}\n${file.content}`)
-        .join("\n\n---\n\n"); // Separator for clarity
+      // Filter for Salesforce-related files (Apex, Visualforce, LWC, etc.)
+      console.log(`[CodeAnalysis] Filtering for Salesforce files...`);
+      const salesforceFiles = fetchedCodeFiles.filter(file =>
+        file.path.endsWith(".cls") || // Apex classes
+        file.path.endsWith(".trigger") || // Apex triggers
+        file.path.endsWith(".page") || // Visualforce pages
+        file.path.endsWith(".component") || // Visualforce components
+        file.path.includes("lwc/") || // Lightning Web Components
+        file.path.endsWith(".xml") // Salesforce metadata
+      );
+      console.log(`[CodeAnalysis] Found ${salesforceFiles.length} Salesforce files`);
+
+      if (salesforceFiles.length > 0) {
+        currentBranchCodeContext = salesforceFiles
+          .map((file) => `// File: ${file.path}\n${file.content}`)
+          .join("\n\n---\n\n");
+      } else {
+        currentBranchCodeContext = `No Salesforce-related files found in branch: ${session.selectedBranch} of repository ${owner}/${repo}.`;
+      }
+
+      if (salesforceFiles.length > 20) {
+        currentBranchCodeContext =
+          `// Code context from ${salesforceFiles.length} Salesforce files. Summarizing key files:\n` +
+          salesforceFiles
+            .slice(0, 5)
+            .map((f) => `// - ${f.path}`)
+            .join("\n") +
+          `\n\n// Example from ${salesforceFiles[0].path}:\n${salesforceFiles[0].content.substring(0, Math.min(200, salesforceFiles[0].content.length))}...`;
+      }
     } else {
-      currentBranchCodeContext = `No relevant code files found in branch: ${session.selectedBranch} of repository ${owner}/${repo}. Or, the repository might be empty or files are not of recognizable types.`;
-    }
-    if (fetchedCodeFiles.length > 20) {
-      // Heuristic: if too many files, summarize
-      currentBranchCodeContext =
-        `// Code context from ${fetchedCodeFiles.length} files. Due to length, only a summary is provided unless specific files are requested. Key files included are: \n` +
-        fetchedCodeFiles
-          .slice(0, 5)
-          .map((f) => `// - ${f.path}`)
-          .join("\n") +
-        `\n\n // Example from ${
-          fetchedCodeFiles[0].path
-        }:\n ${fetchedCodeFiles[0].content.substring(
-          0,
-          Math.min(200, fetchedCodeFiles[0].content.length)
-        )}...`;
+      currentBranchCodeContext = `No relevant code files found in branch: ${session.selectedBranch} of repository ${owner}/${repo}.`;
     }
 
     // Fetch previous messages for context
+    console.log(`[CodeAnalysis] Fetching previous messages for context...`);
     const previousMessages = await CodeAnalysisMessage.find({ sessionId })
-      .sort({ createdAt: -1 }) // Get most recent messages first
-      .limit(10); // Limit context
-    previousMessages.reverse(); // Then reverse to maintain chronological order for Gemini
+      .sort({ createdAt: -1 })
+      .limit(10);
+    previousMessages.reverse();
+    console.log(`[CodeAnalysis] Found ${previousMessages.length} previous messages`);
 
     // Construct chat history for Gemini
+    console.log(`[CodeAnalysis] Constructing chat history for Gemini...`);
     const geminiChatHistory = previousMessages.map((msg) => ({
-      role: msg.sender === "user" ? "user" : "model", // 'model' for AI responses
+      role: msg.sender === "user" ? "user" : "model",
       parts: [{ text: msg.text }],
     }));
-    // Note: The current user message 'text' will be sent as the new prompt to sendMessage,
-    // so it's typically not added again to 'history' when calling model.startChat if you're sending it with chat.sendMessage(text)
 
-    const systemInstruction = `You are an expert AI assistant specialized in code analysis, code generation, and GitHub operations.
-Current GitHub repository: '${session.githubRepoName}', Branch: '${session.selectedBranch}'.
+    // Ensure the first message in history is always from user
+    // If the first message is from model, we need to handle this properly
+    if (geminiChatHistory.length > 0 && geminiChatHistory[0].role === "model") {
+      console.log(`[CodeAnalysis] First message is from model, removing it to comply with Gemini requirements`);
+      geminiChatHistory.shift(); // Remove the first model message
+    }
+
+    // Additional validation: ensure we have alternating user/model messages
+    // and start with user
+    const validatedHistory = [];
+    for (let i = 0; i < geminiChatHistory.length; i++) {
+      const message = geminiChatHistory[i];
+      if (i === 0 && message.role !== "user") {
+        console.log(`[CodeAnalysis] Skipping first message with role '${message.role}' to ensure user starts`);
+        continue;
+      }
+      if (i > 0) {
+        const prevMessage = validatedHistory[validatedHistory.length - 1];
+        if (prevMessage.role === message.role) {
+          console.log(`[CodeAnalysis] Skipping consecutive message with same role '${message.role}'`);
+          continue;
+        }
+      }
+      validatedHistory.push(message);
+    }
+    
+    console.log(`[CodeAnalysis] Final chat history has ${validatedHistory.length} messages`);
+    if (validatedHistory.length > 0) {
+      console.log(`[CodeAnalysis] First message role: ${validatedHistory[0].role}`);
+    }
+
+    // Construct system instruction for Salesforce-specific analysis
+    console.log(`[CodeAnalysis] Constructing system instruction...`);
+    const systemInstruction = `You are an expert AI assistant specialized in Salesforce development, including Apex, SOQL, Visualforce, Lightning Web Components (LWC), and Salesforce metadata. You are analyzing code from the GitHub repository '${session.githubRepoName}', Branch: '${session.selectedBranch}'.
+
 Code Context:
 ${currentBranchCodeContext}
 
@@ -506,25 +591,27 @@ User request: ${text}
 ---
 
 Instructions:
-1.  Analyze the request in conjunction with the provided code context.
-2.  If generating code or suggesting modifications:
-    * Provide ONLY the complete code block(s) in Markdown format.
-    * For each code block, **you MUST include a comment at the very top specifying the full file path** it belongs to (e.g., \`\`\`javascript\n// path/to/your/file.js\nconsole.log('hello');\n\`\`\` or \`\`\`python\n# path/to/your/script.py\nprint('hello')\n\`\`\`).
-    * If creating a new file, indicate a plausible path.
-    * If the changes span multiple files, provide separate, clearly marked code blocks for each.
-3.  If analyzing code: Clearly list errors, bugs, or areas for improvement with specific file paths and line numbers if possible, and suggest concrete solutions.
-4.  Be concise and direct. If the code context is missing or insufficient, state that clearly.
-5.  If the user asks for actions beyond your capabilities (e.g., deploying the code), politely state your limitations.
-Ensure your response is comprehensive and directly addresses the user's query.`;
+1. Only respond to Salesforce-related queries or questions about the repository's code. For non-Salesforce queries, return: "Sorry, I can only assist with Salesforce-related questions or repository-specific code analysis."
+2. If the user requests code analysis (e.g., contains "analyze" or "review"):
+   - Identify errors, bugs, or improvements in the provided Salesforce code.
+   - Specify file paths and, if possible, line numbers.
+   - Provide concrete solutions with complete code snippets in Markdown format, including the file path in a comment at the top (e.g., \`\`\`apex\n// force-app/main/default/classes/MyClass.cls\npublic class MyClass {}\n\`\`\`).
+   - Focus on Salesforce best practices (e.g., bulkification in Apex, secure SOQL queries, LWC performance).
+3. If generating new code:
+   - Provide complete code blocks in Markdown with file paths (e.g., for Apex, Visualforce, or LWC).
+   - Ensure code follows Salesforce conventions (e.g., proper naming, structure, and metadata).
+4. If the code context is missing or insufficient, state this clearly and suggest how the user can provide more details.
+5. Be concise and avoid speculative responses.
+Ensure your response directly addresses the user's query within the Salesforce or repository context.`;
 
+    console.log(`[CodeAnalysis] Starting Gemini chat...`);
     const chat = model.startChat({
-      history: geminiChatHistory, // Pass the constructed history
+      history: validatedHistory,
       generationConfig: {
         maxOutputTokens: 4096,
-        temperature: 0.6, // Slightly lower for more factual/code-focused responses
+        temperature: 0.5, // Lower for precise Salesforce code analysis
       },
       safetySettings: [
-        // Adjust safety settings if needed, be mindful of implications
         {
           category: "HARM_CATEGORY_HARASSMENT",
           threshold: "BLOCK_MEDIUM_AND_ABOVE",
@@ -544,46 +631,87 @@ Ensure your response is comprehensive and directly addresses the user's query.`;
       ],
     });
 
-    // Send the new user message along with the structured prompt
-    const result = await chat.sendMessage(systemInstruction); // Pass the full prompt here
+    // Send the prompt to the AI
+    console.log(`[CodeAnalysis] Sending message to Gemini...`);
+    const result = await chat.sendMessage(systemInstruction);
     const aiTextResponse = result.response.text();
+    console.log(`[CodeAnalysis] Received response from Gemini (${aiTextResponse.length} characters)`);
+
+    // Check if AI response is irrelevant
+    if (aiTextResponse.includes("Sorry, I can only assist")) {
+      console.log(`[CodeAnalysis] AI response indicates irrelevant query`);
+      await CodeAnalysisMessage.create({
+        sessionId,
+        sender: "system",
+        text: aiTextResponse,
+        isError: false,
+      });
+      return res.status(400).json({
+        success: false,
+        message: aiTextResponse,
+      });
+    }
 
     // Save AI message
+    console.log(`[CodeAnalysis] Saving AI message...`);
     const aiMessage = await CodeAnalysisMessage.create({
       sessionId,
       sender: "ai",
       text: aiTextResponse,
     });
+    console.log(`[CodeAnalysis] AI message saved with ID: ${aiMessage._id}`);
 
-    // Update session last activity and title (if first message and title is default)
+    // Update session metadata
+    console.log(`[CodeAnalysis] Updating session metadata...`);
     session.lastActivity = Date.now();
     if (
       !session.title ||
       (session.title.startsWith("Analysis:") && previousMessages.length <= 1)
     ) {
-      // Update title if it's the default and very few messages
       const conciseTitle =
         text.length > 40 ? text.substring(0, 37) + "..." : text;
-      session.title = `Chat: ${conciseTitle}`;
+      session.title = `Salesforce Chat: ${conciseTitle}`;
     }
     await session.save();
+    console.log(`[CodeAnalysis] Session metadata updated`);
 
+    console.log(`[CodeAnalysis] Message processing completed successfully`);
     res.status(200).json({
       success: true,
       userMessage,
       aiMessage,
     });
   } catch (error) {
-    console.error("Error sending code analysis message:", error.message);
+    console.error("Error sending code analysis message:", error);
+    console.error("Error stack:", error.stack);
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    
     if (error.response && error.response.promptFeedback) {
       console.error("Prompt Feedback:", error.response.promptFeedback);
     }
-    let errorMessageToSave = `Error processing your request.`;
+    
+    // Log additional error details
+    if (error.code) {
+      console.error("Error code:", error.code);
+    }
+    if (error.status) {
+      console.error("Error status:", error.status);
+    }
+    if (error.statusText) {
+      console.error("Error statusText:", error.statusText);
+    }
+    
+    let errorMessageToSave = "Error processing your Salesforce request.";
     if (error.message.includes("SAFETY")) {
       errorMessageToSave =
-        "The response was blocked due to safety settings. Please rephrase your request or check the content guidelines.";
+        "The response was blocked due to safety settings. Please rephrase your Salesforce-related request.";
     } else if (error.message.includes("quota")) {
       errorMessageToSave = "API quota exceeded. Please try again later.";
+    } else if (error.message.includes("network") || error.message.includes("fetch")) {
+      errorMessageToSave = "Network error occurred. Please check your connection and try again.";
+    } else if (error.message.includes("authentication") || error.message.includes("unauthorized")) {
+      errorMessageToSave = "Authentication error. Please check your GitHub credentials.";
     }
 
     await CodeAnalysisMessage.create({
@@ -594,8 +722,8 @@ Ensure your response is comprehensive and directly addresses the user's query.`;
     });
     res.status(500).json({
       success: false,
-      message:
-        errorMessageToSave || "Internal server error during code analysis.",
+      message: errorMessageToSave,
+      error: error.message, // Include the actual error message for debugging
     });
   }
 };
