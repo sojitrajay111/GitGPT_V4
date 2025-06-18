@@ -82,7 +82,9 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
     pollingInterval: 30000,
   });
 
-  const collaboratorCount = collaborators?.collaborators?.length || 0;
+
+  const collaboratorCount = collaborators?.length || 0;
+
 
   // --- DEBUGGING LOGS START ---
   useEffect(() => {
@@ -133,11 +135,14 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
     "In Progress": "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white",
     Development: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-white",
     Testing: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-white",
-    Planning: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-white",
+
+    Planning:
+      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-white",
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-md transition dark:bg-gray-900 dark:text-white hover:shadow-xl flex flex-col justify-between space-y-2 w-full dark:border-gray-800">
+    <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-md transition dark:bg-[#161717] dark:text-white hover:shadow-xl flex flex-col justify-between space-y-2 w-full dark:border-gray-800">
+
       {/* Header: Project Name + Icon */}
       <div>
         <div className="flex justify-between items-center mb-1">
@@ -152,7 +157,11 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
 
       {/* Progress Section */}
       <div>
-        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Progress</p>
+
+        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Progress
+        </p>
+
         <div className="flex items-center gap-2">
           <LinearProgress
             variant="determinate"
@@ -180,7 +189,11 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
 
       {/* Contribution Section */}
       <div>
-        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Contribution</p>
+
+        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Contribution
+        </p>
+
         <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 relative overflow-hidden">
           <div
             className="absolute h-full bg-indigo-400"
@@ -235,7 +248,12 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
           {" "}
           {/* Added dark background */}
           <div className="flex justify-between items-center mb-2">
-            <Typography variant="subtitle2" className="font-bold text-sm dark:text-white">
+
+            <Typography
+              variant="subtitle2"
+              className="font-bold text-sm dark:text-white"
+            >
+
               Project Collaborators
             </Typography>
             <IconButton
@@ -264,14 +282,19 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
             </Typography>
           ) : (
             <div className="space-y-1">
-              {(collaborators?.collaborators || []).map((collaborator) => (
-                <div key={collaborator.githubId || collaborator.username} className="flex items-center gap-2">
+
+              {collaborators.map((collaborator) => (
+                <div key={collaborator.id} className="flex items-center gap-2">
                   <Avatar
-                    src={collaborator.avatarUrl}
+                    src={collaborator.avatar_url}
                     sx={{ width: 20, height: 20 }}
                   />
-                  <Typography variant="body2" className="text-xs dark:text-gray-200">
-                    {collaborator.username}
+                  <Typography
+                    variant="body2"
+                    className="text-xs dark:text-gray-200"
+                  >
+                    {collaborator.login}
+
                   </Typography>
                 </div>
               ))}
@@ -318,6 +341,15 @@ export default function DashboardContent() {
     (project) =>
       project?.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project?.projectDescription?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter projects based on search term
+  const filteredProjects = projects.filter(
+    (project) =>
+      project?.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project?.projectDescription
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase())
   );
 
   const {
@@ -395,7 +427,7 @@ export default function DashboardContent() {
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="bg-gray-50 dark:bg-black min-h-screen">
       <div className="mx-auto p-6 font-inter">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
@@ -420,7 +452,10 @@ export default function DashboardContent() {
                     {/* Added dark text for icon */}
                   </InputAdornment>
                 ),
-                className: "bg-white dark:bg-gray-800 text-gray-900 dark:text-white", // Added dark background and text for input
+
+                className:
+                  "bg-white dark:bg-[#161717] text-gray-900 dark:text-white", // Added dark background and text for input
+
               }}
               sx={{
                 "& .MuiOutlinedInput-root": {
