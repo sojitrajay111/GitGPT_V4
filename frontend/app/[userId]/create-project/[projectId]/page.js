@@ -28,7 +28,7 @@ import {
   IconButton,
   Chip,
   Divider,
-  Grid, // Import Grid for responsive layout
+  Grid,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -37,11 +37,13 @@ import CodeIcon from "@mui/icons-material/Code";
 import DescriptionIcon from "@mui/icons-material/Description";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import AddIcon from "@mui/icons-material/Add";
-import AccountTreeIcon from "@mui/icons-material/AccountTree"; // Icon for PR/Branch Management
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import BarChartIcon from "@mui/icons-material/BarChart"; // Icon for PRs/Branches
+import AccessTimeIcon from "@mui/icons-material/AccessTime"; // Icon for time saved
+import CloudQueueIcon from "@mui/icons-material/CloudQueue"; // Icon for Gemini tokens
 import { styled } from "@mui/system";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 
-// Import Recharts components
 import {
   ResponsiveContainer,
   BarChart,
@@ -60,8 +62,8 @@ import {
 import {
   useGetCollaboratorsQuery,
   useGetProjectByIdQuery,
-  useUpdateProjectMutation, // New: Import update project mutation
-  useDeleteProjectMutation, // New: Import delete project mutation
+  useUpdateProjectMutation,
+  useDeleteProjectMutation,
 } from "@/features/projectApiSlice";
 import {
   useAddCollaboratorMutation,
@@ -69,32 +71,32 @@ import {
   useDeleteCollaboratorMutation,
   useUpdateCollaboratorPermissionsMutation,
   useGetUserAndGithubDataQuery,
-  useDeleteGithubRepoMutation, // New: Import delete GitHub repo mutation
+  useDeleteGithubRepoMutation,
 } from "@/features/githubApiSlice";
 import { useGetCollaboratorPermissionsQuery } from "@/features/developerApiSlice";
+import { useGetProjectMetricsQuery } from "@/features/projectMetricsApiSlice"; // NEW: Import the new metrics slice
 import { skipToken } from "@reduxjs/toolkit/query";
 
-// Light and iterative color theme
 const lightTheme = createTheme({
   palette: {
     primary: {
-      main: "#4f46e5", // Vibrant indigo
-      light: "#818cf8", // Lighter indigo for hover
+      main: "#4f46e5",
+      light: "#818cf8",
       contrastText: "#ffffff",
     },
     secondary: {
-      main: "#0ea5e9", // Sky blue
+      main: "#0ea5e9",
     },
     success: {
-      main: "#22c55e", // Emerald green
+      main: "#22c55e",
     },
     background: {
-      default: "#f9fafb", // Very light gray
+      default: "#f9fafb",
       paper: "#ffffff",
     },
     text: {
-      primary: "#1f2937", // Dark gray
-      secondary: "#6b7280", // Medium gray
+      primary: "#1f2937",
+      secondary: "#6b7280",
     },
   },
   typography: {
@@ -113,7 +115,7 @@ const lightTheme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: "12px", // More rounded buttons
+          borderRadius: "12px",
           padding: "10px 20px",
           fontWeight: 600,
           textTransform: "none",
@@ -143,13 +145,13 @@ const lightTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: "16px", // More rounded cards
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)", // More prominent shadow
+          borderRadius: "16px",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)",
           border: "1px solid #e5e7eb",
           transition: "all 0.3s ease",
           "&:hover": {
-            borderColor: "#cbd5e1", // Subtle border change on hover
-            transform: "translateY(-4px)", // More pronounced lift on hover
+            borderColor: "#cbd5e1",
+            transform: "translateY(-4px)",
             boxShadow: "0 8px 25px rgba(0,0,0,0.12)",
           },
         },
@@ -158,7 +160,7 @@ const lightTheme = createTheme({
     MuiDialog: {
       styleOverrides: {
         paper: {
-          borderRadius: "16px", // Consistent dialog rounding
+          borderRadius: "16px",
           boxShadow: "0 8px 30px rgba(0,0,0,0.15)",
         },
       },
@@ -166,7 +168,7 @@ const lightTheme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: "8px", // Rounded chips
+          borderRadius: "8px",
           fontWeight: 600,
         },
       },
@@ -174,19 +176,18 @@ const lightTheme = createTheme({
   },
 });
 
-// Custom styled components
 const LightHeader = styled("div")(({ theme }) => ({
-  background: "linear-gradient(135deg, #e0f2fe 0%, #ede9fe 100%)", // Light gradient
+  background: "linear-gradient(135deg, #e0f2fe 0%, #ede9fe 100%)",
   color: theme.palette.text.primary,
   padding: theme.spacing(4),
-  borderRadius: "20px", // More rounded
+  borderRadius: "20px",
   marginBottom: theme.spacing(4),
   border: "1px solid #e5e7eb",
   boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
 }));
 
 const ActionButton = styled(Button)(({ theme }) => ({
-  borderRadius: "16px", // More rounded action buttons
+  borderRadius: "16px",
   padding: theme.spacing(2.5),
   minWidth: "180px",
   display: "flex",
@@ -194,7 +195,7 @@ const ActionButton = styled(Button)(({ theme }) => ({
   alignItems: "center",
   justifyContent: "center",
   textAlign: "center",
-  height: "150px", // Slightly taller for better visual
+  height: "150px",
   transition: "all 0.3s ease",
   backgroundColor: "#ffffff",
   border: "1px solid #e5e7eb",
@@ -202,13 +203,13 @@ const ActionButton = styled(Button)(({ theme }) => ({
   "&:hover": {
     backgroundColor: "#f9fafb",
     borderColor: theme.palette.primary.light,
-    transform: "translateY(-5px)", // More pronounced lift
+    transform: "translateY(-5px)",
     boxShadow: "0 8px 25px rgba(0,0,0,0.1)",
   },
   "& .MuiButton-startIcon": {
     margin: 0,
-    marginBottom: theme.spacing(1.5), // Increased space for icon
-    fontSize: "2.8rem", // Larger icons
+    marginBottom: theme.spacing(1.5),
+    fontSize: "2.8rem",
   },
 }));
 
@@ -218,71 +219,52 @@ const CollaboratorCard = styled(Card)(({ theme }) => ({
   alignItems: "center",
   padding: theme.spacing(2),
   textAlign: "center",
-  borderLeft: "none", // Remove specific borderLeft, use overall card shadow
+  borderLeft: "none",
   position: "relative",
-  overflow: "hidden", // Ensures nothing spills outside the rounded corners
+  overflow: "hidden",
   "&::before": {
     content: '""',
     position: "absolute",
     top: 0,
     left: 0,
     width: "100%",
-    height: "5px", // Accent line at the top
-    background: "linear-gradient(90deg, #4f46e5 0%, #0ea5e9 100%)", // Gradient accent
+    height: "5px",
+    background: "linear-gradient(90deg, #4f46e5 0%, #0ea5e9 100%)",
     transition: "height 0.3s ease",
   },
   "&:hover::before": {
-    height: "10px", // Expand on hover
+    height: "10px",
   },
   "&:hover .collab-actions": {
-    opacity: 1, // Show actions on hover
+    opacity: 1,
   },
 }));
 
 const PermissionChip = styled(Chip)(({ theme }) => ({
   margin: theme.spacing(0.4),
-  backgroundColor: "#e0e7ff", // Lighter, more pastel color
+  backgroundColor: "#e0e7ff",
   color: theme.palette.primary.main,
   fontWeight: 600,
   fontSize: "0.7rem",
-  padding: "4px 8px", // Slightly larger padding
-  height: "unset", // Allow height to adjust to content
+  padding: "4px 8px",
+  height: "unset",
 }));
 
 const ChartCard = styled(Card)(({ theme }) => ({
   padding: theme.spacing(3),
   display: "flex",
   flexDirection: "column",
-  height: "100%", // Ensures cards in a grid have equal height
+  height: "100%",
 }));
 
-// Mock data for charts
-const projectWorkData = [
-  { name: "Week 1", "Progress (%)": 20 },
-  { name: "Week 2", "Progress (%)": 45 },
-  { name: "Week 3", "Progress (%)": 70 },
-  { name: "Week 4", "Progress (%)": 90 },
-  { name: "Week 5", "Progress (%)": 100 },
-];
-
-const codeContributionData = [
-  { name: "Developer", "Lines of Code": 7500 },
-  { name: "AI", "Lines of Code": 5000 },
-];
-
-const timeSavedData = [
-  { name: "Jan", "Hours Saved": 40 },
-  { name: "Feb", "Hours Saved": 60 },
-  { name: "Mar", "Hours Saved": 50 },
-  { name: "Apr", "Hours Saved": 75 },
-  { name: "May", "Hours Saved": 90 },
-];
-
-const geminiTokenData = [
-  { name: "Used", value: 700000 },
-  { name: "Remaining", value: 300000 },
-];
-const COLORS = ["#4f46e5", "#0ea5e9", "#22c55e", "#fbbf24"]; // Colors for pie chart
+const COLORS = [
+  "#4f46e5",
+  "#0ea5e9",
+  "#22c55e",
+  "#fbbf24",
+  "#ef4444",
+  "#a855f7",
+]; // Colors for pie chart
 
 const ProjectDetailPage = () => {
   const params = useParams();
@@ -293,11 +275,10 @@ const ProjectDetailPage = () => {
 
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openDeleteCollaboratorDialog, setOpenDeleteCollaboratorDialog] =
-    useState(false); // Renamed for clarity
+    useState(false);
   const [openEditCollaboratorDialog, setOpenEditCollaboratorDialog] =
-    useState(false); // Renamed for clarity
+    useState(false);
 
-  // New states for Project Edit/Delete
   const [openEditProjectDialog, setOpenEditProjectDialog] = useState(false);
   const [openDeleteProjectDialog, setOpenDeleteProjectDialog] = useState(false);
   const [openConfirmDeleteRepoDialog, setOpenConfirmDeleteRepoDialog] =
@@ -339,7 +320,7 @@ const ProjectDetailPage = () => {
     isLoading: projectLoading,
     isError: projectIsError,
     error: projectError,
-    refetch: refetchProjectDetails, // New: Refetch project details
+    refetch: refetchProjectDetails,
   } = useGetProjectByIdQuery(projectId, { skip: !projectId });
 
   // Fetch collaborators
@@ -350,6 +331,15 @@ const ProjectDetailPage = () => {
     error: collaboratorsError,
     refetch: refetchCollaborators,
   } = useGetCollaboratorsQuery(projectId, { skip: !projectId });
+
+  // NEW: Fetch project metrics
+  const {
+    data: projectMetricsData,
+    isLoading: metricsLoading,
+    isError: metricsIsError,
+    error: metricsError,
+    refetch: refetchProjectMetrics,
+  } = useGetProjectMetricsQuery(projectId, { skip: !projectId });
 
   // Search GitHub users
   const {
@@ -395,7 +385,6 @@ const ProjectDetailPage = () => {
     },
   ] = useUpdateCollaboratorPermissionsMutation();
 
-  // New mutations for project
   const [
     updateProject,
     {
@@ -476,7 +465,7 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     if (updateProjectSuccess) {
       setOpenEditProjectDialog(false);
-      refetchProjectDetails(); // Refetch project details to show updated data
+      refetchProjectDetails();
       resetUpdateProjectMutation();
     }
   }, [updateProjectSuccess, refetchProjectDetails, resetUpdateProjectMutation]);
@@ -484,16 +473,14 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     if (deleteProjectSuccess) {
       setOpenDeleteProjectDialog(false);
-      setOpenConfirmDeleteRepoDialog(false); // Close repo confirmation if open
-      router.push(`/${userId}/dashboard`); // Redirect to dashboard after deletion
+      setOpenConfirmDeleteRepoDialog(false);
+      router.push(`/${userId}/dashboard`);
       resetDeleteProjectMutation();
     }
   }, [deleteProjectSuccess, router, userId, resetDeleteProjectMutation]);
 
   useEffect(() => {
     if (deleteGithubRepoSuccess) {
-      // Potentially show a success message or handle further UI updates if needed
-      // This mutation is part of the deleteProject flow, so the main redirect happens after project delete
       console.log("GitHub repo deleted successfully.");
       resetDeleteGithubRepoMutation();
     }
@@ -639,7 +626,6 @@ const ProjectDetailPage = () => {
           projectId,
           projectName: editProjectName,
           projectDescription: editProjectDescription,
-          // githubRepoLink is disabled, so no need to send it back
         }).unwrap();
       } catch (err) {
         console.error("Failed to update project:", err);
@@ -653,17 +639,16 @@ const ProjectDetailPage = () => {
 
   const handleCloseDeleteProjectDialog = () => {
     setOpenDeleteProjectDialog(false);
-    setOpenConfirmDeleteRepoDialog(false); // Ensure this is also closed
+    setOpenConfirmDeleteRepoDialog(false);
     resetDeleteProjectMutation();
   };
 
   const handleConfirmProjectDelete = async () => {
     if (projectId) {
       try {
-        // First delete from DB
         await deleteProject(projectId).unwrap();
-        setOpenDeleteProjectDialog(false); // Close first dialog
-        setOpenConfirmDeleteRepoDialog(true); // Open second dialog to ask about GitHub repo
+        setOpenDeleteProjectDialog(false);
+        setOpenConfirmDeleteRepoDialog(true);
       } catch (err) {
         console.error("Failed to delete project from DB:", err);
       }
@@ -674,11 +659,10 @@ const ProjectDetailPage = () => {
     if (deleteRepo && project?.githubRepoLink) {
       try {
         const repoUrl = new URL(project.githubRepoLink);
-        // Extract owner and repo name from the GitHub URL
-        const pathParts = repoUrl.pathname.split("/").filter(Boolean); // Filter(Boolean) removes empty strings
+        const pathParts = repoUrl.pathname.split("/").filter(Boolean);
         if (pathParts.length >= 2) {
           const owner = pathParts[0];
-          const repoName = pathParts[1].replace(/\.git$/, ""); // Remove .git suffix if present
+          const repoName = pathParts[1].replace(/\.git$/, "");
 
           await deleteGithubRepo({ owner, repo: repoName }).unwrap();
         } else {
@@ -689,11 +673,8 @@ const ProjectDetailPage = () => {
         }
       } catch (err) {
         console.error("Failed to delete GitHub repo:", err);
-        // Even if repo deletion fails, we proceed with project deletion from DB (which already happened)
-        // and redirect. A user can manually delete the repo later if needed.
       }
     }
-    // Regardless of GitHub repo deletion outcome, close the dialog and redirect.
     setOpenConfirmDeleteRepoDialog(false);
     router.push(`/${userId}/dashboard`);
   };
@@ -701,25 +682,16 @@ const ProjectDetailPage = () => {
   const project = projectData?.project;
   const collaborators = collaboratorsData?.collaborators || [];
 
-  // This function is kept but the button click logic uses handleButtonClick directly
-  // for consistency. If specific new tab logic is needed, this can be re-integrated.
-  const handleOpenCodeAnalysisTab = () => {
-    const isAllowed =
-      user_role === "manager" ||
-      developerPermissions?.includes("Code analysis");
+  // Prepare dynamic chart data
+  const projectWorkData = projectMetricsData?.projectWorkProgressData || [];
+  const codeContributionData = projectMetricsData?.codeContributionData || [];
+  const timeSavedData = projectMetricsData?.timeSavedData || [];
+  const geminiTokenData = projectMetricsData?.geminiTokenData || [];
+  const prStatusData = projectMetricsData?.prStatusData || []; // New data for PR status
+  const prContributionData = projectMetricsData?.prContributionData || []; // New data for AI vs Dev PRs
 
-    if (!isAllowed) return;
-
-    const url = `/${userId}/create-project/${projectId}/code-analysis`;
-
-    if (!codeAnalysisTabRef.current || codeAnalysisTabRef.current.closed) {
-      codeAnalysisTabRef.current = window.open(url, "_blank");
-    } else {
-      codeAnalysisTabRef.current.focus();
-    }
-  };
-
-  if (projectLoading) {
+  if (projectLoading || metricsLoading) {
+    // Include metricsLoading
     return (
       <Box
         display="flex"
@@ -743,6 +715,12 @@ const ProjectDetailPage = () => {
         </Alert>
       </Box>
     );
+  }
+
+  if (metricsIsError) {
+    // Handle metrics error
+    console.error("Error loading project metrics:", metricsError);
+    // You might choose to display an alert, or just log and let the charts show empty states
   }
 
   if (!project) {
@@ -780,7 +758,7 @@ const ProjectDetailPage = () => {
                 height: "auto",
               }}
             />
-            {user_role === "manager" && ( // Only show edit/delete for managers
+            {user_role === "manager" && (
               <Box sx={{ ml: 2, display: "flex", gap: 1 }}>
                 <IconButton
                   aria-label="edit project"
@@ -848,7 +826,7 @@ const ProjectDetailPage = () => {
           <Grid item xs={12} sm={6} md={3}>
             <ActionButton
               onClick={() => handleButtonClick("userStory")}
-              startIcon={<DescriptionIcon sx={{ color: "#8b5cf6" }} />} // Violet
+              startIcon={<DescriptionIcon sx={{ color: "#8b5cf6" }} />}
             >
               <Typography
                 variant="subtitle1"
@@ -872,7 +850,7 @@ const ProjectDetailPage = () => {
                   handleButtonClick("codeAnalysis");
                 }
               }}
-              startIcon={<CodeIcon sx={{ color: "#10b981" }} />} // Emerald
+              startIcon={<CodeIcon sx={{ color: "#10b981" }} />}
               disabled={
                 !(
                   user_role === "manager" ||
@@ -915,7 +893,7 @@ const ProjectDetailPage = () => {
           <Grid item xs={12} sm={6} md={3}>
             <ActionButton
               onClick={() => handleButtonClick("documentation")}
-              startIcon={<DescriptionIcon sx={{ color: "#ec4899" }} />} // Pink
+              startIcon={<DescriptionIcon sx={{ color: "#ec4899" }} />}
             >
               <Typography
                 variant="subtitle1"
@@ -932,7 +910,7 @@ const ProjectDetailPage = () => {
           <Grid item xs={12} sm={6} md={3}>
             <ActionButton
               onClick={() => handleButtonClick("managePrBranches")}
-              startIcon={<AccountTreeIcon sx={{ color: "#f97316" }} />} // Orange
+              startIcon={<AccountTreeIcon sx={{ color: "#f97316" }} />}
             >
               <Typography
                 variant="subtitle1"
@@ -969,7 +947,7 @@ const ProjectDetailPage = () => {
                     margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
                   >
                     <XAxis
-                      dataKey="name"
+                      dataKey="date"
                       stroke={lightTheme.palette.text.secondary}
                     />
                     <YAxis stroke={lightTheme.palette.text.secondary} />
@@ -989,13 +967,21 @@ const ProjectDetailPage = () => {
                       dot={{ r: 6, fill: "#4f46e5" }}
                       activeDot={{ r: 8, strokeWidth: 2, fill: "#4f46e5" }}
                     />
+                    <Line
+                      type="monotone"
+                      dataKey="AI Developed Stories"
+                      stroke="#0ea5e9"
+                      strokeWidth={3}
+                      dot={{ r: 6, fill: "#0ea5e9" }}
+                      activeDot={{ r: 8, strokeWidth: 2, fill: "#0ea5e9" }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </Box>
             </ChartCard>
           </Grid>
 
-          {/* Code Done by Developer vs. AI Chart */}
+          {/* Code Contribution (Lines) */}
           <Grid item xs={12} md={6}>
             <ChartCard>
               <Typography variant="h6" sx={{ mb: 2, color: "text.primary" }}>
@@ -1069,7 +1055,7 @@ const ProjectDetailPage = () => {
             </ChartCard>
           </Grid>
 
-          {/* Gemini AI Token Remaining Chart */}
+          {/* Gemini AI Token Usage Chart */}
           <Grid item xs={12} md={6}>
             <ChartCard>
               <Typography variant="h6" sx={{ mb: 2, color: "text.primary" }}>
@@ -1116,6 +1102,95 @@ const ProjectDetailPage = () => {
                     />
                     <Legend />
                   </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            </ChartCard>
+          </Grid>
+
+          {/* New Chart: AI-Assisted PRs vs. Developer-Only PRs */}
+          <Grid item xs={12} md={6}>
+            <ChartCard>
+              <Typography variant="h6" sx={{ mb: 2, color: "text.primary" }}>
+                Pull Request Contribution
+              </Typography>
+              <Box
+                sx={{
+                  flexGrow: 1,
+                  height: 250,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={prContributionData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      paddingAngle={5}
+                      dataKey="value"
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name}: ${(percent * 100).toFixed(0)}%`
+                      }
+                    >
+                      {prContributionData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "8px",
+                        backgroundColor: "#ffffff",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            </ChartCard>
+          </Grid>
+
+          {/* New Chart: PR Status Distribution */}
+          <Grid item xs={12} md={6}>
+            <ChartCard>
+              <Typography variant="h6" sx={{ mb: 2, color: "text.primary" }}>
+                Pull Request Status Distribution
+              </Typography>
+              <Box sx={{ flexGrow: 1, height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={prStatusData}
+                    margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+                  >
+                    <XAxis
+                      dataKey="name"
+                      stroke={lightTheme.palette.text.secondary}
+                    />
+                    <YAxis stroke={lightTheme.palette.text.secondary} />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "8px",
+                        backgroundColor: "#ffffff",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="value"
+                      fill="#a855f7" // A new color
+                      barSize={30}
+                      radius={[10, 10, 0, 0]}
+                    />
+                  </BarChart>
                 </ResponsiveContainer>
               </Box>
             </ChartCard>
@@ -1217,16 +1292,16 @@ const ProjectDetailPage = () => {
                         height: "24px",
                         backgroundColor:
                           collab.status === "accepted"
-                            ? "#dcfce7" // Light green
+                            ? "#dcfce7"
                             : collab.status === "pending"
-                            ? "#fef9c3" // Light yellow
-                            : "#fee2e2", // Light red
+                            ? "#fef9c3"
+                            : "#fee2e2",
                         color:
                           collab.status === "accepted"
-                            ? "#166534" // Dark green
+                            ? "#166534"
                             : collab.status === "pending"
-                            ? "#854d0e" // Dark yellow
-                            : "#b91c1c", // Dark red
+                            ? "#854d0e"
+                            : "#b91c1c",
                       }}
                     />
                     <Box
@@ -1257,7 +1332,7 @@ const ProjectDetailPage = () => {
                           position: "absolute",
                           bottom: 10,
                           right: 10,
-                          opacity: { xs: 1, md: 0 }, // Always visible on mobile, hover on desktop
+                          opacity: { xs: 1, md: 0 },
                           transition: "opacity 0.3s ease",
                           display: "flex",
                           gap: 1,
@@ -1798,7 +1873,7 @@ const ProjectDetailPage = () => {
               fullWidth
               variant="outlined"
               value={editGithubRepoLink}
-              disabled // This field should be disabled as per requirement
+              disabled
               sx={{ mb: 2 }}
               size="medium"
               InputProps={{
@@ -1923,7 +1998,7 @@ const ProjectDetailPage = () => {
         {/* New: Confirm GitHub Repo Deletion Dialog (Phase 2) */}
         <Dialog
           open={openConfirmDeleteRepoDialog}
-          onClose={() => handleConfirmDeleteRepo(false)} // If user closes, it's a "no"
+          onClose={() => handleConfirmDeleteRepo(false)}
           fullWidth
           maxWidth="xs"
           PaperProps={{
@@ -1935,8 +2010,8 @@ const ProjectDetailPage = () => {
         >
           <DialogTitle
             sx={{
-              bgcolor: "#fffbe0", // Light yellow background
-              color: "#d97706", // Orange text
+              bgcolor: "#fffbe0",
+              color: "#d97706",
               borderBottom: "1px solid #e5e7eb",
               fontWeight: 700,
               display: "flex",

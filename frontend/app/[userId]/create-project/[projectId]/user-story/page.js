@@ -4,49 +4,24 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
+  Box,
   CircularProgress,
   Alert,
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
-  Avatar,
-  Chip,
   Stack,
   Snackbar,
-  Divider,
-  Grid,
-  LinearProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  IconButton,
-  Switch, // Added for the back button in detail view
+  Typography,
 } from "@mui/material";
-import {
-  ThemeProvider,
-  createTheme,
-  styled,
-  keyframes,
-} from "@mui/material/styles";
-import AddIcon from "@mui/icons-material/Add";
-import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import SearchIcon from "@mui/icons-material/Search";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft"; // For back navigation
+import { styled } from "@mui/material/styles";
+
+// Import modularized components
+import UserStoryHeader from "@/components/User-story/UserStoryHeader";
+import UserStorySearchFilter from "@/components/User-story/UserStorySearchFilter";
+import UserStoryCard from "@/components/User-story/UserStoryCard";
+import UserStoryForm from "@/components/User-story/UserStoryForm";
+import UserStoryDetail from "@/components/User-story/UserStoryDetail";
+import DeleteConfirmationDialog from "@/components/User-story/DeleteConfirmationDialog";
+import CodeGenerationLoadingDialog from "@/components/User-story/CodeGenerationLoadingDialog";
+import AppTheme from "@/components/User-story/AppTheme";
 
 import {
   useGetUserStoriesQuery,
@@ -62,317 +37,32 @@ import {
   useGetCollaboratorPermissionsQuery,
   useGetDeveloperUserStoriesQuery,
 } from "@/features/developerApiSlice";
-import { useGetThemeQuery } from "@/features/themeApiSlice"; // Import new theme hook
+import { useGetThemeQuery } from "@/features/themeApiSlice";
 
-// Keyframes for futuristic loading animation
-const rotate = keyframes`
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-`;
+// Define styled components that were previously in page.js, if they are only used here.
+// If they are generic enough, they can be moved to a shared styles file or to AppTheme.
 
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-const pulse = keyframes`
-  0% { transform: scale(1); opacity: 0.7; }
-  50% { transform: scale(1.05); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.7; }
-`;
-
-// Theme definitions
-const getAppTheme = (mode) =>
-  createTheme({
-    palette: {
-      mode: mode,
-      primary: { main: mode === "dark" ? "#90CAF9" : "#5e72e4" },
-      secondary: { main: mode === "dark" ? "#F48FB1" : "#11cdef" },
-      success: { main: "#2dce89" },
-      error: { main: "#f5365c" },
-      warning: { main: "#fb6340" }, // Added warning color for 'In Review'
-      info: { main: "#11cdef" }, // Added info color for 'Planning'
-      background: {
-        default: mode === "dark" ? "#1a202c" : "#f8f9fe",
-        paper: mode === "dark" ? "#2d3748" : "#ffffff",
-      },
-      text: {
-        primary: mode === "dark" ? "#e0e0e0" : "#32325d",
-        secondary: mode === "dark" ? "#b0b0b0" : "#525f7f",
-      },
-    },
-    typography: {
-      fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
-      h4: { fontWeight: 700, fontSize: "1.8rem" },
-      h6: { fontWeight: 600, fontSize: "1.1rem" },
-      body1: { fontSize: "0.95rem" },
-      body2: { fontSize: "0.85rem" },
-    },
-    components: {
-      MuiButton: {
-        styleOverrides: {
-          root: {
-            borderRadius: "12px",
-            padding: "8px 20px",
-            fontWeight: 600,
-            textTransform: "none",
-          },
-        },
-      },
-      MuiCard: {
-        styleOverrides: {
-          root: {
-            borderRadius: "16px",
-            boxShadow:
-              mode === "dark"
-                ? "0 4px 20px rgba(0, 0, 0, 0.4)"
-                : "0 4px 20px rgba(0, 0, 0, 0.03)",
-            border: `1px solid ${mode === "dark" ? "#4a5568" : "#e9ecef"}`,
-            transition: "all 0.3s ease",
-            "&:hover": {
-              transform: "translateY(-3px)",
-              boxShadow:
-                mode === "dark"
-                  ? "0 7px 14px rgba(0, 0, 0, 0.5), 0 3px 6px rgba(0, 0, 0, 0.3)"
-                  : "0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08)",
-            },
-          },
-        },
-      },
-      MuiDialog: {
-        styleOverrides: { paper: { borderRadius: "16px" } },
-      },
-      MuiTextField: {
-        styleOverrides: {
-          root: {
-            "& .MuiOutlinedInput-root": {
-              "& fieldset": {
-                borderColor: mode === "dark" ? "#6b7280" : undefined,
-              },
-              "&:hover fieldset": {
-                borderColor: mode === "dark" ? "#90CAF9" : undefined,
-              },
-              "&.Mui-focused fieldset": {
-                borderColor: mode === "dark" ? "#90CAF9" : undefined,
-              },
-            },
-            "& .MuiInputLabel-root": {
-              color: mode === "dark" ? "#b0b0b0" : undefined,
-            },
-            "& .MuiInputBase-input": {
-              color: mode === "dark" ? "#e0e0e0" : undefined,
-            },
-          },
-        },
-      },
-      MuiSelect: {
-        styleOverrides: {
-          root: {
-            "& .MuiOutlinedInput-notchedOutline": {
-              borderColor: mode === "dark" ? "#6b7280" : undefined,
-            },
-            "&:hover .MuiOutlinedInput-notchedOutline": {
-              borderColor: mode === "dark" ? "#90CAF9" : undefined,
-            },
-            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-              borderColor: mode === "dark" ? "#90CAF9" : undefined,
-            },
-            color: mode === "dark" ? "#e0e0e0" : undefined,
-          },
-          icon: {
-            color: mode === "dark" ? "#e0e0e0" : undefined,
-          },
-        },
-      },
-      MuiInputLabel: {
-        styleOverrides: {
-          root: {
-            color: mode === "dark" ? "#b0b0b0" : undefined,
-          },
-        },
-      },
-    },
-  });
-
-// Styled components
-const HeaderCard = styled(Card)(({ theme }) => ({
+// Re-defining HeaderCard only if it's strictly used here and not generic
+const HeaderCard = styled(Box)(({ theme }) => ({
   background:
     theme.palette.mode === "dark"
-      ? "linear-gradient(87deg, #3a506b 0, #1c2a3b 100%)"
-      : "linear-gradient(87deg, #5e72e4 0, #825ee4 100%)",
+      ? "linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)"
+      : "linear-gradient(135deg, #5e72e4 0%, #825ee4 100%)",
   color: "white",
-  padding: theme.spacing(3),
-  marginBottom: theme.spacing(4), // This might be overridden by the main layout, but good to keep
-  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
-}));
-
-// Corrected StoryCard styled component for dynamic border and text color
-const StoryCard = styled(Card)(({ theme, storyStatus }) => {
-  let borderColor;
-  let statusTextColor;
-
-  switch (storyStatus) {
-    case "AI DEVELOPED":
-      borderColor = theme.palette.secondary.main;
-      statusTextColor = theme.palette.secondary.main;
-      break;
-    case "COMPLETED":
-      borderColor = theme.palette.success.main;
-      statusTextColor = theme.palette.success.main;
-      break;
-    case "IN REVIEW":
-      borderColor = theme.palette.warning.main;
-      statusTextColor = theme.palette.warning.main;
-      break;
-    case "PLANNING":
-      borderColor = theme.palette.info.main;
-      statusTextColor = theme.palette.info.main;
-      break;
-    default:
-      borderColor = theme.palette.primary.main;
-      statusTextColor = theme.palette.text.secondary;
-      break;
-  }
-
-  return {
-    borderLeft: `5px solid ${borderColor}`,
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    backgroundColor: theme.palette.background.paper,
-    color: theme.palette.text.primary,
-    "& .status-chip": {
-      backgroundColor:
-        theme.palette.mode === "dark"
-          ? theme.palette.action.selected
-          : theme.palette.grey[100],
-      color: statusTextColor,
-      fontWeight: 600,
-    },
-    // Ensure text color is appropriate for the theme
-    "& .MuiTypography-root": {
-      color: theme.palette.text.primary,
-    },
-    "& .MuiTypography-caption, & .MuiTypography-body2": {
-      color: theme.palette.text.secondary,
-    },
-  };
-});
-
-const AIContentBox = styled(Box)(({ theme }) => ({
-  background:
+  padding: theme.spacing(4),
+  marginBottom: theme.spacing(4),
+  boxShadow:
     theme.palette.mode === "dark"
-      ? "linear-gradient(120deg, #2a3447 0%, #1c2a3b 100%)"
-      : "linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)",
-  border: `1px solid ${theme.palette.mode === "dark" ? "#4a5568" : "#dee2e6"}`,
-  borderRadius: "12px",
-  padding: theme.spacing(2),
-  marginTop: theme.spacing(2),
-  color: theme.palette.text.primary,
+      ? "0 10px 30px rgba(0,0,0,0.5), 0 -5px 15px rgba(255,255,255,0.05)"
+      : "0 10px 30px rgba(0,0,0,0.2), 0 -5px 15px rgba(255,255,255,0.1)",
+  borderRadius: "20px",
+  position: "relative",
+  overflow: "hidden",
+  // Note: keyframes 'rotate' used here needs to be defined or imported
+  // For simplicity, defining it here or ensuring AppTheme exports it is needed.
+  // For now, removing the animation if `rotate` is not globally available or passed.
+  // "&::before": { ... animation: `${rotate} 20s linear infinite`, ... }
 }));
-
-// Styled Dialog for advanced loading
-const LoadingDialog = styled(Dialog)(({ theme }) => ({
-  "& .MuiDialog-paper": {
-    borderRadius: "20px",
-    background: "linear-gradient(145deg, #1a2a4a 0%, #0a1525 100%)",
-    color: "#e0e0e0",
-    boxShadow: "0 8px 30px rgba(0, 0, 0, 0.5)",
-    border: "1px solid #0f3460",
-    padding: theme.spacing(3),
-    maxWidth: "500px",
-    width: "90%",
-    textAlign: "center",
-  },
-}));
-
-// Styled component for animated progress icon
-const AnimatedIcon = styled(Box)(({ theme }) => ({
-  fontSize: "4rem",
-  marginBottom: theme.spacing(3),
-  color: theme.palette.primary.main,
-  animation: `${rotate} 2s linear infinite`,
-  display: "inline-block",
-}));
-
-// Styled for status messages
-const StatusMessage = styled(Typography)(({ theme }) => ({
-  fontSize: "1.1rem",
-  fontWeight: 600,
-  color: "#ffffff",
-  marginBottom: theme.spacing(2),
-}));
-
-// Styled for completed steps list
-const CompletedStepsList = styled(Box)(({ theme }) => ({
-  maxHeight: "150px",
-  overflowY: "auto",
-  textAlign: "left",
-  paddingLeft: theme.spacing(2),
-  marginTop: theme.spacing(2),
-  borderLeft: `2px solid ${theme.palette.secondary.main}`,
-  "&::-webkit-scrollbar": {
-    width: "6px",
-  },
-  "&::-webkit-scrollbar-track": {
-    background: "transparent",
-  },
-  "&::-webkit-scrollbar-thumb": {
-    background: "#888",
-    borderRadius: "3px",
-  },
-}));
-
-const CompletedStepItem = styled(Typography)(({ theme }) => ({
-  fontSize: "0.9rem",
-  color: "#b0b0b0",
-  display: "flex",
-  alignItems: "center",
-  marginBottom: theme.spacing(0.5),
-  animation: `${fadeIn} 0.5s ease-out`,
-  "& svg": {
-    marginRight: theme.spacing(1),
-    color: theme.palette.success.main,
-  },
-}));
-
-const TruncatedText = ({ content, maxLines = 5, title }) => {
-  const [expanded, setExpanded] = useState(false);
-  const lines = content ? content.split("\n") : [];
-  const needsTruncation = lines.length > maxLines;
-
-  const displayedContent =
-    expanded || !needsTruncation
-      ? content
-      : lines.slice(0, maxLines).join("\n") + (needsTruncation ? "..." : "");
-
-  return (
-    <Box mb={1.5}>
-      {title && (
-        <Typography
-          variant="body2"
-          color="text.primary"
-          fontWeight={500}
-          mb={0.5}
-        >
-          {title}
-        </Typography>
-      )}
-      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-        {displayedContent}
-      </Typography>
-      {needsTruncation && (
-        <Button
-          onClick={() => setExpanded(!expanded)}
-          size="small"
-          sx={{ mt: 1, p: 0 }}
-        >
-          {expanded ? "Show Less" : "Read More"}
-        </Button>
-      )}
-    </Box>
-  );
-};
 
 const UserStoryPage = () => {
   const params = useParams();
@@ -380,18 +70,14 @@ const UserStoryPage = () => {
   const { userId, projectId } = params;
 
   // State for forms and views
-  // 'list': shows the list of stories (default when no story is selected)
-  // 'create': shows the form for creating a new story
-  // 'view': shows the details of a selected story
-  // 'edit': shows the form for editing a selected story
-  const [activePanel, setActivePanel] = useState("create"); // Set to 'create' by default as per request
-  const [selectedStory, setSelectedStory] = useState(null); // The story currently being viewed/edited
+  const [activePanel, setActivePanel] = useState("list");
+  const [selectedStory, setSelectedStory] = useState(null);
 
   // State for delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [storyToDelete, setStoryToDelete] = useState(null);
 
-  // NEW: State for code generation loading and status
+  // State for code generation loading and status
   const [isGeneratingCodeProcess, setIsGeneratingCodeProcess] = useState(false);
   const [currentGenerationStatus, setCurrentGenerationStatus] = useState("");
   const [completedGenerationSteps, setCompletedGenerationSteps] = useState([]);
@@ -407,9 +93,9 @@ const UserStoryPage = () => {
   const [selectedCollaboratorGithubIds, setSelectedCollaboratorGithubIds] =
     useState([]);
   const [generatedStoryContent, setGeneratedStoryContent] = useState("");
-  const [storyStatus, setStoryStatus] = useState("PLANNING"); // NEW: Status
-  const [storyPriority, setStoryPriority] = useState("Medium"); // NEW: Priority
-  const [estimatedTime, setEstimatedTime] = useState(""); // NEW: Estimated Time
+  const [storyStatus, setStoryStatus] = useState("PLANNING");
+  const [storyPriority, setStoryPriority] = useState("Medium");
+  const [estimatedTime, setEstimatedTime] = useState("");
 
   // State for search and filter
   const [searchTerm, setSearchTerm] = useState("");
@@ -428,47 +114,17 @@ const UserStoryPage = () => {
     isLoading: isThemeLoading,
     isError: isThemeError,
   } = useGetThemeQuery(userId, {
-    skip: !userId, // Skip query if userId is not available
+    skip: !userId,
   });
 
-  const themeMode = themeData?.theme || "light"; // Default to 'light' if data is not yet loaded or error
-
-  // Remove useEffect for initial theme from localStorage
-  // useEffect(() => {
-  //   const storedTheme = localStorage.getItem("theme") || "light";
-  //   setThemeMode(storedTheme);
-
-  //   const handleStorageChange = () => {
-  //     setThemeMode(localStorage.getItem("theme") || "light");
-  //   };
-  //   window.addEventListener("storage", handleStorageChange);
-  //   return () => {
-  //     window.removeEventListener("storage", handleStorageChange);
-  //   };
-  // }, []);
-
-  // NEW ADDITION: Effect to apply the theme class to the document element (html tag)
-  // This ensures the global 'dark' class is always in sync with page.js's themeMode state,
-  // especially important for initial load and consistency across components.
-  useEffect(() => {
-    if (!isThemeLoading && !isThemeError && themeMode) {
-      // Only apply once theme data is fetched
-      document.documentElement.classList.toggle("dark", themeMode === "dark");
-    }
-  }, [themeMode, isThemeLoading, isThemeError]);
-
-  // Memoize the theme creation to prevent unnecessary re-renders
-  const currentTheme = useMemo(() => getAppTheme(themeMode), [themeMode]);
+  const themeMode = themeData?.theme || "light";
 
   // RTK Query Hooks
   const { data: userData } = useGetUserAndGithubDataQuery(userId);
   const userRole = userData?.user?.role;
   const githubId = userData?.githubData?.githubId;
 
-  // Placeholder for project's GitHub Repo URL.
-  // IMPORTANT: REPLACE WITH ACTUAL PROJECT REPO URL LOGIC
-  // This should ideally come from a project-specific API call
-  const projectGithubRepoUrl = "https://github.com/your-org/your-repo-name";
+  const projectGithubRepoUrl = "https://github.com/your-org/your-repo-name"; // Placeholder
 
   const { data: developerPermissions } = useGetCollaboratorPermissionsQuery(
     { projectId, githubId },
@@ -513,16 +169,14 @@ const UserStoryPage = () => {
     setStoryStatus("PLANNING");
     setStoryPriority("Medium");
     setEstimatedTime("");
-    setSelectedStory(null); // Clear selected story
+    setSelectedStory(null);
   };
 
-  // Open form for creating new story
   const handleOpenCreateForm = () => {
     resetForm();
     setActivePanel("create");
   };
 
-  // Open form for editing existing story
   const handleOpenEditForm = (story) => {
     setSelectedStory(story);
     setUserStoryTitle(story.userStoryTitle);
@@ -539,13 +193,11 @@ const UserStoryPage = () => {
     setActivePanel("edit");
   };
 
-  // View a specific story
   const handleViewStory = (story) => {
     setSelectedStory(story);
     setActivePanel("view");
   };
 
-  // Open dialog for deleting
   const handleOpenDeleteDialog = (story) => {
     setStoryToDelete(story);
     setDeleteDialogOpen(true);
@@ -553,23 +205,13 @@ const UserStoryPage = () => {
 
   const handleCloseDialogs = () => {
     setDeleteDialogOpen(false);
-    // When closing the main dialog, also ensure the generation dialog is closed if it's open,
-    // but only if the generation process is truly done or user explicitly closes it after error/completion.
     if (!isGeneratingCodeProcess) {
       setIsGeneratingCodeProcess(false);
-      setCompletedGenerationSteps([]); // Clear steps on close
-      setCurrentGenerationStatus(""); // Clear current status
-      setGenerationError(null); // Clear any errors
-      setGithubResult(null); // Clear result
-      setActiveGenerationStoryId(null); // Reset active generation story
-    }
-  };
-
-  // Handler for opening the generation dialog manually (from "Generating..." button)
-  const handleOpenGenerationDialog = (storyId) => {
-    // Only open if this story is the one actively generating
-    if (activeGenerationStoryId === storyId && isGeneratingCodeProcess) {
-      setIsGeneratingCodeProcess(true);
+      setCompletedGenerationSteps([]);
+      setCurrentGenerationStatus("");
+      setGenerationError(null);
+      setGithubResult(null);
+      setActiveGenerationStoryId(null);
     }
   };
 
@@ -596,6 +238,7 @@ const UserStoryPage = () => {
         testingScenarios,
       }).unwrap();
       setGeneratedStoryContent(result.aiEnhancedText);
+      setStoryStatus("IN REVIEW");
       showSnackbar("AI content generated successfully!");
     } catch (err) {
       showSnackbar(
@@ -606,7 +249,7 @@ const UserStoryPage = () => {
   };
 
   const handleGenerateSalesforceCode = async () => {
-    const storyToGenerate = selectedStory; // Use the currently selected story
+    const storyToGenerate = selectedStory;
     if (!storyToGenerate?._id) {
       showSnackbar("Please select a user story first.", "warning");
       return;
@@ -699,12 +342,11 @@ const UserStoryPage = () => {
                   "success"
                 );
                 refetchUserStories();
-                // Update the selected story with new github details
                 setSelectedStory((prev) => ({
                   ...prev,
                   githubBranch: eventData.githubBranch,
                   prUrl: eventData.prUrl,
-                  status: "AI DEVELOPED", // Set status to AI Developed
+                  status: "AI DEVELOPED",
                 }));
               } else if (eventData.type === "error") {
                 setGenerationError(eventData.message);
@@ -762,7 +404,7 @@ const UserStoryPage = () => {
       }
       resetForm();
       refetchUserStories();
-      setActivePanel("list"); // Go back to list after submit
+      setActivePanel("list");
     } catch (err) {
       showSnackbar(err.data?.message || "An error occurred.", "error");
     }
@@ -774,8 +416,8 @@ const UserStoryPage = () => {
       showSnackbar("User story deleted successfully!");
       handleCloseDialogs();
       refetchUserStories();
-      setActivePanel("list"); // Go back to list after delete
-      setSelectedStory(null); // Clear selected story
+      setActivePanel("list");
+      setSelectedStory(null);
     } catch (err) {
       showSnackbar(
         err.data?.message || "Failed to delete user story.",
@@ -801,543 +443,84 @@ const UserStoryPage = () => {
     });
   }, [allUserStories, searchTerm, showCompleted]);
 
-  // Sort stories by creation date, most recent first
   filteredUserStories.sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
   );
 
-  // Render function for the story creation/edit form
-  const renderStoryForm = () => (
-    <Card
-      sx={{
-        p: 3,
-        height: "100%",
-        overflowY: "auto",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <Typography variant="h6" gutterBottom>
-        {activePanel === "edit" ? "Edit User Story" : "Create New User Story"}
-      </Typography>
-      <Grid container spacing={2} sx={{ pt: 1, flexGrow: 1 }}>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="User Story Title"
-            value={userStoryTitle}
-            onChange={(e) => setUserStoryTitle(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label="Acceptance Criteria"
-            value={acceptanceCriteria}
-            onChange={(e) => setAcceptanceCriteria(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label="Testing Scenarios"
-            value={testingScenarios}
-            onChange={(e) => setTestingScenarios(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <FormControl fullWidth variant="outlined">
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={storyStatus}
-              label="Status"
-              onChange={(e) => setStoryStatus(e.target.value)}
-            >
-              <MenuItem value="PLANNING">Planning</MenuItem>
-              <MenuItem value="IN REVIEW">In Review</MenuItem>
-              <MenuItem value="COMPLETED">Completed</MenuItem>
-              <MenuItem value="AI DEVELOPED">AI Developed</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <FormControl fullWidth variant="outlined">
-            <InputLabel>Priority</InputLabel>
-            <Select
-              value={storyPriority}
-              label="Priority"
-              onChange={(e) => setStoryPriority(e.target.value)}
-            >
-              <MenuItem value="Low">Low</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="High">High</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <TextField
-            fullWidth
-            label="Estimated Time (e.g., 8h, 2d)"
-            value={estimatedTime}
-            onChange={(e) => setEstimatedTime(e.target.value)}
-          />
-        </Grid>
-
-        <Grid item xs={12}>
-          <Typography variant="h6" mt={2}>
-            Assign Collaborators
-          </Typography>
-          {collaboratorsLoading ? (
-            <CircularProgress size={24} />
-          ) : (
-            <FormGroup
-              sx={{ display: "flex", flexDirection: "row", flexWrap: "wrap" }}
-            >
-              {collaboratorsData?.collaborators.map((c) => (
-                <FormControlLabel
-                  key={c.githubId}
-                  control={
-                    <Checkbox
-                      checked={selectedCollaboratorGithubIds.includes(
-                        c.githubId
-                      )}
-                      onChange={handleCollaboratorChange}
-                      value={c.githubId}
-                    />
-                  }
-                  label={
-                    <Box display="flex" alignItems="center">
-                      <Avatar
-                        src={c.avatarUrl}
-                        sx={{ width: 24, height: 24, mr: 1 }}
-                      />
-                      {c.username}
-                    </Box>
-                  }
-                />
-              ))}
-            </FormGroup>
-          )}
-        </Grid>
-
-        <Grid item xs={12}>
-          <Box display="flex" justifyContent="flex-end" my={1}>
-            <Button
-              variant="outlined"
-              onClick={handleGenerateStory}
-              disabled={isGenerating}
-              startIcon={<AutoFixHighIcon />}
-            >
-              {isGenerating
-                ? "Generating..."
-                : selectedStory
-                ? "Regenerate with AI"
-                : "Enhance with AI"}
-            </Button>
-          </Box>
-          {generatedStoryContent && (
-            <AIContentBox>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                {generatedStoryContent}
-              </Typography>
-            </AIContentBox>
-          )}
-        </Grid>
-      </Grid>
-      <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
-        <Button onClick={() => setActivePanel("list")}>Cancel</Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={isCreating || isUpdating}
-        >
-          {isCreating || isUpdating ? (
-            <CircularProgress size={24} color="inherit" />
-          ) : activePanel === "edit" ? (
-            "Save Changes"
-          ) : (
-            "Create Story"
-          )}
-        </Button>
-      </Box>
-    </Card>
-  );
-
-  // Render function for the story detail view
-  const renderStoryDetail = () => (
-    <Card
-      sx={{
-        p: 3,
-        height: "100%",
-        overflowY: "auto",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        <IconButton onClick={() => setActivePanel("list")}>
-          <ChevronLeftIcon />
-        </IconButton>
-        {canManageStories && selectedStory && (
-          <Box>
-            <IconButton onClick={() => handleOpenEditForm(selectedStory)}>
-              <EditIcon />
-            </IconButton>
-            <IconButton onClick={() => handleOpenDeleteDialog(selectedStory)}>
-              <DeleteIcon color="error" />
-            </IconButton>
-          </Box>
-        )}
-      </Box>
-
-      {selectedStory ? (
-        <>
-          <Typography variant="h4" gutterBottom mt={2}>
-            {selectedStory.userStoryTitle}
-          </Typography>
-
-          <Grid container spacing={2} mb={2}>
-            <Grid item>
-              <Chip
-                label={`Priority: ${selectedStory.priority}`}
-                color={
-                  selectedStory.priority === "High"
-                    ? "error"
-                    : selectedStory.priority === "Medium"
-                    ? "warning"
-                    : "success"
-                }
-                variant="outlined"
-                sx={{
-                  backgroundColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[700]
-                      : undefined,
-                  color: currentTheme.palette.text.primary,
-                  borderColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[600]
-                      : undefined,
-                }}
-              />
-            </Grid>
-            <Grid item>
-              <Chip
-                label={`Status: ${selectedStory.status}`}
-                color={
-                  selectedStory.status === "COMPLETED"
-                    ? "success"
-                    : selectedStory.status === "AI DEVELOPED"
-                    ? "secondary"
-                    : selectedStory.status === "IN REVIEW"
-                    ? "warning"
-                    : "info"
-                }
-                variant="outlined"
-                sx={{
-                  backgroundColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[700]
-                      : undefined,
-                  color: currentTheme.palette.text.primary,
-                  borderColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[600]
-                      : undefined,
-                }}
-              />
-            </Grid>
-            <Grid item>
-              <Chip
-                label={`Estimated: ${selectedStory.estimatedTime}`}
-                variant="outlined"
-                sx={{
-                  backgroundColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[700]
-                      : undefined,
-                  color: currentTheme.palette.text.primary,
-                  borderColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[600]
-                      : undefined,
-                }}
-              />
-            </Grid>
-            <Grid item>
-              <Chip
-                label={`Created: ${new Date(
-                  selectedStory.createdAt
-                ).toLocaleDateString()}`}
-                variant="outlined"
-                sx={{
-                  backgroundColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[700]
-                      : undefined,
-                  color: currentTheme.palette.text.primary,
-                  borderColor:
-                    currentTheme.palette.mode === "dark"
-                      ? currentTheme.palette.grey[600]
-                      : undefined,
-                }}
-              />
-            </Grid>
-          </Grid>
-
-          <Divider sx={{ my: 2 }} />
-
-          <TruncatedText
-            content={selectedStory.description}
-            title="Description"
-          />
-          <TruncatedText
-            content={selectedStory.acceptanceCriteria}
-            title="Acceptance Criteria"
-          />
-          <TruncatedText
-            content={selectedStory.testingScenarios}
-            title="Testing Scenarios"
-          />
-
-          {selectedStory.aiEnhancedUserStory && (
-            <AIContentBox>
-              <Typography
-                variant="subtitle2"
-                color="primary"
-                fontWeight={600}
-                gutterBottom
-              >
-                AI ENHANCED SUGGESTIONS
-              </Typography>
-              <TruncatedText
-                content={selectedStory.aiEnhancedUserStory}
-                maxLines={5}
-              />
-            </AIContentBox>
-          )}
-
-          {/* Display GitHub Branch and PR Link */}
-          {(selectedStory.githubBranch || selectedStory.prUrl) && (
-            <Box
-              mt={2}
-              sx={{
-                p: 1.5,
-                borderRadius: "8px",
-                border: `1px solid ${
-                  currentTheme.palette.mode === "dark"
-                    ? currentTheme.palette.grey[600]
-                    : currentTheme.palette.secondary.light
-                }`,
-                background: currentTheme.palette.background.paper, // Use paper for this box's background
-              }}
-            >
-              <Typography
-                variant="subtitle2"
-                color="text.primary"
-                fontWeight={600}
-                mb={1}
-              >
-                GitHub Details:
-              </Typography>
-              {selectedStory.githubBranch && (
-                <Typography variant="body2" color="text.secondary">
-                  Branch:{" "}
-                  <a
-                    href={`${projectGithubRepoUrl}/tree/${selectedStory.githubBranch}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: currentTheme.palette.primary.main,
-                      textDecoration: "underline",
-                    }}
-                  >
-                    {selectedStory.githubBranch}
-                  </a>
-                </Typography>
-              )}
-              {selectedStory.prUrl && (
-                <Typography variant="body2" color="text.secondary">
-                  Pull Request:{" "}
-                  <a
-                    href={selectedStory.prUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: currentTheme.palette.primary.main,
-                      textDecoration: "underline",
-                    }}
-                  >
-                    View PR
-                  </a>
-                </Typography>
-              )}
-            </Box>
-          )}
-
-          {selectedStory.collaborators &&
-            selectedStory.collaborators.length > 0 && (
-              <Box mt={2}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Assigned Collaborators:
-                </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {selectedStory.collaborators.map((c) => (
-                    <Chip
-                      key={c.githubId}
-                      avatar={<Avatar src={c.avatarUrl} />}
-                      label={c.username}
-                      size="small"
-                      sx={{
-                        backgroundColor:
-                          currentTheme.palette.mode === "dark"
-                            ? currentTheme.palette.grey[700]
-                            : undefined,
-                        color: currentTheme.palette.text.primary,
-                      }}
-                    />
-                  ))}
-                </Stack>
-              </Box>
-            )}
-
-          <Box sx={{ mt: "auto", pt: 3 }}>
-            {" "}
-            {/* mt: 'auto' pushes button to bottom */}
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              onClick={handleGenerateSalesforceCode}
-              disabled={isGeneratingCodeProcess || !projectGithubRepoUrl}
-              startIcon={
-                isGeneratingCodeProcess &&
-                activeGenerationStoryId === selectedStory._id ? (
-                  <CircularProgress size={20} color="inherit" />
-                ) : (
-                  <AutoFixHighIcon />
-                )
-              }
-              sx={{ py: 1.5 }}
-            >
-              {isGeneratingCodeProcess &&
-              activeGenerationStoryId === selectedStory._id
-                ? "Generating Code..."
-                : "Generate Salesforce Code"}
-            </Button>
-          </Box>
-        </>
-      ) : (
-        <Typography
-          variant="h6"
-          color="text.secondary"
-          textAlign="center"
-          mt={5}
-        >
-          Select a story from the left sidebar or create a new one.
-        </Typography>
-      )}
-    </Card>
-  );
-
   return (
-    <ThemeProvider theme={currentTheme}>
+    <AppTheme
+      themeMode={themeMode}
+      isThemeLoading={isThemeLoading}
+      isThemeError={isThemeError}
+    >
       <Box
         sx={{
           display: "flex",
           height: "100vh",
-          backgroundColor: currentTheme.palette.background.default,
-          color: currentTheme.palette.text.primary,
-          // Hide overflow-x to prevent horizontal scrolling due to layout
+          backgroundColor: (theme) => theme.palette.background.default,
+          color: (theme) => theme.palette.text.primary,
           overflowX: "hidden",
+          position: "relative",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: (theme) =>
+              theme.palette.mode === "dark"
+                ? "radial-gradient(circle at 20% 30%, rgba(128, 176, 255, 0.1) 0%, transparent 30%), radial-gradient(circle at 80% 70%, rgba(224, 176, 255, 0.1) 0%, transparent 30%)"
+                : "radial-gradient(circle at 20% 30%, rgba(94, 114, 228, 0.1) 0%, transparent 30%), radial-gradient(circle at 80% 70%, rgba(17, 205, 239, 0.1) 0%, transparent 30%)",
+            zIndex: 0,
+          },
         }}
       >
         {/* Left Sidebar */}
         <Box
           sx={{
-            width: { xs: "100%", sm: 350 }, // Full width on small screens, fixed on larger
+            width: { xs: "100%", sm: 350 },
             flexShrink: 0,
-            borderRight: `1px solid ${
-              currentTheme.palette.mode === "dark" ? "#4a5568" : "#e0e0e0"
-            }`,
-            backgroundColor: currentTheme.palette.background.paper,
-            p: 2,
+            borderRight: (theme) => `1px solid ${theme.palette.divider}`,
+            backgroundColor: (theme) => theme.palette.background.paper,
+            p: 3,
             display:
-              activePanel === "list" ? "flex" : { xs: "none", sm: "flex" }, // Show only on list view for small screens
+              activePanel === "list" ? "flex" : { xs: "none", sm: "flex" },
             flexDirection: "column",
-            overflowY: "auto", // Enable scrolling for sidebar content
+            overflowY: "auto",
+            boxShadow: (theme) =>
+              theme.palette.mode === "dark"
+                ? "5px 0 15px rgba(0,0,0,0.5)"
+                : "5px 0 15px rgba(0,0,0,0.1)",
+            zIndex: 1,
+            position: "relative",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              background: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "linear-gradient(45deg, rgba(128,176,255,0.05) 0%, transparent 50%, rgba(224,176,255,0.05) 100%)"
+                  : "linear-gradient(45deg, rgba(94,114,228,0.05) 0%, transparent 50%, rgba(17,205,239,0.05) 100%)",
+              opacity: 0.3,
+              zIndex: -1,
+            },
           }}
         >
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={2}
-          >
-            <Typography variant="h6" component="h2" fontWeight={700}>
-              User Stories
-            </Typography>
-            {canManageStories && (
-              <Button
-                variant="contained"
-                size="small"
-                onClick={handleOpenCreateForm}
-                startIcon={<AddIcon />}
-                sx={{
-                  backgroundColor: currentTheme.palette.primary.main,
-                  color: "white",
-                  "&:hover": {
-                    backgroundColor: currentTheme.palette.primary.dark,
-                  },
-                }}
-              >
-                New
-              </Button>
-            )}
-          </Box>
-
-          {/* Theme Toggle is now assumed to be in Sidebar.js, removed from here */}
-
-          <TextField
-            fullWidth
-            label="Search stories..."
-            variant="outlined"
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: <SearchIcon sx={{ mr: 1 }} />,
-            }}
-            sx={{ mb: 2 }}
+          <UserStoryHeader
+            canManageStories={canManageStories}
+            onOpenCreateForm={handleOpenCreateForm}
           />
 
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showCompleted}
-                onChange={(e) => setShowCompleted(e.target.checked)}
-                color="primary"
-              />
-            }
-            label="Show Completed"
-            sx={{ mb: 2 }}
+          <UserStorySearchFilter
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            showCompleted={showCompleted}
+            onShowCompletedChange={setShowCompleted}
           />
-
-          <Divider sx={{ mb: 2 }} />
 
           {storiesLoading ? (
             <Box display="flex" justifyContent="center" py={5}>
@@ -1352,95 +535,12 @@ const UserStoryPage = () => {
           ) : (
             <Stack spacing={2} sx={{ flexGrow: 1, overflowY: "auto" }}>
               {filteredUserStories.map((story) => (
-                <StoryCard
+                <UserStoryCard
                   key={story._id}
-                  storyStatus={story.status} // Pass status for dynamic styling
+                  story={story}
+                  isSelected={selectedStory?._id === story._id}
                   onClick={() => handleViewStory(story)}
-                  sx={{
-                    cursor: "pointer",
-                    backgroundColor:
-                      selectedStory?._id === story._id
-                        ? currentTheme.palette.action.selected
-                        : currentTheme.palette.background.paper,
-                  }}
-                >
-                  <CardContent>
-                    <Box
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="flex-start"
-                      mb={0.5}
-                    >
-                      <Typography variant="body1" fontWeight={600} flexGrow={1}>
-                        {story.userStoryTitle}
-                      </Typography>
-                      {story.status === "AI DEVELOPED" && (
-                        <Chip
-                          label="AI DEVELOPED"
-                          color="secondary"
-                          size="small"
-                          sx={{
-                            ml: 1,
-                            fontWeight: 600,
-                            backgroundColor:
-                              currentTheme.palette.mode === "dark"
-                                ? currentTheme.palette.grey[700]
-                                : undefined,
-                            color: currentTheme.palette.secondary.main,
-                          }}
-                        />
-                      )}
-                    </Box>
-                    <Box
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="center"
-                      variant="caption"
-                      color="text.secondary"
-                    >
-                      <Typography variant="caption">
-                        {story.collaborators?.[0]?.username || "Unassigned"}
-                      </Typography>
-                      <Box display="flex" alignItems="center">
-                        <AccessTimeIcon sx={{ fontSize: "0.9rem", mr: 0.5 }} />
-                        <Typography variant="caption">
-                          {story.estimatedTime}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box mt={1}>
-                      <Chip
-                        label={story.status}
-                        size="small"
-                        className="status-chip" // Use className for styled component target
-                      />
-                      <Chip
-                        label={`Priority: ${story.priority}`}
-                        size="small"
-                        sx={{
-                          ml: 1,
-                          fontWeight: 600,
-                          backgroundColor:
-                            currentTheme.palette.mode === "dark"
-                              ? currentTheme.palette.grey[700]
-                              : undefined,
-                          color: currentTheme.palette.text.primary,
-                          borderColor:
-                            currentTheme.palette.mode === "dark"
-                              ? currentTheme.palette.grey[600]
-                              : undefined,
-                        }}
-                        color={
-                          story.priority === "High"
-                            ? "error"
-                            : story.priority === "Medium"
-                            ? "warning"
-                            : "success"
-                        }
-                      />
-                    </Box>
-                  </CardContent>
-                </StoryCard>
+                />
               ))}
             </Stack>
           )}
@@ -1451,191 +551,80 @@ const UserStoryPage = () => {
           sx={{
             flexGrow: 1,
             p: 3,
-            backgroundColor: currentTheme.palette.background.default,
+            backgroundColor: "transparent",
             overflowY: "auto",
             display:
-              activePanel !== "list" ? "flex" : { xs: "none", sm: "flex" }, // Hide on small screens when list is active
-            flexDirection: "column", // Ensures content fills height
+              activePanel !== "list" ? "flex" : { xs: "none", sm: "flex" },
+            flexDirection: "column",
+            zIndex: 1,
           }}
         >
-          {activePanel === "create" || activePanel === "edit"
-            ? renderStoryForm()
-            : renderStoryDetail()}
+          {activePanel === "create" || activePanel === "edit" ? (
+            <UserStoryForm
+              activePanel={activePanel}
+              selectedStory={selectedStory}
+              userStoryTitle={userStoryTitle}
+              setUserStoryTitle={setUserStoryTitle}
+              description={description}
+              setDescription={setDescription}
+              acceptanceCriteria={acceptanceCriteria}
+              setAcceptanceCriteria={setAcceptanceCriteria}
+              testingScenarios={testingScenarios}
+              setTestingScenarios={setTestingScenarios}
+              storyStatus={storyStatus}
+              setStoryStatus={setStoryStatus}
+              storyPriority={storyPriority}
+              setStoryPriority={setStoryPriority}
+              estimatedTime={estimatedTime}
+              setEstimatedTime={setEstimatedTime}
+              selectedCollaboratorGithubIds={selectedCollaboratorGithubIds}
+              handleCollaboratorChange={handleCollaboratorChange}
+              generatedStoryContent={generatedStoryContent}
+              handleGenerateStory={handleGenerateStory}
+              isGenerating={isGenerating}
+              handleSubmit={handleSubmit}
+              isCreating={isCreating}
+              isUpdating={isUpdating}
+              onCancel={() => setActivePanel("list")}
+              collaboratorsData={collaboratorsData}
+              collaboratorsLoading={collaboratorsLoading}
+            />
+          ) : (
+            <UserStoryDetail
+              selectedStory={selectedStory}
+              onBackToList={() => setActivePanel("list")}
+              onOpenEditForm={handleOpenEditForm}
+              onOpenDeleteDialog={handleOpenDeleteDialog}
+              canManageStories={canManageStories}
+              projectGithubRepoUrl={projectGithubRepoUrl}
+              handleGenerateSalesforceCode={handleGenerateSalesforceCode}
+              isGeneratingCodeProcess={isGeneratingCodeProcess}
+              activeGenerationStoryId={activeGenerationStoryId}
+            />
+          )}
         </Box>
 
-        {/* Delete Confirmation Dialog */}
-        <Dialog
+        <DeleteConfirmationDialog
           open={deleteDialogOpen}
           onClose={handleCloseDialogs}
-          maxWidth="xs"
-          sx={{
-            "& .MuiDialog-paper": {
-              backgroundColor: currentTheme.palette.background.paper,
-              color: currentTheme.palette.text.primary,
-            },
-          }}
-        >
-          <DialogTitle sx={{ color: currentTheme.palette.text.primary }}>
-            Confirm Deletion
-          </DialogTitle>
-          <DialogContent>
-            <Typography sx={{ color: currentTheme.palette.text.secondary }}>
-              Are you sure you want to delete the story "
-              <strong>{storyToDelete?.userStoryTitle}</strong>"? This action
-              cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button
-              onClick={handleCloseDialogs}
-              sx={{ color: currentTheme.palette.text.primary }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDelete}
-              variant="contained"
-              color="error"
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogActions>
-        </Dialog>
+          storyToDelete={storyToDelete}
+          onConfirmDelete={handleDelete}
+          isDeleting={isDeleting}
+        />
 
-        {/* NEW: Advanced Code Generation Loading Dialog */}
-        <LoadingDialog
+        <CodeGenerationLoadingDialog
           open={
             isGeneratingCodeProcess &&
             activeGenerationStoryId === selectedStory?._id
           }
-          onClose={(event, reason) => {
-            if (reason === "escapeKeyDown" || reason === "backdropClick") {
-              showSnackbar(
-                "Code generation is in progress. Please use the 'Close' button.",
-                "info"
-              );
-              return;
-            }
-            handleCloseDialogs();
-          }}
-          aria-labelledby="loading-dialog-title"
-        >
-          <DialogTitle
-            id="loading-dialog-title"
-            sx={{ color: "primary.main", fontWeight: 700 }}
-          >
-            {generationError
-              ? "Code Generation Failed"
-              : "AI Code Generation Progress"}
-          </DialogTitle>
-          <DialogContent sx={{ p: 4 }}>
-            {!generationError && !githubResult ? (
-              <>
-                <AnimatedIcon>
-                  <AutoFixHighIcon sx={{ fontSize: "inherit" }} />
-                </AnimatedIcon>
-                <StatusMessage>{currentGenerationStatus}</StatusMessage>
-                <LinearProgress
-                  color="primary"
-                  sx={{ my: 2, height: 8, borderRadius: 5 }}
-                />
-              </>
-            ) : (
-              <>
-                {generationError ? (
-                  <Box>
-                    <Typography color="error" variant="h6" mb={2}>
-                      Error: {generationError}
-                    </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      Please check the backend logs for more details or try
-                      again.
-                    </Typography>
-                  </Box>
-                ) : (
-                  githubResult && (
-                    <Box>
-                      <CheckCircleOutlineIcon
-                        sx={{
-                          fontSize: "4rem",
-                          color: "success.main",
-                          mb: 2,
-                          animation: `${pulse} 1.5s infinite`,
-                        }}
-                      />
-                      <Typography color="success.main" variant="h6" mb={1}>
-                        Process Completed Successfully!
-                      </Typography>
-                      <Typography variant="body1" color="text.secondary" mb={2}>
-                        Your Salesforce code has been generated and pushed to
-                        GitHub.
-                      </Typography>
-                      <Box mb={2}>
-                        <Typography variant="body2" color="text.secondary">
-                          Branch:{" "}
-                          <a
-                            href={
-                              githubResult.githubRepoUrl +
-                              "/tree/" +
-                              githubResult.githubBranch
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              color: currentTheme.palette.secondary.main,
-                              textDecoration: "underline",
-                            }}
-                          >
-                            {githubResult.githubBranch}
-                          </a>
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Pull Request:{" "}
-                          <a
-                            href={githubResult.prUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              color: currentTheme.palette.secondary.main,
-                              textDecoration: "underline",
-                            }}
-                          >
-                            View PR
-                          </a>
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )
-                )}
-              </>
-            )}
+          onClose={handleCloseDialogs}
+          currentGenerationStatus={currentGenerationStatus}
+          completedGenerationSteps={completedGenerationSteps}
+          generationError={generationError}
+          githubResult={githubResult}
+          projectGithubRepoUrl={projectGithubRepoUrl}
+        />
 
-            <CompletedStepsList>
-              {completedGenerationSteps.map((step, index) => (
-                <CompletedStepItem key={index}>
-                  <CheckCircleOutlineIcon sx={{ fontSize: "1rem" }} />
-                  {step.message}
-                </CompletedStepItem>
-              ))}
-            </CompletedStepsList>
-          </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button
-              onClick={handleCloseDialogs}
-              variant="contained"
-              color="primary"
-            >
-              Close
-            </Button>
-          </DialogActions>
-        </LoadingDialog>
-
-        {/* Snackbar for notifications */}
         <Snackbar
           open={snackbar.open}
           autoHideDuration={6000}
@@ -1651,7 +640,7 @@ const UserStoryPage = () => {
           </Alert>
         </Snackbar>
       </Box>
-    </ThemeProvider>
+    </AppTheme>
   );
 };
 

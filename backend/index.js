@@ -16,6 +16,7 @@ const jiraroute = require("./routes/jiraroute");
 const configurationRoutes = require("./routes/configurationRoutes");
 const userManagementRoute = require("./routes/userManagementRoute");
 const themeRoutes = require("./routes/themeRoutes");
+const metricsRoutes = require("./routes/metricsRoutes");
 
 const companyRoutes = require("./routes/companyRoutes");
 const userRoutes = require("./routes/userRoutes");
@@ -51,6 +52,7 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/developer", developerRoutes); // Use developer routes
 app.use("/api/gpt", gptRoutes); // Use GPT routes
 app.use("/api/jira", jiraroute);
+app.use("/api/metrics", metricsRoutes);
 
 app.use("/api/user-management", userManagementRoute);
 
