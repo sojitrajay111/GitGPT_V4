@@ -3,9 +3,10 @@ const router = express.Router();
 const User = require("../models/User");
 
 // Update user profile
-router.put("/update", async (req, res) => {
+router.put("/update-profile/:userId", async (req, res) => {
   try {
-    const { userId, username } = req.body;
+    const { userId } = req.params;
+    const { username } = req.body;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });

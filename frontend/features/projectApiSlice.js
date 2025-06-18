@@ -17,7 +17,7 @@ export const projectApiSlice = createApi({
     },
   }),
 
-  tagTypes: ["Project", "GitHubRepos", "GitHubStatus", "ProjectCollaborators"],
+  tagTypes: ["Project", "GitHubRepos", "GitHubStatus", "ProjectCollaborators", "ProjectReport"],
   // "GitHubRepos" added because project creation can affect GitHub state
 
   // Define the API endpoints
@@ -84,6 +84,24 @@ export const projectApiSlice = createApi({
       }),
       invalidatesTags: ["Project"], // Invalidate the general 'Project' tag to refetch project lists
     }),
+    getProjectReportData: builder.query({
+      query: (projectId) => ({
+        url: `/projects/${projectId}/report`,
+        method: 'GET',
+      }),
+      transformResponse: (response) => {
+        console.log('Project Report API Raw Response:', response);
+        return response.data; // Extract the actual data payload
+      },
+      transformErrorResponse: (response) => {
+        console.error('Project Report Data Error:', response);
+        return response;
+      },
+      providesTags: (result, error, projectId) => [{
+        type: 'ProjectReport',
+        id: projectId
+      }],
+    }),
   }),
 });
 
@@ -98,4 +116,5 @@ export const {
   useGetCollaboratorsQuery,
   useUpdateProjectMutation,
   useDeleteProjectMutation,
+  useGetProjectReportDataQuery,
 } = projectApiSlice;

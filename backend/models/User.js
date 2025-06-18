@@ -33,22 +33,28 @@ const userSchema = new mongoose.Schema(
     passwordResetToken: String, // Field for a password reset token
     passwordResetExpires: Date, // Field for password reset token expiry
     // New fields for developers:
-    managerId: { // The ID of the manager who added this developer
+    managerId: {
+      // The ID of the manager who added this developer
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User', // Reference to the User model itself
-      required: function() { return this.role === 'developer'; }, // Required only if role is 'developer'
+      ref: "User", // Reference to the User model itself
+      required: function () {
+        return this.role === "developer";
+      }, // Required only if role is 'developer'
       default: null, // Default to null for non-developers or if not set
     },
-    companyId: { // The ID of the company the developer belongs to
+    companyId: {
+      // The ID of the company the developer belongs to
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Company', // Reference to the Company model
-      required: function() { return this.role === 'developer'; }, // Required only if role is 'developer'
+      ref: "Company", // Reference to the Company model
+      required: function () {
+        return this.role === "developer";
+      }, // Required only if role is 'developer'
       default: null, // Default to null for non-developers or if not set
     },
     // Optional job role for developers (e.g., Senior Developer, Analyst, etc.)
     jobRole: {
       type: String,
-      default: '',
+      default: "",
     },
     // Timestamp for the user's last successful login
     lastLogin: {

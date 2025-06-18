@@ -570,10 +570,69 @@ const deleteProject = async (req, res) => {
   }
 };
 
+const getProjectReportData = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // In a real application, you would fetch dynamic data from your database
+    // based on the projectId. For now, we'll return mock data.
+    const mockReportData = {
+      developerActivity: [
+        { name: "Mon", "Hours Worked": 8, "Tasks Completed": 3 },
+        { name: "Tue", "Hours Worked": 7.5, "Tasks Completed": 4 },
+        { name: "Wed", "Hours Worked": 8.5, "Tasks Completed": 3 },
+        { name: "Thu", "Hours Worked": 9, "Tasks Completed": 5 },
+        { name: "Fri", "Hours Worked": 7, "Tasks Completed": 2 },
+        { name: "Sat", "Hours Worked": 4, "Tasks Completed": 1 },
+        { name: "Sun", "Hours Worked": 2, "Tasks Completed": 0 },
+      ],
+      codeContribution: [
+        { name: "Jan", "Developer LOC": 4000, "AI Generated LOC": 2400 },
+        { name: "Feb", "Developer LOC": 3000, "AI Generated LOC": 1398 },
+        { name: "Mar", "Developer LOC": 2000, "AI Generated LOC": 9800 },
+        { name: "Apr", "Developer LOC": 2780, "AI Generated LOC": 3908 },
+        { name: "May", "Developer LOC": 1890, "AI Generated LOC": 4800 },
+        { name: "Jun", "Developer LOC": 2390, "AI Generated LOC": 3800 },
+      ],
+      aiImpact: [
+        { name: "Feature A", "Time Reduced (Hours)": 15, "Cost Saved ($)": 750 },
+        { name: "Feature B", "Time Reduced (Hours)": 10, "Cost Saved ($)": 500 },
+        { name: "Feature C", "Time Reduced (Hours)": 20, "Cost Saved ($)": 1000 },
+        { name: "Feature D", "Time Reduced (Hours)": 8, "Cost Saved ($) ": 400 },
+      ],
+      developerVelocity: [
+        { name: "Before AI", value: 5.2 },
+        { name: "With AI", value: 2.8 },
+      ],
+      projectStatus: [
+        { name: "Completed Projects", value: 60 },
+        { name: "In Progress", value: 35 },
+        { name: "On Hold", value: 5 },
+      ],
+      statCards: {
+        tasksCompleted: 42, // Example dynamic data
+        avgCompletionTime: "5.2",
+        teamProductivity: "85",
+        pendingReviews: 3,
+      },
+    };
+
+    res.status(200).json({ success: true, data: mockReportData });
+  } catch (error) {
+    console.error("Error fetching project report data:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch project report data.",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createProject,
   getProjectsByUserId,
   getProjectById,
-  updateProject, // Export new update function
-  deleteProject, // Export new delete function
+  updateProject,
+  deleteProject,
+  getProjectReportData,
 };

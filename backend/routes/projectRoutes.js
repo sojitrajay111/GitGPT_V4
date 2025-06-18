@@ -6,6 +6,7 @@ const {
   getProjectById,
   updateProject, // New: Import updateProject
   deleteProject, // New: Import deleteProject
+  getProjectReportData, // New: Import getProjectReportData
 } = require("../controllers/projectController"); // Import project controller functions
 const {
   getCollaboratorsByProjectId,
@@ -36,6 +37,13 @@ router.get("/user/:userId", authMiddleware, getProjectsByUserId);
  * @access Private
  */
 router.get("/:projectId", authMiddleware, getProjectById); // Existing: Get a specific project by its ID
+
+/**
+ * @route GET /:projectId/report
+ * @desc Get project report data by ID.
+ * @access Private
+ */
+router.get("/:projectId/report", authMiddleware, getProjectReportData); // New route for project report data
 
 /**
  * @route PUT /:projectId
