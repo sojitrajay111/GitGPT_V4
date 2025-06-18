@@ -11,7 +11,7 @@ const synthButtonVariants = cva(
     variants: {
       variant: {
         default: "bg-synth-surface text-synth-text shadow-neumorphic hover:shadow-neumorphic-hover active:shadow-neumorphic-pressed",
-        primary: "bg-synth-primary text-white shadow-neumorphic hover:shadow-neumorphic-hover active:shadow-neumorphic-pressed hover:bg-synth-primary/90",
+        primary: "shadow-neumorphic hover:shadow-neumorphic-hover active:shadow-neumorphic-pressed",
         secondary: "bg-synth-secondary text-white shadow-neumorphic hover:shadow-neumorphic-hover active:shadow-neumorphic-pressed hover:bg-synth-secondary/90",
         ghost: "hover:bg-synth-surface/50 hover:text-synth-text",
         flat: "bg-synth-surface text-synth-text border border-synth-text/20 hover:bg-synth-text/5",
@@ -33,7 +33,7 @@ const synthButtonVariants = cva(
 );
 
 const SynthButton = React.forwardRef(function SynthButton(
-  { className, variant, size, asChild = false, children, ...props },
+  { className, variant, size, asChild = false, children, style, ...props },
   ref
 ) {
   if (asChild) {
@@ -41,6 +41,7 @@ const SynthButton = React.forwardRef(function SynthButton(
       <Slot
         className={cn(synthButtonVariants({ variant, size, className }))}
         ref={ref}
+        style={style}
         {...props}
       >
         {children}
@@ -52,6 +53,7 @@ const SynthButton = React.forwardRef(function SynthButton(
     <motion.button
       className={cn(synthButtonVariants({ variant, size, className }))}
       ref={ref}
+      style={style}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -70,6 +72,7 @@ SynthButton.propTypes = {
   size: PropTypes.string,
   asChild: PropTypes.bool,
   children: PropTypes.node,
+  style: PropTypes.object,
 };
 
 export { SynthButton, synthButtonVariants }; 

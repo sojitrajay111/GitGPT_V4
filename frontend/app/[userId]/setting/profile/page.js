@@ -203,8 +203,8 @@ export default function ProfileSettings() {
     palette: {
       mode: 'dark',
       background: {
-        default: '#263238', // Dark background
-        paper: '#37474F', // Darker grey for cards/surfaces
+        default: '#121218', // Dark background
+        paper: '#181A20', // Darker grey for cards/surfaces
       },
       text: {
         primary: '#ECEFF1', // Lightest grey

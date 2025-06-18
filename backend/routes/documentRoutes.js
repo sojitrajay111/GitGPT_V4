@@ -6,6 +6,7 @@ const {
   saveGeneratedDocument,
   updateDocument, // Added
   deleteDocument, // Added
+  initGoogleDrive, // Added
 } = require("../controllers/documentController");
 const authenticateUser = require("../middleware/authMiddleware");
 const multer = require("multer");
@@ -33,6 +34,11 @@ const upload = multer({
     }
   },
 });
+
+// @route POST /api/documents/init-google-drive
+// @desc Initialize Google Drive connection
+// @access Private
+router.post("/init-google-drive", authenticateUser, initGoogleDrive);
 
 // @route POST /api/documents/upload
 // @desc Upload a new document (with file)
