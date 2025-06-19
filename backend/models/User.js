@@ -61,6 +61,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null, // Default to null if never logged in
     },
+    googleDriveTokens: {
+      type: Object, // Store the OAuth tokens object
+      required: false,
+    },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt timestamps

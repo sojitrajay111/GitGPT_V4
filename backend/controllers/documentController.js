@@ -47,18 +47,14 @@ const uploadToCloudinary = (buffer, originalname, folder) => {
  * @param {Buffer} buffer - The file buffer
  * @param {string} fileName - The file name
  * @param {string} mimeType - The MIME type
- * @param {string} projectId - The project ID
- * @param {string} projectName - The project name
  * @returns {Promise<object>} - Google Drive upload result
  */
-const uploadToGoogleDrive = async (buffer, fileName, mimeType, projectId, projectName) => {
+const uploadToGoogleDrive = async (buffer, fileName, mimeType) => {
   try {
-    // Create or get project folder
-    const projectFolderId = await googleDriveService.createProjectFolder(projectId, projectName);
-    
-    // Upload file to the project folder
-    const result = await googleDriveService.uploadFile(buffer, fileName, mimeType, projectFolderId);
-    
+    // Get the main folder ID (this ensures the 'GitGPT documents' folder exists)
+    const folderId = await googleDriveService.createOrGetMainFolder(); // CHANGED HERE
+    // Upload file to the main folder
+    const result = await googleDriveService.uploadFile(buffer, fileName, mimeType, folderId);
     return result;
   } catch (error) {
     console.error("Google Drive upload error:", error);
@@ -73,6 +69,10 @@ const uploadToGoogleDrive = async (buffer, fileName, mimeType, projectId, projec
  */
 const uploadDocument = async (req, res) => {
   try {
+    console.log('DEBUG: req.file =', req.file);
+    if (req.file && req.file.buffer) {
+      console.log('DEBUG: req.file.buffer type =', req.file.buffer.constructor.name);
+    }
     const { documentTitle, documentShortDescription, projectId } = req.body;
     const creatorId = req.user.id;
 
@@ -105,12 +105,37 @@ const uploadDocument = async (req, res) => {
     if (!req.file) {
       return res
         .status(400)
-        .json({ success: false, message: "No file uploaded." });
+        .json({ success: false, message: "No file uploaded (req.file missing)." });
+    }
+    if (!req.file.buffer || !req.file.originalname) {
+      return res
+        .status(400)
+        .json({ success: false, message: "File buffer or originalname missing in req.file." });
+    }
+    if (!(req.file.buffer instanceof Buffer)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "File buffer is not a Buffer. Check frontend upload logic." });
     }
 
-    // Check if Google Drive is available
-    const isGoogleDriveAvailable = await googleDriveService.checkAccess();
-    
+    // Use user's Google Drive tokens for this upload
+    let isGoogleDriveAvailable = false;
+    if (user.googleDriveTokens) {
+      const { google } = require('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        'http://localhost:3001/api/google/oauth-callback'
+      );
+      oauth2Client.setCredentials(user.googleDriveTokens);
+      googleDriveService.initializeWithOAuth2Client(oauth2Client);
+      isGoogleDriveAvailable = await googleDriveService.checkAccess();
+    } else {
+      // If no user.googleDriveTokens, rely on existing initialization (e.g., service account)
+      // or assume it's not available. For user-based OAuth, this path might not be relevant.
+      isGoogleDriveAvailable = await googleDriveService.checkAccess();
+    }
+
     let documentData = {
       creatorId,
       projectId,
@@ -126,9 +151,7 @@ const uploadDocument = async (req, res) => {
       const result = await uploadToGoogleDrive(
         req.file.buffer,
         req.file.originalname,
-        req.file.mimetype,
-        projectId,
-        project.projectName || project.projectTitle || 'Unknown Project'
+        req.file.mimetype
       );
 
       documentData.googleDriveFileId = result.fileId;
@@ -340,17 +363,11 @@ const updateDocument = async (req, res) => {
           }
         }
 
-        // Get project info for folder creation
-        const project = await Project.findById(document.projectId);
-        const projectName = project?.projectName || project?.projectTitle || 'Unknown Project';
-
         // Upload new file to Google Drive
         const result = await uploadToGoogleDrive(
           req.file.buffer,
           req.file.originalname,
-          req.file.mimetype,
-          document.projectId,
-          projectName
+          req.file.mimetype
         );
 
         updateData.googleDriveFileId = result.fileId;

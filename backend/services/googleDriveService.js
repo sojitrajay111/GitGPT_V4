@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
+const stream = require('stream'); // Import the stream module
 
 class GoogleDriveService {
   constructor() {
@@ -8,7 +9,7 @@ class GoogleDriveService {
     this.folderId = null;
   }
 
-  // Initialize Google Drive API with credentials
+  // For service account or raw credentials (optional for your use case)
   initialize(credentials) {
     try {
       const auth = new google.auth.GoogleAuth({
@@ -20,10 +21,7 @@ class GoogleDriveService {
       });
 
       this.drive = google.drive({ version: 'v3', auth });
-      
-      // Create or get the main folder for the application
       this.createOrGetMainFolder();
-      
       return true;
     } catch (error) {
       console.error('Error initializing Google Drive:', error);
@@ -31,94 +29,82 @@ class GoogleDriveService {
     }
   }
 
-  // Create or get the main folder for storing project documents
+  // ✅ New method: Initialize with OAuth2 client (user-based)
+  initializeWithOAuth2Client(oauth2Client) {
+    try {
+      this.drive = google.drive({ version: 'v3', auth: oauth2Client });
+      return true;
+    } catch (error) {
+      console.error('Error initializing with OAuth2 client:', error);
+      return false;
+    }
+  }
+
   async createOrGetMainFolder() {
     try {
-      const folderName = 'GitGPT_Project_Documents';
-      
-      // Search for existing folder
-      const response = await this.drive.files.list({
+      const folderName = 'GitGPT documents';
+      // Search for the folder
+      const res = await this.drive.files.list({
         q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
         fields: 'files(id, name)',
-        spaces: 'drive'
       });
 
-      if (response.data.files.length > 0) {
-        this.folderId = response.data.files[0].id;
-        return this.folderId;
+      if (res.data.files.length > 0) {
+        this.folderId = res.data.files[0].id;
+        console.log('Main folder already exists:', this.folderId);
+      } else {
+        // Create the folder if it doesn't exist
+        const fileMetadata = {
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder',
+        };
+        const folder = await this.drive.files.create({
+          resource: fileMetadata,
+          fields: 'id',
+        });
+        this.folderId = folder.data.id;
+        console.log('Main folder created:', this.folderId);
       }
-
-      // Create new folder if it doesn't exist
-      const folderMetadata = {
-        name: folderName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [] // Root folder
-      };
-
-      const folder = await this.drive.files.create({
-        resource: folderMetadata,
-        fields: 'id'
-      });
-
-      this.folderId = folder.data.id;
       return this.folderId;
     } catch (error) {
-      console.error('Error creating/getting main folder:', error);
+      console.error('Error creating or getting main folder:', error);
       throw error;
     }
   }
 
-  // Create project-specific folder
-  async createProjectFolder(projectId, projectName) {
+  // Method to check Google Drive access (e.g., after initialization)
+  async checkAccess() {
     try {
-      const folderName = `Project_${projectName}_${projectId}`;
-      
-      // Search for existing project folder
-      const response = await this.drive.files.list({
-        q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and '${this.folderId}' in parents and trashed=false`,
+      // Try to list files (even just one) to check for access
+      await this.drive.files.list({
+        pageSize: 1,
         fields: 'files(id, name)',
-        spaces: 'drive'
       });
-
-      if (response.data.files.length > 0) {
-        return response.data.files[0].id;
-      }
-
-      // Create new project folder
-      const folderMetadata = {
-        name: folderName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [this.folderId]
-      };
-
-      const folder = await this.drive.files.create({
-        resource: folderMetadata,
-        fields: 'id'
-      });
-
-      return folder.data.id;
+      return true;
     } catch (error) {
-      console.error('Error creating project folder:', error);
-      throw error;
+      console.error('Google Drive access check failed:', error.message);
+      return false;
     }
   }
 
-  // Upload file to Google Drive
-  async uploadFile(fileBuffer, fileName, mimeType, projectFolderId) {
+  // New method to upload a file (from buffer)
+  async uploadFile(fileBuffer, fileName, mimeType) {
     try {
-      const fileMetadata = {
-        name: fileName,
-        parents: [projectFolderId],
-        mimeType: mimeType
-      };
+      // Create a readable stream from the buffer
+      const bufferStream = new stream.Readable();
+      bufferStream.push(fileBuffer);
+      bufferStream.push(null); // Indicates end of the stream
 
       const media = {
         mimeType: mimeType,
-        body: fileBuffer
+        body: bufferStream // Pass the stream here
       };
 
       const file = await this.drive.files.create({
-        resource: fileMetadata,
+        resource: {
+          name: fileName,
+          parents: [this.folderId]
+        },
         media: media,
         fields: 'id, name, size, webViewLink, webContentLink'
       });
@@ -136,30 +122,21 @@ class GoogleDriveService {
     }
   }
 
-  // Delete file from Google Drive
-  async deleteFile(fileId) {
-    try {
-      await this.drive.files.delete({
-        fileId: fileId
-      });
-      return true;
-    } catch (error) {
-      console.error('Error deleting file from Google Drive:', error);
-      throw error;
-    }
-  }
-
-  // Update file in Google Drive
   async updateFile(fileId, fileBuffer, fileName, mimeType) {
     try {
+      // Create a readable stream from the buffer
+      const bufferStream = new stream.Readable();
+      bufferStream.push(fileBuffer);
+      bufferStream.push(null); // Indicates end of the stream
+
       const media = {
         mimeType: mimeType,
-        body: fileBuffer
+        body: bufferStream // Pass the stream here
       };
 
       const file = await this.drive.files.update({
-        fileId: fileId,
-        media: media,
+        fileId,
+        media,
         fields: 'id, name, size, webViewLink, webContentLink'
       });
 
@@ -176,11 +153,10 @@ class GoogleDriveService {
     }
   }
 
-  // Get file info
   async getFileInfo(fileId) {
     try {
       const file = await this.drive.files.get({
-        fileId: fileId,
+        fileId,
         fields: 'id, name, size, webViewLink, webContentLink, mimeType'
       });
 
@@ -198,18 +174,15 @@ class GoogleDriveService {
     }
   }
 
-  // Check if user has Google Drive access
-  async checkAccess() {
+  async deleteFile(fileId) {
     try {
-      await this.drive.about.get({
-        fields: 'user'
-      });
-      return true;
+      await this.drive.files.delete({ fileId });
+      return { success: true, message: 'File deleted successfully.' };
     } catch (error) {
-      console.error('Error checking Google Drive access:', error);
-      return false;
+      console.error('Error deleting file from Google Drive:', error);
+      throw error;
     }
   }
 }
 
-module.exports = new GoogleDriveService(); 
+module.exports = new GoogleDriveService();

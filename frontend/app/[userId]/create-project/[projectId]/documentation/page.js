@@ -47,6 +47,7 @@ import {
   useSaveGeneratedDocumentMutation,
   useUpdateDocumentMutation,
   useDeleteDocumentMutation,
+  useInitGoogleDriveMutation,
 } from "@/features/documentApiSlice"; // Assuming this path is correct
 import { useRouter, useParams } from "next/navigation";
 import { useGetThemeQuery } from "@/features/themeApiSlice";
@@ -307,6 +308,63 @@ const DocumentationPage = ({ projectDataFromParent }) => {
 
   const [showFilters, setShowFilters] = useState(false);
 
+  // Google Drive state
+  const [isGoogleDriveConnected, setIsGoogleDriveConnected] = useState(false);
+  const [isConnectingGoogleDrive, setIsConnectingGoogleDrive] = useState(false);
+  const [googleDriveError, setGoogleDriveError] = useState(null);
+
+  const [initGoogleDrive] = useInitGoogleDriveMutation();
+
+  // Check Google Drive connection status on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('cloud') === 'success') {
+      setIsGoogleDriveConnected(true);
+      localStorage.setItem('googleDriveConnected', 'true');
+      showSnackbar('Google Drive connected successfully! You can now upload documents.', 'success');
+
+      // Auto-redirect to the correct documentation page if not already there
+      const pendingUserId = localStorage.getItem('pendingUserId');
+      const pendingProjectId = localStorage.getItem('pendingProjectId');
+      const currentPath = window.location.pathname;
+      const targetPath = `/${pendingUserId}/create-project/${pendingProjectId}/documentation`;
+
+      if (pendingUserId && pendingProjectId && currentPath !== targetPath) {
+        window.location.href = `${targetPath}?cloud=success`;
+        // Clean up after redirect
+        localStorage.removeItem('pendingUserId');
+        localStorage.removeItem('pendingProjectId');
+      }
+    }
+    const checkGoogleDriveConnection = () => {
+      const connected = localStorage.getItem('googleDriveConnected') === 'true';
+      setIsGoogleDriveConnected(connected);
+    };
+    checkGoogleDriveConnection();
+  }, []);
+
+  // --- Google OAuth Redirect Flow ---
+  const handleGoogleDriveAuth = () => {
+    const state = encodeURIComponent(JSON.stringify({ userId, projectId: currentProjectId }));
+    const googleAuthUrl =
+      `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `response_type=code` +
+      `&client_id=630538745140-60ma4pkrungjdcude8stgun0istrvl07.apps.googleusercontent.com` +
+      `&redirect_uri=http://localhost:3001/api/google/oauth-callback` +
+      `&scope=https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly` +
+      `&access_type=offline` +
+      `&prompt=consent` +
+      `&state=${state}`;
+    window.location.href = googleAuthUrl;
+  };
+
+  const handleDisconnectGoogleDrive = () => {
+    setIsGoogleDriveConnected(false);
+    localStorage.removeItem('googleDriveConnected');
+    setGoogleDriveError(null);
+    showSnackbar("Google Drive disconnected.", "info");
+  };
+
   const showSnackbar = (message, severity = "success") => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
@@ -337,6 +395,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
       showSnackbar("Please fill all fields and select a file.", "warning");
       return;
     }
+    
     if (!currentProjectId) {
       showSnackbar("Project ID is missing. Cannot upload document.", "error");
       console.error(
@@ -345,7 +404,19 @@ const DocumentationPage = ({ projectDataFromParent }) => {
       return;
     }
 
-    // THE FIX IS HERE: Pass an object to the mutation, not FormData
+    // Check if Google Drive is connected
+    if (!isGoogleDriveConnected) {
+      showSnackbar("Please connect to Google Drive first before uploading documents.", "warning");
+      return;
+    }
+
+    // Debug: Check file type
+    console.log("DEBUG: documentFile type:", uploadForm.documentFile && uploadForm.documentFile.constructor.name, uploadForm.documentFile);
+    if (!(uploadForm.documentFile instanceof File)) {
+      showSnackbar("Selected file is not a valid File object. Please re-select the file.", "error");
+      return;
+    }
+
     const documentDataForUpload = {
       documentTitle: uploadForm.documentTitle,
       documentShortDescription: uploadForm.documentShortDescription,
@@ -356,9 +427,8 @@ const DocumentationPage = ({ projectDataFromParent }) => {
     console.log("Submitting for upload:", documentDataForUpload); // For debugging
 
     try {
-      // Pass the plain object. The slice will create FormData.
       await uploadDocument(documentDataForUpload).unwrap();
-      showSnackbar("Document uploaded successfully!");
+      showSnackbar("Document uploaded successfully to Google Drive!");
       handleUploadDialogClose();
       refetchDocuments();
     } catch (err) {
@@ -616,48 +686,113 @@ const DocumentationPage = ({ projectDataFromParent }) => {
               Manage and organize your project documents
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {!isGoogleDriveConnected && (
+              <SynthButton
+                variant="primary"
+                size="lg"
+                onClick={handleGoogleDriveAuth}
+                disabled={isConnectingGoogleDrive}
+                sx={{
+                  background: "linear-gradient(90deg, #4285F4 0%, #34A853 100%)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 16,
+                  boxShadow: isDark
+                    ? "0 4px 24px 0 rgba(66,133,244,0.18)"
+                    : "0 4px 24px 0 rgba(66,133,244,0.10)",
+                  borderRadius: 3,
+                  px: 3,
+                  height: 48,
+                }}
+              >
+                {isConnectingGoogleDrive ? (
+                  <CircularProgress size={20} color="inherit" style={{ marginRight: 8 }} />
+                ) : (
+                  <CloudSyncIcon style={{ fontSize: 22, marginRight: 8 }} />
+                )}
+                {isConnectingGoogleDrive ? 'Connecting...' : 'Connect Google Drive'}
+              </SynthButton>
+            )}
             <SynthButton
               variant="primary"
               size="lg"
-              style={{ backgroundColor: '#A78BFA', color: isDark ? '#fff' : '#23242A' }}
-              sx={{
-                fontWeight: 700,
-                fontSize: 16,
-                boxShadow: '0 4px 24px 0 rgba(167,139,250,0.18)',
-                borderRadius: 3,
-                px: 3,
-                height: 48,
-                transition: 'background 0.2s',
-                display: 'flex', alignItems: 'center',
-                '&:hover': { opacity: 0.95 },
-              }}
-            >
-              <CloudSyncIcon style={{ fontSize: 22, marginRight: 8 }} />
-              Sync with Cloud
-            </SynthButton>
-            <SynthButton
-              variant="primary"
-              size="lg"
-              style={{ backgroundColor: '#818CF8', color: isDark ? '#fff' : '#23242A' }}
-              sx={{
-                fontWeight: 700,
-                fontSize: 16,
-                boxShadow: '0 4px 24px 0 rgba(129,140,248,0.18)',
-                borderRadius: 3,
-                px: 3,
-                height: 48,
-                transition: 'background 0.2s',
-                display: 'flex', alignItems: 'center',
-                '&:hover': { opacity: 0.95 },
-              }}
               onClick={() => setUploadDialogOpen(true)}
+              sx={{
+                background: "linear-gradient(90deg, #A78BFA 0%, #6366F1 100%)",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: 16,
+                boxShadow: isDark
+                  ? "0 4px 24px 0 rgba(80,80,120,0.18)"
+                  : "0 4px 24px 0 rgba(120,120,180,0.10)",
+                borderRadius: 3,
+                px: 3,
+                height: 48,
+              }}
+              disabled={!isGoogleDriveConnected}
             >
               <CloudUploadIcon style={{ fontSize: 22, marginRight: 8 }} />
               Upload Artifact
             </SynthButton>
+            {isGoogleDriveConnected && (
+              <SynthButton
+                variant="flat"
+                size="sm"
+                onClick={handleDisconnectGoogleDrive}
+                style={{
+                  backgroundColor: isDark ? '#EF4444' : '#DC2626',
+                  color: '#fff'
+                }}
+                sx={{ height: 36, px: 2 }}
+              >
+                Disconnect
+              </SynthButton>
+            )}
           </Box>
         </Box>
+
+        {/* Google Drive Connection Status */}
+        {googleDriveError && (
+          <Box sx={{ mb: 3 }}>
+            <Alert 
+              severity="error" 
+              onClose={() => setGoogleDriveError(null)}
+              sx={{ 
+                borderRadius: 2,
+                background: isDark ? '#1F2937' : '#FEF2F2',
+                border: isDark ? '1px solid #374151' : '1px solid #FECACA'
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                Google Drive Connection Error
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {googleDriveError}
+              </Typography>
+            </Alert>
+          </Box>
+        )}
+
+        {!isGoogleDriveConnected && (
+          <Box sx={{ mb: 3 }}>
+            <Alert 
+              severity="info" 
+              sx={{ 
+                borderRadius: 2,
+                background: isDark ? '#1E3A8A' : '#EFF6FF',
+                border: isDark ? '1px solid #3B82F6' : '1px solid #BFDBFE'
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                Google Drive Required
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                Connect to Google Drive to upload and manage your project artifacts. Documents will be stored securely in your GitGPT documents folder.
+              </Typography>
+            </Alert>
+          </Box>
+        )}
 
         {/* TOP BAR: Search, Filters, Toggle */}
         <Box
@@ -836,28 +971,59 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                   color={isDark ? "#B0B3B8" : "#6B7280"}
                   sx={{ mb: 3 }}
                 >
-                  It looks a bit empty here. Start by uploading an artifact.
+                  {isGoogleDriveConnected 
+                    ? "It looks a bit empty here. Start by uploading an artifact to Google Drive."
+                    : "Connect to Google Drive first to start uploading and managing your project artifacts."
+                  }
                 </Typography>
-                <SynthButton
-                  variant="primary"
-                  size="lg"
-                  startIcon={<CloudUploadIcon style={{ fontSize: 22 }} />}
-                  onClick={() => setUploadDialogOpen(true)}
-                  sx={{
-                    background: "linear-gradient(90deg, #A78BFA 0%, #6366F1 100%)",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 16,
-                    boxShadow: isDark
-                      ? "0 4px 24px 0 rgba(80,80,120,0.18)"
-                      : "0 4px 24px 0 rgba(120,120,180,0.10)",
-                    borderRadius: 3,
-                    px: 3,
-                    height: 48,
-                  }}
-                >
-                  Upload Artifact
-                </SynthButton>
+                {isGoogleDriveConnected ? (
+                  <SynthButton
+                    variant="primary"
+                    size="lg"
+                    onClick={() => setUploadDialogOpen(true)}
+                    sx={{
+                      background: "linear-gradient(90deg, #A78BFA 0%, #6366F1 100%)",
+                      color: "#fff",
+                      fontWeight: 700,
+                      fontSize: 16,
+                      boxShadow: isDark
+                        ? "0 4px 24px 0 rgba(80,80,120,0.18)"
+                        : "0 4px 24px 0 rgba(120,120,180,0.10)",
+                      borderRadius: 3,
+                      px: 3,
+                      height: 48,
+                    }}
+                  >
+                    <CloudUploadIcon style={{ fontSize: 22, marginRight: 8 }} />
+                    Upload Artifact
+                  </SynthButton>
+                ) : (
+                  <SynthButton
+                    variant="primary"
+                    size="lg"
+                    onClick={handleGoogleDriveAuth}
+                    disabled={isConnectingGoogleDrive}
+                    sx={{
+                      background: "linear-gradient(90deg, #4285F4 0%, #34A853 100%)",
+                      color: "#fff",
+                      fontWeight: 700,
+                      fontSize: 16,
+                      boxShadow: isDark
+                        ? "0 4px 24px 0 rgba(66,133,244,0.18)"
+                        : "0 4px 24px 0 rgba(66,133,244,0.10)",
+                      borderRadius: 3,
+                      px: 3,
+                      height: 48,
+                    }}
+                  >
+                    {isConnectingGoogleDrive ? (
+                      <CircularProgress size={20} color="inherit" style={{ marginRight: 8 }} />
+                    ) : (
+                      <CloudSyncIcon style={{ fontSize: 22, marginRight: 8 }} />
+                    )}
+                    {isConnectingGoogleDrive ? 'Connecting...' : 'Connect Google Drive'}
+                  </SynthButton>
+                )}
               </Box>
             </Grid>
           ) : (
