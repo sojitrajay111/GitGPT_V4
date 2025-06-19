@@ -82,9 +82,7 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
     pollingInterval: 30000,
   });
 
-
   const collaboratorCount = collaborators?.length || 0;
-
 
   // --- DEBUGGING LOGS START ---
   useEffect(() => {
@@ -142,7 +140,6 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-md transition dark:bg-[#161717] dark:text-white hover:shadow-xl flex flex-col justify-between space-y-2 w-full dark:border-gray-800">
-
       {/* Header: Project Name + Icon */}
       <div>
         <div className="flex justify-between items-center mb-1">
@@ -157,7 +154,6 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
 
       {/* Progress Section */}
       <div>
-
         <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
           Progress
         </p>
@@ -189,7 +185,6 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
 
       {/* Contribution Section */}
       <div>
-
         <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
           Contribution
         </p>
@@ -201,7 +196,10 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
           ></div>
           <div
             className="absolute h-full bg-purple-400"
-            style={{ left: `${aiContribution}%`, width: `${humanContribution}%` }}
+            style={{
+              left: `${aiContribution}%`,
+              width: `${humanContribution}%`,
+            }}
           ></div>
         </div>
         <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-1">
@@ -248,12 +246,10 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
           {" "}
           {/* Added dark background */}
           <div className="flex justify-between items-center mb-2">
-
             <Typography
               variant="subtitle2"
               className="font-bold text-sm dark:text-white"
             >
-
               Project Collaborators
             </Typography>
             <IconButton
@@ -282,7 +278,6 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
             </Typography>
           ) : (
             <div className="space-y-1">
-
               {collaborators.map((collaborator) => (
                 <div key={collaborator.id} className="flex items-center gap-2">
                   <Avatar
@@ -294,7 +289,6 @@ function ProjectCard({ project, index, handleCreateProjectClick }) {
                     className="text-xs dark:text-gray-200"
                   >
                     {collaborator.login}
-
                   </Typography>
                 </div>
               ))}
@@ -334,14 +328,9 @@ export default function DashboardContent() {
   } = useGetProjectsQuery(userId);
 
   const projects =
-    user_role === "manager" ? projectData?.projects || [] : developerProjects || [];
-
-  // Filter projects based on search term
-  const filteredProjects = projects.filter(
-    (project) =>
-      project?.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project?.projectDescription?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    user_role === "manager"
+      ? projectData?.projects || []
+      : developerProjects || [];
 
   // Filter projects based on search term
   const filteredProjects = projects.filter(
@@ -351,13 +340,6 @@ export default function DashboardContent() {
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase())
   );
-
-  const {
-    data: statusResponse,
-    isLoading: statusLoading,
-    error: statusError,
-    refetch: refetchStatus,
-  } = useGetGitHubStatusQuery(userId);
 
   const [disconnectGitHub, { isLoading: disconnectLoading }] =
     useDisconnectGitHubMutation();
@@ -455,7 +437,6 @@ export default function DashboardContent() {
 
                 className:
                   "bg-white dark:bg-[#161717] text-gray-900 dark:text-white", // Added dark background and text for input
-
               }}
               sx={{
                 "& .MuiOutlinedInput-root": {
