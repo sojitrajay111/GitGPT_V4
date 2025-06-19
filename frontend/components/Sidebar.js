@@ -208,7 +208,7 @@ const Sidebar = ({
                 >
                   @{githubUsername}
                 </span>
-                <span className="text-xs text-indigo-500 mt-1 max-w-[160px] overflow-hidden text-ellipsis whitespace-nowrap block">{email}</span>
+                <span className="text-xs text-indigo-500 mt-1">{email}</span>
               </div>
             </div>
           </div>

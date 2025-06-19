@@ -1,16 +1,24 @@
 // components/ConfigurationDashboard.js
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Settings, Database, Edit, Trash2, Power } from 'lucide-react';
-import ConfigurationWizard from './ConfigurationWizard';
-import { toast } from 'sonner';
-import axios from 'axios';
-import { useParams } from 'next/navigation';
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Plus,
+  Search,
+  Settings,
+  Database,
+  Edit,
+  Trash2,
+  Power,
+} from "lucide-react";
+import ConfigurationWizard from "./ConfigurationWizard";
+import { toast } from "sonner";
+import axios from "axios";
+import { useParams } from "next/navigation";
 import {
   ColumnDef,
   flexRender,
@@ -19,11 +27,16 @@ import {
   getFilteredRowModel,
   getSortedRowModel,
   getPaginationRowModel,
-} from '@tanstack/react-table';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Checkbox } from '@/components/ui/checkbox';
-// Import the necessary hooks from your themeApiSlice
-import { useGetThemeQuery } from '@/features/themeApiSlice'; // useUpdateThemeMutation is not needed here if buttons are in sidebar
+} from "@tanstack/react-table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Import Shadcn/ui's Table components
 import {
@@ -33,11 +46,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-
-} from '@/components/ui/table'; // THIS IS THE KEY CHANGE
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { useGetThemeQuery } from '@/features/themeApiSlice';
-
+} from "@/components/ui/table"; // THIS IS THE KEY CHANGE
 
 /**
  * @typedef {Object} Configuration
@@ -50,55 +59,16 @@ import { useGetThemeQuery } from '@/features/themeApiSlice';
 
 const ConfigurationDashboard = () => {
   const params = useParams();
-  // Using a static userId for now as params.userId might be undefined in client-side context
-  // You should replace this with a proper way to get the authenticated user's ID
-  // e.g., from an authentication context or Redux store if you have one.
-  const userId = "some_static_user_id"; // Replace with actual user ID retrieval logic
-
+  const userId = params.userId;
   const [configurations, setConfigurations] = useState([]);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
-
-
-  // Theme logic
-  const lightTheme = createTheme({
-    palette: {
-      mode: 'light',
-      background: {
-        default: '#F5F6FA',
-        paper: '#fff',
-        list: '#F7F8FA',
-      },
-      text: {
-        primary: '#222',
-        secondary: '#6B7280',
-      },
-    },
-  });
-  const darkTheme = createTheme({
-    palette: {
-      mode: 'dark',
-      background: {
-        default: '#000', // Main background
-        paper: '#161717', // Cards/dialogs
-        list: '#2f2f2f', // Lists
-      },
-      text: {
-        primary: '#F3F4F6',
-        secondary: '#B0B3B8',
-      },
-    },
-  });
-  const { data: themeData } = useGetThemeQuery(userId);
-  const themeMode = themeData?.theme === 'dark' ? 'dark' : 'light';
-  const currentTheme = themeMode === 'dark' ? darkTheme : lightTheme;
-
 
   // Get auth token
   const getAuthToken = () => {
-    return localStorage.getItem('token');
+    return localStorage.getItem("token");
   };
 
   // Configure axios headers
@@ -107,24 +77,24 @@ const ConfigurationDashboard = () => {
     return {
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     };
   };
 
   // Fetch configurations on component mount
   useEffect(() => {
-    console.log('Current userId for configurations:', userId);
+    console.log("Current userId:", userId);
     if (userId) {
       fetchConfigurations();
     }
-  }, [userId]); // Depend on userId for configuration fetching
+  }, [userId]);
 
   const fetchConfigurations = async () => {
     try {
       setLoading(true);
       if (!userId) {
-        throw new Error('User ID not found');
+        throw new Error("User ID not found");
       }
 
       const response = await axios.get(
@@ -135,17 +105,20 @@ const ConfigurationDashboard = () => {
       if (response.data.success) {
         setConfigurations(response.data.data);
       } else {
-        throw new Error(response.data.message || 'Failed to fetch configurations');
+        throw new Error(
+          response.data.message || "Failed to fetch configurations"
+        );
       }
     } catch (error) {
-      console.error('Error fetching configurations:', error);
+      console.error("Error fetching configurations:", error);
       if (error.response?.status === 401) {
         toast.error("Authentication Error", {
           description: "Please log in again to continue.",
         });
       } else {
         toast.error("Error Loading Configurations", {
-          description: error.message || "Failed to load configurations. Please try again.",
+          description:
+            error.message || "Failed to load configurations. Please try again.",
         });
       }
     } finally {
@@ -156,40 +129,45 @@ const ConfigurationDashboard = () => {
   const handleSaveConfiguration = async (configData) => {
     try {
       if (!userId) {
-        throw new Error('User ID not found');
+        throw new Error("User ID not found");
       }
 
       const response = await axios.post(
         `http://localhost:3001/api/configurations/${userId}`,
         {
           configTitle: configData.title,
-          configValue: configData.items.map(item => ({
+          configValue: configData.items.map((item) => ({
             key: item.key,
-            value: item.value
+            value: item.value,
           })),
-          isActive: true
+          isActive: true,
         },
         getAuthHeaders()
       );
 
       if (response.data.success) {
         toast.success("Configuration Saved", {
-          description: `${configData.title} has been ${editingConfig ? 'updated' : 'added'} successfully.`,
+          description: `${configData.title} has been ${
+            editingConfig ? "updated" : "added"
+          } successfully.`,
         });
         handleCloseWizard();
         fetchConfigurations(); // Refresh the list
       } else {
-        throw new Error(response.data.message || 'Failed to save configuration');
+        throw new Error(
+          response.data.message || "Failed to save configuration"
+        );
       }
     } catch (error) {
-      console.error('Error saving configuration:', error);
+      console.error("Error saving configuration:", error);
       if (error.response?.status === 401) {
         toast.error("Authentication Error", {
           description: "Please log in again to continue.",
         });
       } else {
         toast.error("Error Saving Configuration", {
-          description: error.message || "Failed to save configuration. Please try again.",
+          description:
+            error.message || "Failed to save configuration. Please try again.",
         });
       }
     }
@@ -199,11 +177,11 @@ const ConfigurationDashboard = () => {
     // Transform the configuration data to match the wizard's expected format
     const transformedConfig = {
       title: config.configTitle,
-      items: config.configValue.map(item => ({
+      items: config.configValue.map((item) => ({
         key: item.key,
-        value: item.value
+        value: item.value,
       })),
-      isActive: config.isActive
+      isActive: config.isActive,
     };
     setEditingConfig(transformedConfig);
     setIsWizardOpen(true);
@@ -212,12 +190,12 @@ const ConfigurationDashboard = () => {
   const handleDeleteConfiguration = async (id) => {
     try {
       if (!userId) {
-        throw new Error('User ID not found');
+        throw new Error("User ID not found");
       }
 
-      const configToDelete = configurations.find(config => config._id === id);
+      const configToDelete = configurations.find((config) => config._id === id);
       if (!configToDelete) {
-        throw new Error('Configuration not found');
+        throw new Error("Configuration not found");
       }
 
       const response = await axios.delete(
@@ -231,17 +209,21 @@ const ConfigurationDashboard = () => {
         });
         fetchConfigurations(); // Refresh the list
       } else {
-        throw new Error(response.data.message || 'Failed to delete configuration');
+        throw new Error(
+          response.data.message || "Failed to delete configuration"
+        );
       }
     } catch (error) {
-      console.error('Error deleting configuration:', error);
+      console.error("Error deleting configuration:", error);
       if (error.response?.status === 401) {
         toast.error("Authentication Error", {
           description: "Please log in again to continue.",
         });
       } else {
         toast.error("Error Deleting Configuration", {
-          description: error.message || "Failed to delete configuration. Please try again.",
+          description:
+            error.message ||
+            "Failed to delete configuration. Please try again.",
         });
       }
     }
@@ -250,12 +232,12 @@ const ConfigurationDashboard = () => {
   const handleToggleStatus = async (id) => {
     try {
       if (!userId) {
-        throw new Error('User ID not found');
+        throw new Error("User ID not found");
       }
 
-      const configToToggle = configurations.find(config => config._id === id);
+      const configToToggle = configurations.find((config) => config._id === id);
       if (!configToToggle) {
-        throw new Error('Configuration not found');
+        throw new Error("Configuration not found");
       }
 
       const response = await axios.patch(
@@ -266,21 +248,27 @@ const ConfigurationDashboard = () => {
 
       if (response.data.success) {
         toast.info("Status Changed", {
-          description: `${configToToggle.configTitle} is now ${response.data.data.isActive ? 'Active' : 'Inactive'}.`,
+          description: `${configToToggle.configTitle} is now ${
+            response.data.data.isActive ? "Active" : "Inactive"
+          }.`,
         });
         fetchConfigurations(); // Refresh the list
       } else {
-        throw new Error(response.data.message || 'Failed to toggle configuration status');
+        throw new Error(
+          response.data.message || "Failed to toggle configuration status"
+        );
       }
     } catch (error) {
-      console.error('Error toggling configuration status:', error);
+      console.error("Error toggling configuration status:", error);
       if (error.response?.status === 401) {
         toast.error("Authentication Error", {
           description: "Please log in again to continue.",
         });
       } else {
         toast.error("Error Changing Status", {
-          description: error.message || "Failed to change configuration status. Please try again.",
+          description:
+            error.message ||
+            "Failed to change configuration status. Please try again.",
         });
       }
     }
@@ -304,10 +292,14 @@ const ConfigurationDashboard = () => {
       header: "Service",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <span role="img" aria-label="chip">💾</span>
+          <span role="img" aria-label="chip">
+            💾
+          </span>
           <div>
             <div className="font-semibold">{row.getValue("configTitle")}</div>
-            <div className="text-xs text-muted-foreground">ID: {row.original._id}</div>
+            <div className="text-xs text-muted-foreground">
+              ID: {row.original._id}
+            </div>
           </div>
         </div>
       ),
@@ -344,7 +336,11 @@ const ConfigurationDashboard = () => {
       header: "Created",
       cell: ({ row }) => {
         const date = new Date(row.getValue("createdAt"));
-        return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+        return date.toLocaleDateString("en-IN", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
       },
       enableColumnFilter: false,
     },
@@ -367,10 +363,14 @@ const ConfigurationDashboard = () => {
                 <Edit className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleToggleStatus(config._id)}>
-                <Power className="mr-2 h-4 w-4" /> {config.isActive ? 'Deactivate' : 'Activate'}
+                <Power className="mr-2 h-4 w-4" />{" "}
+                {config.isActive ? "Deactivate" : "Activate"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleDeleteConfiguration(config._id)} className="text-red-600 focus:text-red-700">
+              <DropdownMenuItem
+                onClick={() => handleDeleteConfiguration(config._id)}
+                className="text-red-600 focus:text-red-700"
+              >
                 <Trash2 className="mr-2 h-4 w-4" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -396,42 +396,52 @@ const ConfigurationDashboard = () => {
 
   // --- Calculate summary stats ---
   const totalConfigurations = configurations.length;
-  const activeConfigurations = configurations.filter(config => config.isActive).length;
-  const lastUpdatedDate = configurations.length > 0
-    ? new Date(Math.max(...configurations.map(c => new Date(c.createdAt).getTime()))).toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })
-    : 'N/A';
+  const activeConfigurations = configurations.filter(
+    (config) => config.isActive
+  ).length;
+  const lastUpdatedDate =
+    configurations.length > 0
+      ? new Date(
+          Math.max(
+            ...configurations.map((c) => new Date(c.createdAt).getTime())
+          )
+        ).toLocaleDateString("en-IN", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "N/A";
 
-  // Overall loading state (combining configuration and theme loading)
-  // Ensure that the component only renders after both configurations and theme are loaded
-  const overallLoading = loading || isThemeLoading;
-
-  if (overallLoading) {
+  if (loading) {
     return (
-      <ThemeProvider theme={currentTheme}>
-        <div className="min-h-screen p-6 font-sans flex items-center justify-center" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
+      <div className="min-h-screen bg-background p-6 font-sans flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+          <p className="mt-4 text-muted-foreground">
+            Loading configurations...
+          </p>
         </div>
       </div>
-      </ThemeProvider>
     );
   }
 
   return (
-    <ThemeProvider theme={currentTheme}>
-      <div className="min-h-screen p-6 font-sans" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
+    <div className="min-h-screen bg-background p-6 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-              <h1 className="text-3xl font-bold" style={{ color: currentTheme.palette.text.primary }}>Configuration Management</h1>
-              <p className="mt-1" style={{ color: currentTheme.palette.text.secondary }}>
+            <h1 className="text-3xl font-bold text-foreground">
+              Configuration Management
+            </h1>
+            <p className="text-muted-foreground mt-1">
               Manage API settings and configurations for your tools
             </p>
           </div>
-          {/* Removed Theme Toggle Buttons as they are in the sidebar */}
-          <Button onClick={handleOpenWizard} className="flex items-center gap-2">
+          <Button
+            onClick={handleOpenWizard}
+            className="flex items-center gap-2"
+          >
             <Plus className="h-4 w-4" />
             Add Configuration
           </Button>
@@ -439,48 +449,69 @@ const ConfigurationDashboard = () => {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Configurations</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Configurations
+              </CardTitle>
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalConfigurations}</div>
-                <p className="text-xs" style={{ color: currentTheme.palette.text.secondary }}>Overall count</p>
+              <p className="text-xs text-muted-foreground">Overall count</p>
             </CardContent>
           </Card>
 
-            <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Configurations</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Active Configurations
+              </CardTitle>
               <Settings className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{activeConfigurations}</div>
-                <p className="text-xs" style={{ color: currentTheme.palette.text.secondary }}>Currently deployed</p>
+              <div className="text-2xl font-bold text-green-600">
+                {activeConfigurations}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Currently deployed
+              </p>
             </CardContent>
           </Card>
 
-            <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Last Updated</CardTitle>
-              <Badge variant="outline">{new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</Badge>
+              <CardTitle className="text-sm font-medium">
+                Last Updated
+              </CardTitle>
+              <Badge variant="outline">
+                {new Date().toLocaleDateString("en-IN", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </Badge>
             </CardHeader>
             <CardContent>
-                <div className="text-sm" style={{ color: currentTheme.palette.text.secondary }}>
+              <div className="text-sm text-muted-foreground">
                 {lastUpdatedDate}
               </div>
-                <p className="text-xs" style={{ color: currentTheme.palette.text.secondary }}>Latest configuration change</p>
+              <p className="text-xs text-muted-foreground">
+                Latest configuration change
+              </p>
             </CardContent>
           </Card>
         </div>
 
         {/* Data Table Section */}
-          <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
+        <Card>
           <CardHeader>
-            <CardTitle className="text-xl font-semibold">Configured Services</CardTitle>
-              <p className="text-sm" style={{ color: currentTheme.palette.text.secondary }}>
-              Showing {table.getFilteredRowModel().rows.length} of {configurations.length} configurations
+            <CardTitle className="text-xl font-semibold">
+              Configured Services
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Showing {table.getFilteredRowModel().rows.length} of{" "}
+              {configurations.length} configurations
             </p>
           </CardHeader>
           <CardContent>
@@ -494,7 +525,7 @@ const ConfigurationDashboard = () => {
               />
             </div>
             {/* The actual table rendering */}
-              <div className="rounded-md border" style={{ background: currentTheme.palette.background.list }}>
+            <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
@@ -523,14 +554,20 @@ const ConfigurationDashboard = () => {
                       >
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={columns.length} className="h-24 text-center">
+                      <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center"
+                      >
                         No results.
                       </TableCell>
                     </TableRow>
@@ -562,13 +599,16 @@ const ConfigurationDashboard = () => {
             {configurations.length === 0 && (
               <div className="text-center py-12">
                 <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium" style={{ color: currentTheme.palette.text.primary }}>
+                <h3 className="text-lg font-medium text-foreground mb-2">
                   No configurations yet
                 </h3>
-                  <p className="mb-4" style={{ color: currentTheme.palette.text.secondary }}>
+                <p className="text-muted-foreground mb-4">
                   Get started by creating your first configuration
                 </p>
-                <Button onClick={handleOpenWizard} className="flex items-center gap-2">
+                <Button
+                  onClick={handleOpenWizard}
+                  className="flex items-center gap-2"
+                >
                   <Plus className="h-4 w-4" />
                   Add Your First Configuration
                 </Button>
@@ -585,7 +625,6 @@ const ConfigurationDashboard = () => {
         editingConfig={editingConfig}
       />
     </div>
-    </ThemeProvider>
   );
 };
 
