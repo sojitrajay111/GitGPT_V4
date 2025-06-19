@@ -211,17 +211,16 @@ const MarkdownRenderer = ({
               }
 
               return (
-                <div className={`relative group my-4 rounded-lg overflow-hidden border ${
-                  darkMode 
+                <div className={`relative group my-4 rounded-lg overflow-x-auto border max-w-full
+                  ${darkMode 
                     ? 'border-gray-700 bg-gray-800' 
-                    : 'border-gray-200 bg-gray-50'
-                }`}>
+                    : 'border-gray-200 bg-gray-50'}
+                `}>
                   <div className={`
                     flex justify-between items-center px-3 py-1 text-xs
                     ${darkMode 
                       ? 'bg-gray-700 text-gray-300' 
-                      : 'bg-gray-100 text-gray-600'
-                    }
+                      : 'bg-gray-100 text-gray-600'}
                   `}>
                     <span>{match[1]}</span>
                     <div className="flex space-x-2">
@@ -247,14 +246,11 @@ const MarkdownRenderer = ({
                       </Tooltip>
                     </div>
                   </div>
-                  
                   {showRawCode[id] ? (
-                    <pre className={`
-                      p-4 m-0 overflow-x-auto text-sm font-mono
+                    <pre className={`p-4 m-0 overflow-x-auto text-sm font-mono max-w-full break-words
                       ${darkMode 
-                        ? 'bg-gray-900 text-gray-300' 
-                        : 'bg-white text-gray-800'
-                      }
+                        ? 'bg-gray-900 text-gray-100' 
+                        : 'bg-white text-gray-800'}
                     `}>
                       {codeString}
                     </pre>
@@ -263,7 +259,7 @@ const MarkdownRenderer = ({
                       style={getSyntaxTheme()}
                       language={match[1]}
                       PreTag="div"
-                      className="m-0 text-sm"
+                      className="m-0 text-sm max-w-full overflow-x-auto break-words"
                       showLineNumbers
                       wrapLines
                       {...props}
@@ -277,11 +273,10 @@ const MarkdownRenderer = ({
 
             return (
               <code className={`
-                px-1.5 py-0.5 rounded text-sm font-mono
+                px-1.5 py-0.5 rounded text-sm font-mono max-w-full break-words
                 ${darkMode 
                   ? 'bg-gray-700 text-gray-200' 
-                  : 'bg-gray-100 text-gray-800'
-                }
+                  : 'bg-gray-100 text-gray-800'}
               `} {...props}>
                 {children}
               </code>

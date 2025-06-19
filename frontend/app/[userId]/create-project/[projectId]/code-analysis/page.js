@@ -409,12 +409,13 @@ const App = () => {
         setLastAiResponseForCodePush(result.aiMessage.text);
       }
     } catch (err) {
+       playErrorSound();
       console.error("Failed to send message:", err);
       console.error("Error sending code analysis message:", err.message);
       if (err.response && err.response.promptFeedback) {
         console.error("Prompt Feedback:", err.response.promptFeedback);
       }
-      playErrorSound();
+     
       const systemErrorMessage = {
         _id: `error-send-${Date.now()}`,
         sessionId: currentChatSessionId,
@@ -596,7 +597,12 @@ const App = () => {
     return (
       <div className={`flex mb-4 ${isUser ? "justify-end" : "justify-start"}`}>
         <div
-          className={`py-3 px-4 rounded-2xl max-w-[85%] md:max-w-[75%] lg:max-w-[65%]
+          className={`py-3 px-4 rounded-2xl 
+            ${
+              isUser
+                ? "max-w-[85%] md:max-w-[75%] lg:max-w-[65%]"
+                : "w-full"
+            } break-words overflow-x-auto
             ${
               isUser
                 ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-br-none shadow-md"
@@ -636,13 +642,12 @@ const App = () => {
               </span>
             )}
           </div>
-          <div className="text-sm whitespace-pre-wrap leading-relaxed break-words">
+          <div className="text-sm whitespace-pre-wrap leading-relaxed break-words overflow-x-auto">
             {isAI ? (
-              <MarkdownRenderer content={msg.text} />
+              <MarkdownRenderer content={msg.text} darkMode={true} />
             ) : (
               msg.text
             )}
-            {/* {msg.text} */}
           </div>
 
           {isSystem && msg.prUrl && (
@@ -719,7 +724,7 @@ const App = () => {
   }
 
   return (
-    <div className="flex h-screen font-sans bg-gradient-to-br from-gray-900 to-gray-800 text-gray-200 overflow-hidden">
+    <div className="flex h-screen font-sans bg-gradient-to-br from-gray-900 to-gray-800 text-gray-200 overflow-hidden w-full">
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         className={`md:hidden fixed z-30 bottom-4 left-4 p-3 rounded-full shadow-lg bg-gradient-to-br from-purple-600 to-indigo-600 border border-purple-400 transition-all ${
@@ -870,9 +875,9 @@ const App = () => {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative bg-gradient-to-b from-gray-900/80 to-gray-800/80">
+      <div className="flex-1 flex flex-col relative bg-gradient-to-b from-gray-900/80 to-gray-800/80 overflow-x-hidden w-full">
         {/* Header with improved layout */}
-        <header className="bg-gray-800 p-3 shadow-md z-10 border-b border-gray-700">
+        <header className="bg-gray-800 p-3 shadow-md z-10 border-b border-gray-700 w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {project && (
@@ -926,7 +931,7 @@ const App = () => {
         {/* Chat messages area */}
         <main
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4"
+          className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 w-full"
         >
           {isLoadingMessages && !messages.length && currentChatSessionId && (
             <div className="flex justify-center items-center h-full pt-10">
@@ -977,7 +982,7 @@ const App = () => {
         </main>
 
         {/* Footer with message input */}
-        <footer className="bg-gray-800 p-3 border-t border-gray-700">
+        <footer className="bg-gray-800 p-3 border-t border-gray-700 w-full">
           {lastAiResponseForCodePush && !isPushingCode && (
             <div className="mb-2 flex justify-end">
               <button
