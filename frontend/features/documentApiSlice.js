@@ -3,9 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const documentApi = createApi({
   reducerPath: "documentApi",
   baseQuery: fetchBaseQuery({
-
     baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/documents`, // Ensure this matches your backend
-
     prepareHeaders: (headers, { getState }) => {
       // getState can be useful
       const token = localStorage.getItem("token"); // Or get from Redux state
@@ -19,6 +17,17 @@ export const documentApi = createApi({
   }),
   tagTypes: ["Document"], // Tag for caching and invalidation
   endpoints: (builder) => ({
+    // Initialize Google Drive connection
+    initGoogleDrive: builder.mutation({
+      query: (credentials) => ({
+        url: "/init-google-drive",
+        method: "POST",
+        body: { credentials },
+      }),
+      invalidatesTags: ["Document"],
+    }),
+
+    // Get all documents for a project
     getProjectDocuments: builder.query({
       query: (projectId) => `/project/${projectId}`,
       providesTags: (result, error, projectId) =>
@@ -32,50 +41,45 @@ export const documentApi = createApi({
             ]
           : [{ type: "Document", id: "LIST" }], // Fallback if no documents
     }),
-    uploadDocument: builder.mutation({
-      query: ({
-        documentTitle,
-        documentShortDescription,
-        projectId,
-        documentFile,
-      }) => {
-        const formData = new FormData();
-        formData.append("documentTitle", documentTitle);
-        formData.append("documentShortDescription", documentShortDescription);
-        formData.append("projectId", projectId);
-        formData.append("documentFile", documentFile); // This is the file object
 
+    // Upload a new document
+    uploadDocument: builder.mutation({
+      query: (documentData) => {
+        const formData = new FormData();
+        formData.append("documentTitle", documentData.documentTitle);
+        formData.append("documentShortDescription", documentData.documentShortDescription);
+        formData.append("projectId", documentData.projectId);
+        if (documentData.documentFile) {
+          formData.append("documentFile", documentData.documentFile);
+        }
         return {
           url: "/upload",
           method: "POST",
           body: formData,
-          // formData: true, // Some RTK Query versions might use this hint, but usually automatic
         };
       },
-      invalidatesTags: [{ type: "Document", id: "LIST" }],
+      invalidatesTags: ["Document"],
     }),
+
+    // Save a generated document (metadata only)
     saveGeneratedDocument: builder.mutation({
       query: (documentData) => ({
         url: "/generate",
         method: "POST",
-        body: documentData, // Sent as JSON
+        body: documentData,
       }),
-      invalidatesTags: [{ type: "Document", id: "LIST" }],
+      invalidatesTags: ["Document"],
     }),
-    updateDocument: builder.mutation({
-      query: ({
-        documentId,
-        documentTitle,
-        documentShortDescription,
-        documentFile,
-      }) => {
-        const formData = new FormData();
-        // Append fields only if they are provided, to allow partial updates
-        if (documentTitle) formData.append("documentTitle", documentTitle);
-        if (documentShortDescription)
-          formData.append("documentShortDescription", documentShortDescription);
-        if (documentFile) formData.append("documentFile", documentFile); // New file if provided
 
+    // Update an existing document
+    updateDocument: builder.mutation({
+      query: ({ documentId, documentTitle, documentShortDescription, documentFile }) => {
+        const formData = new FormData();
+        formData.append("documentTitle", documentTitle);
+        formData.append("documentShortDescription", documentShortDescription);
+        if (documentFile) {
+          formData.append("documentFile", documentFile);
+        }
         return {
           url: `/${documentId}`,
           method: "PUT",
@@ -87,6 +91,8 @@ export const documentApi = createApi({
         { type: "Document", id: "LIST" }, // And the list
       ],
     }),
+
+    // Delete a document
     deleteDocument: builder.mutation({
       query: (documentId) => ({
         url: `/${documentId}`,
@@ -119,6 +125,7 @@ export const {
   useGetProjectDocumentsQuery,
   useUploadDocumentMutation,
   useSaveGeneratedDocumentMutation,
-  useUpdateDocumentMutation, // Export new hook
-  useDeleteDocumentMutation, // Export new hook
+  useUpdateDocumentMutation,
+  useDeleteDocumentMutation,
+  useInitGoogleDriveMutation,
 } = documentApi;

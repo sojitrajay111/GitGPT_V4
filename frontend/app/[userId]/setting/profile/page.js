@@ -203,9 +203,11 @@ export default function ProfileSettings() {
     palette: {
       mode: 'dark',
       background: {
+
         default: 'black', // Main background
         paper: '#161717', // Cards/dialogs
         list: '#2f2f2f', // Lists
+
       },
       text: {
         primary: '#ECEFF1', // Lightest grey

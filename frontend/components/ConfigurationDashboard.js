@@ -22,6 +22,8 @@ import {
 } from '@tanstack/react-table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
+// Import the necessary hooks from your themeApiSlice
+import { useGetThemeQuery } from '@/features/themeApiSlice'; // useUpdateThemeMutation is not needed here if buttons are in sidebar
 
 // Import Shadcn/ui's Table components
 import {
@@ -31,9 +33,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+
 } from '@/components/ui/table'; // THIS IS THE KEY CHANGE
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { useGetThemeQuery } from '@/features/themeApiSlice';
+
 
 /**
  * @typedef {Object} Configuration
@@ -46,12 +50,17 @@ import { useGetThemeQuery } from '@/features/themeApiSlice';
 
 const ConfigurationDashboard = () => {
   const params = useParams();
-  const userId = params.userId;
+  // Using a static userId for now as params.userId might be undefined in client-side context
+  // You should replace this with a proper way to get the authenticated user's ID
+  // e.g., from an authentication context or Redux store if you have one.
+  const userId = "some_static_user_id"; // Replace with actual user ID retrieval logic
+
   const [configurations, setConfigurations] = useState([]);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+
 
   // Theme logic
   const lightTheme = createTheme({
@@ -86,6 +95,7 @@ const ConfigurationDashboard = () => {
   const themeMode = themeData?.theme === 'dark' ? 'dark' : 'light';
   const currentTheme = themeMode === 'dark' ? darkTheme : lightTheme;
 
+
   // Get auth token
   const getAuthToken = () => {
     return localStorage.getItem('token');
@@ -104,11 +114,11 @@ const ConfigurationDashboard = () => {
 
   // Fetch configurations on component mount
   useEffect(() => {
-    console.log('Current userId:', userId);
+    console.log('Current userId for configurations:', userId);
     if (userId) {
       fetchConfigurations();
     }
-  }, [userId]);
+  }, [userId]); // Depend on userId for configuration fetching
 
   const fetchConfigurations = async () => {
     try {
@@ -121,7 +131,7 @@ const ConfigurationDashboard = () => {
         `http://localhost:3001/api/configurations/${userId}`,
         getAuthHeaders()
       );
-      
+
       if (response.data.success) {
         setConfigurations(response.data.data);
       } else {
@@ -154,8 +164,8 @@ const ConfigurationDashboard = () => {
         {
           configTitle: configData.title,
           configValue: configData.items.map(item => ({
-        key: item.key,
-        value: item.value
+            key: item.key,
+            value: item.value
           })),
           isActive: true
         },
@@ -163,10 +173,10 @@ const ConfigurationDashboard = () => {
       );
 
       if (response.data.success) {
-      toast.success("Configuration Saved", {
-        description: `${configData.title} has been ${editingConfig ? 'updated' : 'added'} successfully.`,
-      });
-      handleCloseWizard();
+        toast.success("Configuration Saved", {
+          description: `${configData.title} has been ${editingConfig ? 'updated' : 'added'} successfully.`,
+        });
+        handleCloseWizard();
         fetchConfigurations(); // Refresh the list
       } else {
         throw new Error(response.data.message || 'Failed to save configuration');
@@ -178,9 +188,9 @@ const ConfigurationDashboard = () => {
           description: "Please log in again to continue.",
         });
       } else {
-      toast.error("Error Saving Configuration", {
+        toast.error("Error Saving Configuration", {
           description: error.message || "Failed to save configuration. Please try again.",
-      });
+        });
       }
     }
   };
@@ -214,11 +224,11 @@ const ConfigurationDashboard = () => {
         `http://localhost:3001/api/configurations/${userId}/${configToDelete.configTitle}`,
         getAuthHeaders()
       );
-      
+
       if (response.data.success) {
-      toast.success("Configuration Deleted", {
-        description: "The configuration has been removed successfully.",
-      });
+        toast.success("Configuration Deleted", {
+          description: "The configuration has been removed successfully.",
+        });
         fetchConfigurations(); // Refresh the list
       } else {
         throw new Error(response.data.message || 'Failed to delete configuration');
@@ -230,9 +240,9 @@ const ConfigurationDashboard = () => {
           description: "Please log in again to continue.",
         });
       } else {
-      toast.error("Error Deleting Configuration", {
+        toast.error("Error Deleting Configuration", {
           description: error.message || "Failed to delete configuration. Please try again.",
-      });
+        });
       }
     }
   };
@@ -253,7 +263,7 @@ const ConfigurationDashboard = () => {
         {},
         getAuthHeaders()
       );
-      
+
       if (response.data.success) {
         toast.info("Status Changed", {
           description: `${configToToggle.configTitle} is now ${response.data.data.isActive ? 'Active' : 'Inactive'}.`,
@@ -391,13 +401,17 @@ const ConfigurationDashboard = () => {
     ? new Date(Math.max(...configurations.map(c => new Date(c.createdAt).getTime()))).toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })
     : 'N/A';
 
-  if (loading) {
+  // Overall loading state (combining configuration and theme loading)
+  // Ensure that the component only renders after both configurations and theme are loaded
+  const overallLoading = loading || isThemeLoading;
+
+  if (overallLoading) {
     return (
       <ThemeProvider theme={currentTheme}>
         <div className="min-h-screen p-6 font-sans flex items-center justify-center" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading configurations...</p>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
       </ThemeProvider>
@@ -416,6 +430,7 @@ const ConfigurationDashboard = () => {
               Manage API settings and configurations for your tools
             </p>
           </div>
+          {/* Removed Theme Toggle Buttons as they are in the sidebar */}
           <Button onClick={handleOpenWizard} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Add Configuration
