@@ -32,6 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'; // THIS IS THE KEY CHANGE
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { useGetThemeQuery } from '@/features/themeApiSlice';
 
 /**
  * @typedef {Object} Configuration
@@ -50,6 +52,39 @@ const ConfigurationDashboard = () => {
   const [editingConfig, setEditingConfig] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Theme logic
+  const lightTheme = createTheme({
+    palette: {
+      mode: 'light',
+      background: {
+        default: '#F5F6FA',
+        paper: '#fff',
+        list: '#F7F8FA',
+      },
+      text: {
+        primary: '#222',
+        secondary: '#6B7280',
+      },
+    },
+  });
+  const darkTheme = createTheme({
+    palette: {
+      mode: 'dark',
+      background: {
+        default: '#000', // Main background
+        paper: '#161717', // Cards/dialogs
+        list: '#2f2f2f', // Lists
+      },
+      text: {
+        primary: '#F3F4F6',
+        secondary: '#B0B3B8',
+      },
+    },
+  });
+  const { data: themeData } = useGetThemeQuery(userId);
+  const themeMode = themeData?.theme === 'dark' ? 'dark' : 'light';
+  const currentTheme = themeMode === 'dark' ? darkTheme : lightTheme;
 
   // Get auth token
   const getAuthToken = () => {
@@ -358,23 +393,26 @@ const ConfigurationDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-6 font-sans flex items-center justify-center">
+      <ThemeProvider theme={currentTheme}>
+        <div className="min-h-screen p-6 font-sans flex items-center justify-center" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading configurations...</p>
         </div>
       </div>
+      </ThemeProvider>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 font-sans">
+    <ThemeProvider theme={currentTheme}>
+      <div className="min-h-screen p-6 font-sans" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Configuration Management</h1>
-            <p className="text-muted-foreground mt-1">
+              <h1 className="text-3xl font-bold" style={{ color: currentTheme.palette.text.primary }}>Configuration Management</h1>
+              <p className="mt-1" style={{ color: currentTheme.palette.text.secondary }}>
               Manage API settings and configurations for your tools
             </p>
           </div>
@@ -386,47 +424,47 @@ const ConfigurationDashboard = () => {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+            <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Configurations</CardTitle>
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalConfigurations}</div>
-              <p className="text-xs text-muted-foreground">Overall count</p>
+                <p className="text-xs" style={{ color: currentTheme.palette.text.secondary }}>Overall count</p>
             </CardContent>
           </Card>
 
-          <Card>
+            <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Configurations</CardTitle>
               <Settings className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{activeConfigurations}</div>
-              <p className="text-xs text-muted-foreground">Currently deployed</p>
+                <p className="text-xs" style={{ color: currentTheme.palette.text.secondary }}>Currently deployed</p>
             </CardContent>
           </Card>
 
-          <Card>
+            <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Last Updated</CardTitle>
               <Badge variant="outline">{new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</Badge>
             </CardHeader>
             <CardContent>
-              <div className="text-sm text-muted-foreground">
+                <div className="text-sm" style={{ color: currentTheme.palette.text.secondary }}>
                 {lastUpdatedDate}
               </div>
-              <p className="text-xs text-muted-foreground">Latest configuration change</p>
+                <p className="text-xs" style={{ color: currentTheme.palette.text.secondary }}>Latest configuration change</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Data Table Section */}
-        <Card>
+          <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
           <CardHeader>
             <CardTitle className="text-xl font-semibold">Configured Services</CardTitle>
-            <p className="text-sm text-muted-foreground">
+              <p className="text-sm" style={{ color: currentTheme.palette.text.secondary }}>
               Showing {table.getFilteredRowModel().rows.length} of {configurations.length} configurations
             </p>
           </CardHeader>
@@ -441,7 +479,7 @@ const ConfigurationDashboard = () => {
               />
             </div>
             {/* The actual table rendering */}
-            <div className="rounded-md border">
+              <div className="rounded-md border" style={{ background: currentTheme.palette.background.list }}>
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
@@ -509,10 +547,10 @@ const ConfigurationDashboard = () => {
             {configurations.length === 0 && (
               <div className="text-center py-12">
                 <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">
+                  <h3 className="text-lg font-medium" style={{ color: currentTheme.palette.text.primary }}>
                   No configurations yet
                 </h3>
-                <p className="text-muted-foreground mb-4">
+                  <p className="mb-4" style={{ color: currentTheme.palette.text.secondary }}>
                   Get started by creating your first configuration
                 </p>
                 <Button onClick={handleOpenWizard} className="flex items-center gap-2">
@@ -532,6 +570,7 @@ const ConfigurationDashboard = () => {
         editingConfig={editingConfig}
       />
     </div>
+    </ThemeProvider>
   );
 };
 

@@ -39,6 +39,8 @@ import {
   Refresh,
 } from "@mui/icons-material";
 import GitHubAuthDialog from "@/components/GitHubAuthDialog"; // Assuming this path is correct
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { useGetThemeQuery } from "@/features/themeApiSlice";
 
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -387,183 +389,201 @@ export default function DashboardContent() {
     }
   };
 
+  // Theme logic
+  const lightTheme = createTheme({
+    palette: {
+      mode: 'light',
+      background: {
+        default: '#F5F7FA',
+        paper: '#fff',
+        list: '#F7F8FA',
+      },
+      text: {
+        primary: '#222',
+        secondary: '#6B7280',
+      },
+    },
+  });
+  const darkTheme = createTheme({
+    palette: {
+      mode: 'dark',
+      background: {
+        default: '#000', // Main background
+        paper: '#161717', // Cards/dialogs
+        list: '#2f2f2f', // Lists
+      },
+      text: {
+        primary: '#F3F4F6',
+        secondary: '#B0B3B8',
+      },
+    },
+  });
+  const { data: themeData } = useGetThemeQuery(userId);
+  const themeMode = themeData?.theme === 'dark' ? 'dark' : 'light';
+  const currentTheme = themeMode === 'dark' ? darkTheme : lightTheme;
+
   if (statusLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-1/3 mb-8"></div>
-            <div className="h-96 bg-gray-300 dark:bg-gray-700 rounded-xl"></div>
+      <ThemeProvider theme={currentTheme}>
+        <div className="min-h-screen p-6" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
+          <div className="max-w-7xl mx-auto">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-300 rounded w-1/3 mb-8"></div>
+              <div className="h-96 bg-gray-300 rounded-xl"></div>
+            </div>
           </div>
         </div>
-      </div>
+      </ThemeProvider>
     );
   }
 
   if (statusError) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="max-w-7xl mx-auto">
-          <Alert severity="error" className="mb-4">
-            Failed to load dashboard. Please try refreshing the page.
-            <Button onClick={() => refetchStatus()} className="ml-2">
-              Retry
-            </Button>
-          </Alert>
+      <ThemeProvider theme={currentTheme}>
+        <div className="min-h-screen p-6" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
+          <div className="max-w-7xl mx-auto">
+            <Alert severity="error" className="mb-4">
+              Failed to load dashboard. Please try refreshing the page.
+              <Button onClick={() => refetchStatus()} className="ml-2">
+                Retry
+              </Button>
+            </Alert>
+          </div>
         </div>
-      </div>
+      </ThemeProvider>
     );
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="mx-auto p-6 font-inter">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Dashboard
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Welcome back! Here's what's happening with your projects.
-            </p>
-          </div>
-          {isAuthenticated && githubData && (
-            <TextField
-              variant="outlined"
-              placeholder="Search projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search className="text-gray-500 dark:text-gray-400" />{" "}
-                    {/* Added dark text for icon */}
-                  </InputAdornment>
-                ),
-                className:
-                  "bg-white dark:bg-gray-800 text-gray-900 dark:text-white", // Added dark background and text for input
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "8px",
-                  "& fieldset": {
-                    // Default border color
-                    borderColor: "#e5e7eb", // light-mode default border
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "#6366F1",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "black",
-                    borderWidth: "1px",
-                  },
-                  // Dark mode border colors
-                  ".dark & fieldset": {
-                    borderColor: "#1f2937", // Gray-800 for dark mode border
-                  },
-                  ".dark &:hover fieldset": {
-                    borderColor: "#4f46e5", // Darker hover border (e.g., indigo-600)
-                  },
-                  ".dark &.Mui-focused fieldset": {
-                    borderColor: "#a1a1aa", // Darker focused border (e.g., zinc-400)
-                  },
-                },
-                "& .MuiInputBase-input": {
-                  padding: "10px 14px",
-                  "&::placeholder": {
-                    // Placeholder text color
-                    color: "#9ca3af", // default light placeholder
-                  },
-                  ".dark &::placeholder": {
-                    // Dark mode placeholder
-                    color: "#9ca3af", // Gray-400 for dark mode placeholder
-                  },
-                },
-                width: { xs: "100%", sm: "250px" },
-                mt: { xs: 3, sm: 0 },
-              }}
-            />
-          )}
-        </div>
-
-        {isAuthenticated && githubData ? (
-          <>
-            {filteredProjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {filteredProjects.map((project, index) => (
-                  <ProjectCard
-                    key={project._id || index}
-                    project={project}
-                    index={index}
-                    handleCreateProjectClick={handleCreateProjectClick}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 dark:text-white">
-                <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                  <Assignment className="w-12 h-12 text-gray-400 dark:text-gray-500" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  No projects found
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">
-                  {searchTerm
-                    ? `No projects match your search for "${searchTerm}".`
-                    : "Get started by creating your first project"}
-                </p>
-                {!searchTerm && (
-                  <Button
-                    variant="contained"
-                    startIcon={<Add />}
-                    onClick={handleCreateProjectClick}
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-4 py-2 dark:bg-blue-700 dark:hover:bg-blue-600"
-                  >
-                    Create Project
-                  </Button>
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 dark:bg-gray-800 dark:border-gray-800 text-center">
-            {" "}
-            {/* Changed dark background to gray-800 */}
-            <div className="w-20 h-20 mx-auto mb-6 bg-blue-50 dark:bg-blue-900 rounded-full flex items-center justify-center">
-              {" "}
-              {/* Added dark background */}
-              <GitHub className="w-10 h-10 text-blue-600" />
+    <ThemeProvider theme={currentTheme}>
+      <div className="min-h-screen" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
+        <div className="mx-auto p-6 font-inter">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+            <div>
+              <h1 className="text-2xl font-bold mb-2" style={{ color: currentTheme.palette.text.primary }}>
+                Dashboard
+              </h1>
+              <p style={{ color: currentTheme.palette.text.secondary }}>
+                Welcome back! Here's what's happening with your projects.
+              </p>
             </div>
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-              {" "}
-              {/* Added dark text */}
-              Connect Your GitHub Account
-            </h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-md mx-auto">
-              {" "}
-              {/* Added dark text */}
-              Connect your GitHub account to access all dashboard features, sync
-              your repositories, and track your project progress.
-            </p>
-            <Button
-              variant="contained"
-              startIcon={<GitHub />}
-              onClick={() => setShowGitHubDialog(true)}
-              size="large"
-              className="bg-gray-900 hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-700" // Adjusted for better dark mode visibility
-            >
-              Connect GitHub
-            </Button>
+            {isAuthenticated && githubData && (
+              <TextField
+                variant="outlined"
+                placeholder="Search projects..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search style={{ color: currentTheme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  style: {
+                    background: currentTheme.palette.background.paper,
+                    color: currentTheme.palette.text.primary,
+                  },
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px',
+                    background: currentTheme.palette.background.paper,
+                    color: currentTheme.palette.text.primary,
+                    '& fieldset': {
+                      borderColor: themeMode === 'dark' ? '#222' : '#e5e7eb',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#6366F1',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: themeMode === 'dark' ? '#a1a1aa' : 'black',
+                      borderWidth: '1px',
+                    },
+                  },
+                  '& .MuiInputBase-input': {
+                    padding: '10px 14px',
+                    color: currentTheme.palette.text.primary,
+                    '&::placeholder': {
+                      color: currentTheme.palette.text.secondary,
+                    },
+                  },
+                  width: { xs: '100%', sm: '250px' },
+                  mt: { xs: 3, sm: 0 },
+                }}
+              />
+            )}
           </div>
-        )}
 
-        <GitHubAuthDialog
-          open={showGitHubDialog}
-          onClose={() => setShowGitHubDialog(false)}
-          onSuccess={handleGitHubAuthSuccess}
-        />
+          {isAuthenticated && githubData ? (
+            <>
+              {filteredProjects.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {filteredProjects.map((project, index) => (
+                    <ProjectCard
+                      key={project._id || index}
+                      project={project}
+                      index={index}
+                      handleCreateProjectClick={handleCreateProjectClick}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-24 h-24 mx-auto mb-4" style={{ background: currentTheme.palette.background.paper }}>
+                    <Assignment className="w-12 h-12" style={{ color: currentTheme.palette.text.secondary }} />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2" style={{ color: currentTheme.palette.text.primary }}>
+                    No projects found
+                  </h3>
+                  <p className="mb-6" style={{ color: currentTheme.palette.text.secondary }}>
+                    {searchTerm
+                      ? `No projects match your search for "${searchTerm}".`
+                      : "Get started by creating your first project"}
+                  </p>
+                  {!searchTerm && (
+                    <Button
+                      variant="contained"
+                      startIcon={<Add />}
+                      onClick={handleCreateProjectClick}
+                      style={{ background: currentTheme.palette.primary.main, color: currentTheme.palette.primary.contrastText }}
+                    >
+                      Create Project
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }} className="rounded-xl p-8 shadow-sm border text-center">
+              <div className="w-20 h-20 mx-auto mb-6" style={{ background: currentTheme.palette.background.list }}>
+                <GitHub className="w-10 h-10" style={{ color: currentTheme.palette.primary.main }} />
+              </div>
+              <h2 className="text-2xl font-semibold mb-4">
+                Connect Your GitHub Account
+              </h2>
+              <p className="mb-6 max-w-md mx-auto" style={{ color: currentTheme.palette.text.secondary }}>
+                Connect your GitHub account to access all dashboard features, sync your repositories, and track your project progress.
+              </p>
+              <Button
+                variant="contained"
+                startIcon={<GitHub />}
+                onClick={() => setShowGitHubDialog(true)}
+                size="large"
+                style={{ background: currentTheme.palette.primary.main, color: currentTheme.palette.primary.contrastText }}
+              >
+                Connect GitHub
+              </Button>
+            </div>
+          )}
+
+          <GitHubAuthDialog
+            open={showGitHubDialog}
+            onClose={() => setShowGitHubDialog(false)}
+            onSuccess={handleGitHubAuthSuccess}
+          />
+        </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 }
