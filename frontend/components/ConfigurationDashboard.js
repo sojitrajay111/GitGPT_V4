@@ -33,7 +33,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+
+} from '@/components/ui/table'; // THIS IS THE KEY CHANGE
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { useGetThemeQuery } from '@/features/themeApiSlice';
+
 
 /**
  * @typedef {Object} Configuration
@@ -57,60 +61,40 @@ const ConfigurationDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Theme management hook: Only get the theme, no mutation needed here.
-  const { data: themeData, error: themeError, isLoading: isThemeLoading } = useGetThemeQuery(userId);
 
-  // useEffect to apply the theme when it's loaded from the API
-  // or when themeData changes (e.g., after an update from sidebar's mutation)
-  useEffect(() => {
-    if (themeData && themeData.theme) {
-      localStorage.setItem("theme", themeData.theme);
-      document.documentElement.setAttribute('data-theme', themeData.theme);
-      console.log(`Theme loaded from API and applied: ${themeData.theme}`);
-    } else if (!isThemeLoading && !themeData && !themeError) {
-      // If no theme is found from the API and not loading,
-      // try to retrieve from localStorage or apply a default.
-      const storedTheme = localStorage.getItem("theme");
-      if (storedTheme) {
-        document.documentElement.setAttribute('data-theme', storedTheme);
-        console.log(`Theme loaded from localStorage: ${storedTheme}`);
-      } else {
-        // Fallback to a default theme if nothing is found
-        localStorage.setItem("theme", "light");
-        document.documentElement.setAttribute('data-theme', "light");
-        console.log("No theme found, applying default 'light' theme.");
-      }
-    } else if (themeError) {
-      console.error("Error fetching theme:", themeError);
-      // Optionally handle theme fetch error, e.g., revert to a default local theme
-      const storedTheme = localStorage.getItem("theme");
-      if (storedTheme) {
-        document.documentElement.setAttribute('data-theme', storedTheme);
-      } else {
-        document.documentElement.setAttribute('data-theme', "light");
-      }
-    }
-  }, [themeData, isThemeLoading, themeError]);
+  // Theme logic
+  const lightTheme = createTheme({
+    palette: {
+      mode: 'light',
+      background: {
+        default: '#F5F6FA',
+        paper: '#fff',
+        list: '#F7F8FA',
+      },
+      text: {
+        primary: '#222',
+        secondary: '#6B7280',
+      },
+    },
+  });
+  const darkTheme = createTheme({
+    palette: {
+      mode: 'dark',
+      background: {
+        default: '#000', // Main background
+        paper: '#161717', // Cards/dialogs
+        list: '#2f2f2f', // Lists
+      },
+      text: {
+        primary: '#F3F4F6',
+        secondary: '#B0B3B8',
+      },
+    },
+  });
+  const { data: themeData } = useGetThemeQuery(userId);
+  const themeMode = themeData?.theme === 'dark' ? 'dark' : 'light';
+  const currentTheme = themeMode === 'dark' ? darkTheme : lightTheme;
 
-  // useEffect to listen for changes in localStorage from other tabs/windows or sidebar
-  useEffect(() => {
-    const handleStorageChange = (event) => {
-      // Check if the changed key in localStorage is 'theme'
-      if (event.key === 'theme' && event.newValue) {
-        // Apply the new theme value
-        document.documentElement.setAttribute('data-theme', event.newValue);
-        console.log(`Theme changed by another tab/sidebar (localStorage event): ${event.newValue}`);
-      }
-    };
-
-    // Add the event listener when the component mounts
-    window.addEventListener('storage', handleStorageChange);
-
-    // Clean up the event listener when the component unmounts
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []); // Empty dependency array means this runs once on mount and once on unmount
 
   // Get auth token
   const getAuthToken = () => {
@@ -423,23 +407,26 @@ const ConfigurationDashboard = () => {
 
   if (overallLoading) {
     return (
-      <div className="min-h-screen bg-background p-6 font-sans flex items-center justify-center">
+      <ThemeProvider theme={currentTheme}>
+        <div className="min-h-screen p-6 font-sans flex items-center justify-center" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
+      </ThemeProvider>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 font-sans">
+    <ThemeProvider theme={currentTheme}>
+      <div className="min-h-screen p-6 font-sans" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Configuration Management</h1>
-            <p className="text-muted-foreground mt-1">
+              <h1 className="text-3xl font-bold" style={{ color: currentTheme.palette.text.primary }}>Configuration Management</h1>
+              <p className="mt-1" style={{ color: currentTheme.palette.text.secondary }}>
               Manage API settings and configurations for your tools
             </p>
           </div>
@@ -452,47 +439,47 @@ const ConfigurationDashboard = () => {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+            <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Configurations</CardTitle>
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalConfigurations}</div>
-              <p className="text-xs text-muted-foreground">Overall count</p>
+                <p className="text-xs" style={{ color: currentTheme.palette.text.secondary }}>Overall count</p>
             </CardContent>
           </Card>
 
-          <Card>
+            <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Configurations</CardTitle>
               <Settings className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{activeConfigurations}</div>
-              <p className="text-xs text-muted-foreground">Currently deployed</p>
+                <p className="text-xs" style={{ color: currentTheme.palette.text.secondary }}>Currently deployed</p>
             </CardContent>
           </Card>
 
-          <Card>
+            <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Last Updated</CardTitle>
               <Badge variant="outline">{new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</Badge>
             </CardHeader>
             <CardContent>
-              <div className="text-sm text-muted-foreground">
+                <div className="text-sm" style={{ color: currentTheme.palette.text.secondary }}>
                 {lastUpdatedDate}
               </div>
-              <p className="text-xs text-muted-foreground">Latest configuration change</p>
+                <p className="text-xs" style={{ color: currentTheme.palette.text.secondary }}>Latest configuration change</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Data Table Section */}
-        <Card>
+          <Card style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }}>
           <CardHeader>
             <CardTitle className="text-xl font-semibold">Configured Services</CardTitle>
-            <p className="text-sm text-muted-foreground">
+              <p className="text-sm" style={{ color: currentTheme.palette.text.secondary }}>
               Showing {table.getFilteredRowModel().rows.length} of {configurations.length} configurations
             </p>
           </CardHeader>
@@ -507,7 +494,7 @@ const ConfigurationDashboard = () => {
               />
             </div>
             {/* The actual table rendering */}
-            <div className="rounded-md border">
+              <div className="rounded-md border" style={{ background: currentTheme.palette.background.list }}>
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
@@ -575,10 +562,10 @@ const ConfigurationDashboard = () => {
             {configurations.length === 0 && (
               <div className="text-center py-12">
                 <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">
+                  <h3 className="text-lg font-medium" style={{ color: currentTheme.palette.text.primary }}>
                   No configurations yet
                 </h3>
-                <p className="text-muted-foreground mb-4">
+                  <p className="mb-4" style={{ color: currentTheme.palette.text.secondary }}>
                   Get started by creating your first configuration
                 </p>
                 <Button onClick={handleOpenWizard} className="flex items-center gap-2">
@@ -598,6 +585,7 @@ const ConfigurationDashboard = () => {
         editingConfig={editingConfig}
       />
     </div>
+    </ThemeProvider>
   );
 };
 

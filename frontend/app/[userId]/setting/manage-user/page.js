@@ -8,6 +8,8 @@ import {
   Alert,
   useMediaQuery, // Import useMediaQuery hook
   useTheme, // Import useTheme hook
+  createTheme,
+  ThemeProvider,
 } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { useParams } from "next/navigation";
@@ -64,6 +66,38 @@ export default function UserManagementSettings() {
     isError: isErrorTheme,
     error: themeError,
   } = useGetThemeQuery(userId);
+
+  const lightTheme = createTheme({
+    palette: {
+      mode: 'light',
+      background: {
+        default: '#F5F6FA',
+        paper: '#fff',
+        list: '#F7F8FA',
+      },
+      text: {
+        primary: '#222',
+        secondary: '#6B7280',
+      },
+    },
+  });
+  const darkTheme = createTheme({
+    palette: {
+      mode: 'dark',
+      background: {
+        default: '#000', // Main background
+        paper: '#161717', // Cards/dialogs
+        list: '#2f2f2f', // Lists
+      },
+      text: {
+        primary: '#F3F4F6',
+        secondary: '#B0B3B8',
+      },
+    },
+  });
+
+  const themeMode = themeData?.theme === "dark" ? "dark" : "light";
+  const currentTheme = themeMode === "dark" ? darkTheme : lightTheme;
 
   useEffect(() => {
     if (usersData) {
@@ -308,13 +342,11 @@ export default function UserManagementSettings() {
     "rgba(50, 50, 93, 0.25) 0px 50px 100px -20px, rgba(0, 0, 0, 0.3) 0px 30px 60px -30px, rgba(10, 37, 64, 0.35) 0px -2px 6px 0px inset";
 
   const cardStyle = {
-    background: theme === "dark" ? "#181A20" : "#fff",
-    color: theme === "dark" ? "#F3F4F6" : "#222",
+    background: currentTheme.palette.background.paper,
+    color: currentTheme.palette.text.primary,
     borderRadius: 2,
-    // Apply new box shadow to the main card container
     boxShadow: newBoxShadow,
     padding: 0,
-
     minHeight: 600,
     display: "flex",
     flexDirection: "column",
@@ -327,50 +359,31 @@ export default function UserManagementSettings() {
     mb: 2,
     "& .MuiOutlinedInput-root": {
       borderRadius: 20,
-      background: `${theme === "dark" ? "#23272F" : "#E8EDF2"}`,
+      background: `${theme === "dark" ? currentTheme.palette.background.list : "#E8EDF2"}`,
       boxShadow:
         theme === "dark"
           ? "inset 4px 4px 8px rgba(0,0,0,0.6), inset -4px -4px 8px rgba(40,40,40,0.3)"
           : "inset 4px 4px 8px rgba(0, 0, 0, 0.25), inset -4px -4px 8px rgba(255, 255, 255, 0.9)",
-
-      // Ensure autofill background matches theme
       "& input:-webkit-autofill": {
-        WebkitBoxShadow: `0 0 0 1000px ${
-          theme === "dark" ? "#23272F" : "#E8EDF2"
-        } inset !important`,
-        WebkitTextFillColor: `${
-          theme === "dark" ? "#F3F4F6" : "#222"
-        } !important`,
-        caretColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
+        WebkitBoxShadow: `0 0 0 1000px ${theme === "dark" ? currentTheme.palette.background.list : "#E8EDF2"} inset !important`,
+        WebkitTextFillColor: `${theme === "dark" ? currentTheme.palette.text.primary : "#222"} !important`,
+        caretColor: `${theme === "dark" ? currentTheme.palette.text.primary : "#222"} !important`,
       },
       "& input:-webkit-autofill:hover": {
-        WebkitBoxShadow: `0 0 0 1000px ${
-          theme === "dark" ? "#23272F" : "#E8EDF2"
-        } inset !important`,
-        WebkitTextFillColor: `${
-          theme === "dark" ? "#F3F4F6" : "#222"
-        } !important`,
-        caretColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
+        WebkitBoxShadow: `0 0 0 1000px ${theme === "dark" ? currentTheme.palette.background.list : "#E8EDF2"} inset !important`,
+        WebkitTextFillColor: `${theme === "dark" ? currentTheme.palette.text.primary : "#222"} !important`,
+        caretColor: `${theme === "dark" ? currentTheme.palette.text.primary : "#222"} !important`,
       },
       "& input:-webkit-autofill:focus": {
-        WebkitBoxShadow: `0 0 0 1000px ${
-          theme === "dark" ? "#23272F" : "#E8EDF2"
-        } inset !important`,
-        WebkitTextFillColor: `${
-          theme === "dark" ? "#F3F4F6" : "#222"
-        } !important`,
-        caretColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
+        WebkitBoxShadow: `0 0 0 1000px ${theme === "dark" ? currentTheme.palette.background.list : "#E8EDF2"} inset !important`,
+        WebkitTextFillColor: `${theme === "dark" ? currentTheme.palette.text.primary : "#222"} !important`,
+        caretColor: `${theme === "dark" ? currentTheme.palette.text.primary : "#222"} !important`,
       },
       "& input:-webkit-autofill:active": {
-        WebkitBoxShadow: `0 0 0 1000px ${
-          theme === "dark" ? "#23272F" : "#E8EDF2"
-        } inset !important`,
-        WebkitTextFillColor: `${
-          theme === "dark" ? "#F3F4F6" : "#222"
-        } !important`,
-        caretColor: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
+        WebkitBoxShadow: `0 0 0 1000px ${theme === "dark" ? currentTheme.palette.background.list : "#E8EDF2"} inset !important`,
+        WebkitTextFillColor: `${theme === "dark" ? currentTheme.palette.text.primary : "#222"} !important`,
+        caretColor: `${theme === "dark" ? currentTheme.palette.text.primary : "#222"} !important`,
       },
-
       "&.Mui-focused": {
         boxShadow:
           theme === "dark"
@@ -379,7 +392,7 @@ export default function UserManagementSettings() {
       },
     },
     "& .MuiInputBase-input": {
-      color: `${theme === "dark" ? "#F3F4F6" : "#222"} !important`,
+      color: `${theme === "dark" ? currentTheme.palette.text.primary : "#222"} !important`,
       "&::placeholder": {
         color:
           theme === "dark"
@@ -388,7 +401,7 @@ export default function UserManagementSettings() {
       },
     },
     "& .MuiInputLabel-root": {
-      color: `${theme === "dark" ? "#B0B3B8" : "#6B7280"} !important`,
+      color: `${theme === "dark" ? currentTheme.palette.text.secondary : "#6B7280"} !important`,
     },
     "& .MuiInputLabel-root.Mui-focused": {
       color: theme === "dark" ? "#6366F1" : "#6366F1",
@@ -410,126 +423,128 @@ export default function UserManagementSettings() {
   };
 
   return (
-    <Box
-      sx={{
-        background: theme === "dark" ? "#101014" : "#F5F6FA",
-        py: 3,
-      }}
-    >
-      <Box sx={{ maxWidth: 1200, margin: "0 auto", width: "100%" }}>
-        <Box sx={{ ...cardStyle, pt: 3, pb: 3 }}>
-          <SearchAndAddSection
-            openAddUserDialog={openAddUserDialog}
-            setOpenAddUserDialog={setOpenAddUserDialog}
-            setUsernameVerifiedAsNew={setUsernameVerifiedAsNew}
-            setUsernameVerificationMessage={setUsernameVerificationMessage}
-            setFormMessage={setFormMessage}
-            reset={reset}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            isMobile={isMobile}
-            theme={theme}
-            buttonSx={buttonSx}
-          />
+    <ThemeProvider theme={currentTheme}>
+      <Box
+        sx={{
+          background: currentTheme.palette.background.default,
+          py: 3,
+        }}
+      >
+        <Box sx={{ maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+          <Box sx={{ ...cardStyle, pt: 3, pb: 3 }}>
+            <SearchAndAddSection
+              openAddUserDialog={openAddUserDialog}
+              setOpenAddUserDialog={setOpenAddUserDialog}
+              setUsernameVerifiedAsNew={setUsernameVerifiedAsNew}
+              setUsernameVerificationMessage={setUsernameVerificationMessage}
+              setFormMessage={setFormMessage}
+              reset={reset}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              isMobile={isMobile}
+              theme={theme}
+              buttonSx={buttonSx}
+            />
 
-          {formMessage && (
-            <Alert
-              severity={formMessage.includes("✅") ? "success" : "error"}
-              sx={{
-                mb: 2,
-                borderRadius: 2,
-                width: "90%",
-                mx: "auto",
-                backgroundColor:
-                  theme === "dark"
-                    ? formMessage.includes("✅")
-                      ? "#285C2A"
-                      : "#6C2C2C"
-                    : formMessage.includes("✅")
-                    ? "#D4EDDA"
-                    : "#F8D7DA",
-                color:
-                  theme === "dark"
-                    ? "#F3F4F6"
-                    : formMessage.includes("✅")
-                    ? "#155724"
-                    : "#721C24",
-                border:
-                  theme === "dark"
-                    ? formMessage.includes("✅")
-                      ? "1px solid #4CAF50"
-                      : "1px solid #F44336"
-                    : formMessage.includes("✅")
-                    ? "1px solid #C3E6CB"
-                    : "1px solid #F5C6CB",
-              }}
-            >
-              {formMessage}
-            </Alert>
-          )}
+            {formMessage && (
+              <Alert
+                severity={formMessage.includes("✅") ? "success" : "error"}
+                sx={{
+                  mb: 2,
+                  borderRadius: 2,
+                  width: "90%",
+                  mx: "auto",
+                  backgroundColor:
+                    theme === "dark"
+                      ? formMessage.includes("✅")
+                        ? "#285C2A"
+                        : "#6C2C2C"
+                      : formMessage.includes("✅")
+                      ? "#D4EDDA"
+                      : "#F8D7DA",
+                  color:
+                    theme === "dark"
+                      ? "#F3F4F6"
+                      : formMessage.includes("✅")
+                      ? "#155724"
+                      : "#721C24",
+                  border:
+                    theme === "dark"
+                      ? formMessage.includes("✅")
+                        ? "1px solid #4CAF50"
+                        : "1px solid #F44336"
+                      : formMessage.includes("✅")
+                      ? "1px solid #C3E6CB"
+                      : "1px solid #F5C6CB",
+                }}
+              >
+                {formMessage}
+              </Alert>
+            )}
 
-          <UserDataGrid
-            isLoadingUsers={isLoadingUsers}
-            filteredUsers={filteredUsers}
-            handleEditUser={handleEditUser}
-            confirmDelete={confirmDelete}
-            isDeletingUser={isDeletingUser}
-            isMobile={isMobile}
-            theme={theme}
-          />
+            <UserDataGrid
+              isLoadingUsers={isLoadingUsers}
+              filteredUsers={filteredUsers}
+              handleEditUser={handleEditUser}
+              confirmDelete={confirmDelete}
+              isDeletingUser={isDeletingUser}
+              isMobile={isMobile}
+              theme={theme}
+            />
 
-          {/* Add User Dialog */}
-          <AddUserDialog
-            open={openAddUserDialog}
-            onClose={() => setOpenAddUserDialog(false)}
-            handleSubmit={handleSubmit}
-            handleAddUser={handleAddUser}
-            register={register}
-            errors={errors}
-            usernameValue={usernameValue}
-            usernameVerifiedAsNew={usernameVerifiedAsNew}
-            usernameVerificationMessage={usernameVerificationMessage}
-            handleVerifyUsername={handleVerifyUsername}
-            isCheckingExistence={isCheckingExistence}
-            isAddingUser={isAddingUser}
-            isValid={isValid}
-            isMobile={isMobile}
-            inputSx={inputSx}
-            newBoxShadow={newBoxShadow}
-            theme={theme}
-            selectedJobRole={selectedJobRole}
-            setSelectedJobRole={setSelectedJobRole}
-            customJobRole={customJobRole}
-            setCustomJobRole={setCustomJobRole}
-          />
-          {/* Edit User Dialog */}
-          <EditUserDialog
-            open={openEditUserDialog}
-            onClose={() => setOpenEditUserDialog(false)}
-            currentUserToEdit={currentUserToEdit}
-            editJobRole={editJobRole}
-            setEditJobRole={setEditJobRole}
-            editCustomJobRole={editCustomJobRole}
-            setEditCustomJobRole={setEditCustomJobRole}
-            editUserStatus={editUserStatus}
-            setEditUserStatus={setEditUserStatus}
-            handleUpdateUserSubmit={handleUpdateUserSubmit}
-            isUpdatingUser={isUpdatingUser}
-            inputSx={inputSx}
-            newBoxShadow={newBoxShadow}
-            theme={theme}
-          />
-          {/* Delete Confirmation Dialog */}
-          <DeleteConfirmDialog
-            open={openConfirmDeleteDialog}
-            onClose={() => setOpenConfirmDeleteDialog(false)}
-            executeDelete={executeDelete}
-            isDeletingUser={isDeletingUser}
-            theme={theme}
-            newBoxShadow={newBoxShadow}
-          />
+            {/* Add User Dialog */}
+            <AddUserDialog
+              open={openAddUserDialog}
+              onClose={() => setOpenAddUserDialog(false)}
+              handleSubmit={handleSubmit}
+              handleAddUser={handleAddUser}
+              register={register}
+              errors={errors}
+              usernameValue={usernameValue}
+              usernameVerifiedAsNew={usernameVerifiedAsNew}
+              usernameVerificationMessage={usernameVerificationMessage}
+              handleVerifyUsername={handleVerifyUsername}
+              isCheckingExistence={isCheckingExistence}
+              isAddingUser={isAddingUser}
+              isValid={isValid}
+              isMobile={isMobile}
+              inputSx={inputSx}
+              newBoxShadow={newBoxShadow}
+              theme={theme}
+              selectedJobRole={selectedJobRole}
+              setSelectedJobRole={setSelectedJobRole}
+              customJobRole={customJobRole}
+              setCustomJobRole={setCustomJobRole}
+            />
+            {/* Edit User Dialog */}
+            <EditUserDialog
+              open={openEditUserDialog}
+              onClose={() => setOpenEditUserDialog(false)}
+              currentUserToEdit={currentUserToEdit}
+              editJobRole={editJobRole}
+              setEditJobRole={setEditJobRole}
+              editCustomJobRole={editCustomJobRole}
+              setEditCustomJobRole={setEditCustomJobRole}
+              editUserStatus={editUserStatus}
+              setEditUserStatus={setEditUserStatus}
+              handleUpdateUserSubmit={handleUpdateUserSubmit}
+              isUpdatingUser={isUpdatingUser}
+              inputSx={inputSx}
+              newBoxShadow={newBoxShadow}
+              theme={theme}
+            />
+            {/* Delete Confirmation Dialog */}
+            <DeleteConfirmDialog
+              open={openConfirmDeleteDialog}
+              onClose={() => setOpenConfirmDeleteDialog(false)}
+              executeDelete={executeDelete}
+              isDeletingUser={isDeletingUser}
+              theme={theme}
+              newBoxShadow={newBoxShadow}
+            />
+          </Box>
         </Box>
       </Box>
-    </Box>
+    </ThemeProvider>
   );
 }
