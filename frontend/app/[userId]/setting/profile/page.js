@@ -203,8 +203,9 @@ export default function ProfileSettings() {
     palette: {
       mode: 'dark',
       background: {
-        default: '#263238', // Dark background
-        paper: '#37474F', // Darker grey for cards/surfaces
+        default: 'black', // Main background
+        paper: '#161717', // Cards/dialogs
+        list: '#2f2f2f', // Lists
       },
       text: {
         primary: '#ECEFF1', // Lightest grey
@@ -230,7 +231,7 @@ export default function ProfileSettings() {
           root: {
             '& .MuiOutlinedInput-root': {
               borderRadius: '8px',
-              backgroundColor: 'rgba(55, 71, 79, 0.7)', // Darker background for input
+              backgroundColor: 'rgba(38, 38, 38, 0.7)', // Slightly lighter than black for input
               '&.Mui-focused fieldset': {
                 borderColor: '#64B5F6', // Primary blue on focus
               },
@@ -267,6 +268,16 @@ export default function ProfileSettings() {
       MuiPaper: {
         styleOverrides: {
           root: {
+            borderRadius: '12px',
+            backgroundColor: '#161717', // Ensure Paper uses card/dialog color
+          },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: '#161717', // Dialogs use card/dialog color
+            color: '#ECEFF1',
             borderRadius: '12px',
           },
         },

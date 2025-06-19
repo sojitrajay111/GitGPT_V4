@@ -101,6 +101,7 @@ export default function ReportContent() {
       background: {
         default: '#F5F7FA', // Light background
         paper: 'rgba(255, 255, 255, 0.98)', // White with slight transparency
+        list: '#F7F8FA',
       },
       text: {
         primary: '#263238', // Dark charcoal
@@ -175,8 +176,9 @@ export default function ReportContent() {
     palette: {
       mode: 'dark',
       background: {
-        default: '#263238', // Dark background
-        paper: '#37474F', // Darker grey for cards/surfaces
+        default: '#000', // Main background
+        paper: '#161717', // Cards/dialogs
+        list: '#2f2f2f', // Lists
       },
       text: {
         primary: '#ECEFF1', // Lightest grey
