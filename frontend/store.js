@@ -8,9 +8,9 @@ import { codeAnalysisApiSlice } from "./features/codeAnalysisApiSlice";
 import { documentApi } from "./features/documentApiSlice";
 import { developerApiSlice } from "./features/developerApiSlice";
 import { themeApi } from "./features/themeApiSlice";
-import { gptApiSlice } from "./features/gptApiSlice";
+
 import { configurationApiSlice } from "./features/configurationApiSlice";
-import { jiraApi } from "./features/jiraSlice";
+
 import { userManagementApi } from "./features/usermanagementSlice";
 import { companyApi } from "./features/companyApi";
 import serviceReducer from "./features/serviceSlice"; // ✅ Import serviceReducer
@@ -44,8 +44,7 @@ export const store = configureStore({
     [themeApi.reducerPath]: themeApi.reducer,
     [documentApi.reducerPath]: documentApi.reducer,
     [developerApiSlice.reducerPath]: developerApiSlice.reducer,
-    [gptApiSlice.reducerPath]: gptApiSlice.reducer,
-    [jiraApi.reducerPath]: jiraApi.reducer,
+
     [configurationApiSlice.reducerPath]: configurationApiSlice.reducer,
     [companyApi.reducerPath]: companyApi.reducer,
     [projectMetricsApiSlice.reducerPath]: projectMetricsApiSlice.reducer,
@@ -70,8 +69,7 @@ export const store = configureStore({
       userManagementApi.middleware,
       documentApi.middleware,
       developerApiSlice.middleware,
-      gptApiSlice.middleware,
-      jiraApi.middleware,
+
       configurationApiSlice.middleware,
       companyApi.middleware,
       userProfileApiSlice.middleware,
