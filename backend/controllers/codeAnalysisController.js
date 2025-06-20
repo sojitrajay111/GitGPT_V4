@@ -3,9 +3,7 @@ const CodeAnalysisMessage = require("../models/CodeAnalysisMessage");
 const GitHubData = require("../models/GithubData");
 const Project = require("../models/Project");
 const ProjectCollaborator = require("../models/ProjectCollaborator");
-
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
@@ -37,7 +35,9 @@ async function fetchRepoContents(
         errorData = await response.json();
       } catch (e) {}
       throw new Error(
-        `GitHub API error fetching contents for ${path}: ${errorData.message || response.statusText}`
+        `GitHub API error fetching contents for ${path}: ${
+          errorData.message || response.statusText
+        }`
       );
     }
     const contents = await response.json();
@@ -194,9 +194,7 @@ const isUserAuthorizedForCodeAnalysis = async (userId, projectId) => {
         collab.permissions.includes("Code analysis")
     );
     if (collaborator) {
-      console.log(
-        `[Auth Check] User ${userId} is an authorized collaborator.`
-      );
+      console.log(`[Auth Check] User ${userId} is an authorized collaborator.`);
       return true;
     } else {
       console.log(
@@ -306,7 +304,9 @@ const sendCodeAnalysisMessage = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    console.log(`[CodeAnalysis] Starting message processing for session: ${sessionId}, user: ${userId}`);
+    console.log(
+      `[CodeAnalysis] Starting message processing for session: ${sessionId}, user: ${userId}`
+    );
     if (!text) {
       return res
         .status(400)
@@ -326,7 +326,9 @@ const sendCodeAnalysisMessage = async (req, res) => {
       sender: "user",
       text,
     });
-    console.log(`[CodeAnalysis] User message saved with ID: ${userMessage._id}`);
+    console.log(
+      `[CodeAnalysis] User message saved with ID: ${userMessage._id}`
+    );
     console.log(`[CodeAnalysis] Fetching GitHub data for user: ${userId}`);
     const githubData = await GitHubData.findOne({ userId });
     if (!githubData || !githubData.githubPAT) {
@@ -339,9 +341,13 @@ const sendCodeAnalysisMessage = async (req, res) => {
     const githubPAT = githubData.githubPAT;
     const githubUsername = githubData.githubUsername;
     console.log(`[CodeAnalysis] GitHub data found for user: ${githubUsername}`);
-    console.log(`[CodeAnalysis] Extracting repo info from: ${session.githubRepoName}`);
+    console.log(
+      `[CodeAnalysis] Extracting repo info from: ${session.githubRepoName}`
+    );
     const [owner, repo] = session.githubRepoName.split("/");
-    console.log(`[CodeAnalysis] Owner: ${owner}, Repo: ${repo}, Branch: ${session.selectedBranch}`);
+    console.log(
+      `[CodeAnalysis] Owner: ${owner}, Repo: ${repo}, Branch: ${session.selectedBranch}`
+    );
     console.log(`[CodeAnalysis] Fetching repository contents...`);
     const fetchedCodeFiles = await fetchRepoContents(
       owner,
@@ -351,7 +357,9 @@ const sendCodeAnalysisMessage = async (req, res) => {
       githubPAT,
       githubUsername
     );
-    console.log(`[CodeAnalysis] Fetched ${fetchedCodeFiles.length} files from repository`);
+    console.log(
+      `[CodeAnalysis] Fetched ${fetchedCodeFiles.length} files from repository`
+    );
 
     // Enhanced query validation
     console.log(`[CodeAnalysis] Validating query relevance...`);
@@ -367,7 +375,7 @@ const sendCodeAnalysisMessage = async (req, res) => {
       lowerText.includes("repository") ||
       lowerText.includes("github") ||
       lowerText.includes("analyze");
-    
+
     // Check if query references a file or function in the repository
     let isRepoRelated = isSalesforceRelated;
     let relevantFiles = fetchedCodeFiles;
@@ -382,18 +390,27 @@ const sendCodeAnalysisMessage = async (req, res) => {
         relevantFiles = fetchedCodeFiles.filter((file) =>
           queryWords.some((word) => file.path.toLowerCase().includes(word))
         );
-        console.log(`[CodeAnalysis] Query references repository file(s): ${relevantFiles.map(f => f.path).join(", ")}`);
+        console.log(
+          `[CodeAnalysis] Query references repository file(s): ${relevantFiles
+            .map((f) => f.path)
+            .join(", ")}`
+        );
       } else {
         // Check for function names (basic regex for common function declarations)
-        const functionRegex = /\b(?:function|def|public|private|protected|static|void|class)\s+([a-zA-Z_][a-zA-Z0-9_]*)\b/;
+        const functionRegex =
+          /\b(?:function|def|public|private|protected|static|void|class)\s+([a-zA-Z_][a-zA-Z0-9_]*)\b/;
         for (const file of fetchedCodeFiles) {
           const matches = file.content.match(functionRegex);
           if (matches) {
-            const functionNames = matches.slice(1).map(name => name.toLowerCase());
-            if (queryWords.some(word => functionNames.includes(word))) {
+            const functionNames = matches
+              .slice(1)
+              .map((name) => name.toLowerCase());
+            if (queryWords.some((word) => functionNames.includes(word))) {
               isRepoRelated = true;
               relevantFiles = [file];
-              console.log(`[CodeAnalysis] Query references function in file: ${file.path}`);
+              console.log(
+                `[CodeAnalysis] Query references function in file: ${file.path}`
+              );
               break;
             }
           }
@@ -402,8 +419,11 @@ const sendCodeAnalysisMessage = async (req, res) => {
     }
 
     if (!isRepoRelated) {
-      console.log(`[CodeAnalysis] Query not relevant to Salesforce or repository`);
-      const sorryMessage = "Sorry, I can only assist with Salesforce-related questions or queries about specific files/functions in the repository.";
+      console.log(
+        `[CodeAnalysis] Query not relevant to Salesforce or repository`
+      );
+      const sorryMessage =
+        "Sorry, I can only assist with Salesforce-related questions or queries about specific files/functions in the repository.";
       await CodeAnalysisMessage.create({
         sessionId,
         sender: "system",
@@ -420,16 +440,19 @@ const sendCodeAnalysisMessage = async (req, res) => {
     // Build code context with priority for relevant files
     let currentBranchCodeContext = "";
     if (relevantFiles.length > 0) {
-      console.log(`[CodeAnalysis] Building code context from ${relevantFiles.length} relevant files`);
-      const salesforceFiles = relevantFiles.filter(file =>
-        file.path.endsWith(".cls") ||
-        file.path.endsWith(".trigger") ||
-        file.path.endsWith(".page") ||
-        file.path.endsWith(".component") ||
-        file.path.includes("lwc/") ||
-        file.path.endsWith(".xml") ||
-        file.path.endsWith(".js") || // Include JS for LWC
-        file.path.endsWith(".html") // Include HTML for LWC
+      console.log(
+        `[CodeAnalysis] Building code context from ${relevantFiles.length} relevant files`
+      );
+      const salesforceFiles = relevantFiles.filter(
+        (file) =>
+          file.path.endsWith(".cls") ||
+          file.path.endsWith(".trigger") ||
+          file.path.endsWith(".page") ||
+          file.path.endsWith(".component") ||
+          file.path.includes("lwc/") ||
+          file.path.endsWith(".xml") ||
+          file.path.endsWith(".js") || // Include JS for LWC
+          file.path.endsWith(".html") // Include HTML for LWC
       );
       if (salesforceFiles.length > 0) {
         currentBranchCodeContext = salesforceFiles
@@ -448,7 +471,12 @@ const sendCodeAnalysisMessage = async (req, res) => {
             .slice(0, 5)
             .map((f) => `// - ${f.path}`)
             .join("\n") +
-          `\n\n// Example from ${relevantFiles[0].path}:\n${relevantFiles[0].content.substring(0, Math.min(200, relevantFiles[0].content.length))}...`;
+          `\n\n// Example from ${
+            relevantFiles[0].path
+          }:\n${relevantFiles[0].content.substring(
+            0,
+            Math.min(200, relevantFiles[0].content.length)
+          )}...`;
       }
     } else {
       currentBranchCodeContext = `No relevant files found in branch: ${session.selectedBranch} of repository ${owner}/${repo}.`;
@@ -459,7 +487,9 @@ const sendCodeAnalysisMessage = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10);
     previousMessages.reverse();
-    console.log(`[CodeAnalysis] Found ${previousMessages.length} previous messages`);
+    console.log(
+      `[CodeAnalysis] Found ${previousMessages.length} previous messages`
+    );
     console.log(`[CodeAnalysis] Constructing chat history for Gemini...`);
     const geminiChatHistory = previousMessages.map((msg) => ({
       role: msg.sender === "user" ? "user" : "model",
@@ -473,17 +503,26 @@ const sendCodeAnalysisMessage = async (req, res) => {
     for (let i = 0; i < geminiChatHistory.length; i++) {
       const message = geminiChatHistory[i];
       if (i === 0 && message.role !== "user") {
-        console.log(`[CodeAnalysis] Skipping first message with role '${message.role}'`);
+        console.log(
+          `[CodeAnalysis] Skipping first message with role '${message.role}'`
+        );
         continue;
       }
-      if (i > 0 && validatedHistory[validatedHistory.length - 1].role === message.role) {
-        console.log(`[CodeAnalysis] Skipping consecutive message with role '${message.role}'`);
+      if (
+        i > 0 &&
+        validatedHistory[validatedHistory.length - 1].role === message.role
+      ) {
+        console.log(
+          `[CodeAnalysis] Skipping consecutive message with role '${message.role}'`
+        );
         continue;
       }
       validatedHistory.push(message);
     }
-    console.log(`[CodeAnalysis] Final chat history has ${validatedHistory.length} messages`);
-    
+    console.log(
+      `[CodeAnalysis] Final chat history has ${validatedHistory.length} messages`
+    );
+
     console.log(`[CodeAnalysis] Constructing system instruction...`);
     const systemInstruction = `You are an expert AI assistant specialized in Salesforce development (Apex, SOQL, Visualforce, LWC, Salesforce metadata) and code analysis for GitHub repositories. You are analyzing code from the GitHub repository '${session.githubRepoName}', Branch: '${session.selectedBranch}'.
 
@@ -546,7 +585,9 @@ Ensure your response directly addresses the user's query within the Salesforce o
     console.log(`[CodeAnalysis] Sending message to Gemini...`);
     const result = await chat.sendMessage(systemInstruction);
     const aiTextResponse = result.response.text();
-    console.log(`[CodeAnalysis] Received response from Gemini (${aiTextResponse.length} characters)`);
+    console.log(
+      `[CodeAnalysis] Received response from Gemini (${aiTextResponse.length} characters)`
+    );
     if (aiTextResponse.includes("Sorry, I can only assist")) {
       console.log(`[CodeAnalysis] AI response indicates irrelevant query`);
       await CodeAnalysisMessage.create({
@@ -593,10 +634,18 @@ Ensure your response directly addresses the user's query within the Salesforce o
         "The response was blocked due to safety settings. Please rephrase your request.";
     } else if (error.message.includes("quota")) {
       errorMessageToSave = "API quota exceeded. Please try again later.";
-    } else if (error.message.includes("network") || error.message.includes("fetch")) {
-      errorMessageToSave = "Network error occurred. Please check your connection.";
-    } else if (error.message.includes("authentication") || error.message.includes("unauthorized")) {
-      errorMessageToSave = "Authentication error. Please check your GitHub credentials.";
+    } else if (
+      error.message.includes("network") ||
+      error.message.includes("fetch")
+    ) {
+      errorMessageToSave =
+        "Network error occurred. Please check your connection.";
+    } else if (
+      error.message.includes("authentication") ||
+      error.message.includes("unauthorized")
+    ) {
+      errorMessageToSave =
+        "Authentication error. Please check your GitHub credentials.";
     }
     await CodeAnalysisMessage.create({
       sessionId,
@@ -714,7 +763,9 @@ const pushCodeAndCreatePR = async (req, res) => {
       );
       return res.status(getRefResponse.status).json({
         success: false,
-        message: `Failed to get base branch ref ('${selectedBranch}'): ${errorData.message || "Unknown error"}.`,
+        message: `Failed to get base branch ref ('${selectedBranch}'): ${
+          errorData.message || "Unknown error"
+        }.`,
       });
     }
     const refData = await getRefResponse.json();
@@ -736,7 +787,9 @@ const pushCodeAndCreatePR = async (req, res) => {
       console.error("GitHub API error getting base commit tree:", errorData);
       return res.status(getCommitResponse.status).json({
         success: false,
-        message: `Failed to get base commit tree: ${errorData.message || "Unknown error"}`,
+        message: `Failed to get base commit tree: ${
+          errorData.message || "Unknown error"
+        }`,
       });
     }
     const commitData = await getCommitResponse.json();
@@ -755,7 +808,9 @@ const pushCodeAndCreatePR = async (req, res) => {
         "AI response did not contain structured code blocks with file paths."
       );
       codeBlocks.push({
-        filePath: `ai_generated_changes/response_${Date.now().toString().slice(-6)}.txt`,
+        filePath: `ai_generated_changes/response_${Date.now()
+          .toString()
+          .slice(-6)}.txt`,
         content: generatedCode,
       });
     }
@@ -795,7 +850,9 @@ const pushCodeAndCreatePR = async (req, res) => {
         );
         return res.status(createBlobResponse.status).json({
           success: false,
-          message: `Failed to create blob for ${block.filePath}: ${errorData.message || "Unknown error"}`,
+          message: `Failed to create blob for ${block.filePath}: ${
+            errorData.message || "Unknown error"
+          }`,
         });
       }
       const blobData = await createBlobResponse.json();
@@ -835,7 +892,9 @@ const pushCodeAndCreatePR = async (req, res) => {
       console.error("GitHub API error creating tree:", errorData);
       return res.status(createTreeResponse.status).json({
         success: false,
-        message: `Failed to create new tree: ${errorData.message || "Unknown error"}`,
+        message: `Failed to create new tree: ${
+          errorData.message || "Unknown error"
+        }`,
       });
     }
     const treeData = await createTreeResponse.json();
@@ -864,7 +923,9 @@ const pushCodeAndCreatePR = async (req, res) => {
       console.error("GitHub API error creating new commit:", errorData);
       return res.status(createNewCommitResponse.status).json({
         success: false,
-        message: `Failed to create new commit: ${errorData.message || "Unknown error"}`,
+        message: `Failed to create new commit: ${
+          errorData.message || "Unknown error"
+        }`,
       });
     }
     const newCommitData = await createNewCommitResponse.json();
@@ -913,7 +974,9 @@ const pushCodeAndCreatePR = async (req, res) => {
           console.error("GitHub API error updating AI branch ref:", errorData);
           return res.status(updateRefResponse.status).json({
             success: false,
-            message: `Failed to update AI branch '${aiBranchName}': ${errorData.message || "Unknown error"}.`,
+            message: `Failed to update AI branch '${aiBranchName}': ${
+              errorData.message || "Unknown error"
+            }.`,
           });
         }
         console.log(`Branch ${aiBranchName} updated to new commit.`);
@@ -924,7 +987,9 @@ const pushCodeAndCreatePR = async (req, res) => {
         console.error("GitHub API error creating AI branch:", errorData);
         return res.status(createBranchResponse.status).json({
           success: false,
-          message: `Failed to create AI branch '${aiBranchName}': ${errorData.message || "Unknown error"}`,
+          message: `Failed to create AI branch '${aiBranchName}': ${
+            errorData.message || "Unknown error"
+          }`,
         });
       }
     } else {
@@ -960,7 +1025,8 @@ const pushCodeAndCreatePR = async (req, res) => {
       if (
         errorData.errors &&
         errorData.errors.some(
-          (e) => e.message && e.message.includes("A pull request already exists")
+          (e) =>
+            e.message && e.message.includes("A pull request already exists")
         )
       ) {
         return res.status(422).json({
@@ -970,13 +1036,16 @@ const pushCodeAndCreatePR = async (req, res) => {
       }
       return res.status(createPRResponse.status).json({
         success: false,
-        message: `Failed to create Pull Request from '${aiBranchName}' to '${selectedBranch}': ${errorData.message || "Unknown error"}`,
+        message: `Failed to create Pull Request from '${aiBranchName}' to '${selectedBranch}': ${
+          errorData.message || "Unknown error"
+        }`,
       });
     }
     const prData = await createPRResponse.json();
     res.status(200).json({
       success: true,
-      message: "Code pushed to new branch and Pull Request created successfully.",
+      message:
+        "Code pushed to new branch and Pull Request created successfully.",
       prUrl: prData.html_url,
       branchName: aiBranchName,
     });
