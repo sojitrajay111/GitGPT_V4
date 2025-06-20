@@ -26,6 +26,7 @@ import {
 } from "@mui/material";
 import { styled, ThemeProvider, createTheme } from "@mui/material/styles";
 import MuiAlert from "@mui/material/Alert";
+import axios from "axios";
 
 // Icons
 import EditIcon from "@mui/icons-material/EditOutlined";
@@ -48,6 +49,7 @@ import {
   useUpdateDocumentMutation,
   useDeleteDocumentMutation,
   useInitGoogleDriveMutation,
+  useDisconnectGoogleDriveMutation,
 } from "@/features/documentApiSlice"; // Assuming this path is correct
 import { useRouter, useParams } from "next/navigation";
 import { useGetThemeQuery } from "@/features/themeApiSlice";
@@ -283,6 +285,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
 
   const [currentDocument, setCurrentDocument] = useState(null);
   const [uploadForm, setUploadForm] = useState({
@@ -314,6 +317,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
   const [googleDriveError, setGoogleDriveError] = useState(null);
 
   const [initGoogleDrive] = useInitGoogleDriveMutation();
+  const [disconnectGoogleDrive] = useDisconnectGoogleDriveMutation();
 
   // Check Google Drive connection status on mount
   useEffect(() => {
@@ -334,13 +338,33 @@ const DocumentationPage = ({ projectDataFromParent }) => {
         // Clean up after redirect
         localStorage.removeItem('pendingUserId');
         localStorage.removeItem('pendingProjectId');
+      } else {
+        // Remove the cloud=success param from the URL after showing the snackbar
+        const newUrl = window.location.pathname + window.location.search.replace(/([&?])cloud=success(&|$)/, (match, p1, p2) => p1 === '?' && !p2 ? '' : p2 ? p1 : '');
+        window.history.replaceState({}, document.title, newUrl);
       }
+    } else {
+      // Only check backend status, do not show snackbar
+      const checkGoogleDriveStatus = async () => {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/google/drive-status`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+          });
+          const data = await res.json();
+          if (data.connected) {
+            setIsGoogleDriveConnected(true);
+            localStorage.setItem('googleDriveConnected', 'true');
+          } else {
+            setIsGoogleDriveConnected(false);
+            localStorage.removeItem('googleDriveConnected');
+          }
+        } catch {
+          setIsGoogleDriveConnected(false);
+          localStorage.removeItem('googleDriveConnected');
+        }
+      };
+      checkGoogleDriveStatus();
     }
-    const checkGoogleDriveConnection = () => {
-      const connected = localStorage.getItem('googleDriveConnected') === 'true';
-      setIsGoogleDriveConnected(connected);
-    };
-    checkGoogleDriveConnection();
   }, []);
 
   // --- Google OAuth Redirect Flow ---
@@ -359,10 +383,21 @@ const DocumentationPage = ({ projectDataFromParent }) => {
   };
 
   const handleDisconnectGoogleDrive = () => {
-    setIsGoogleDriveConnected(false);
-    localStorage.removeItem('googleDriveConnected');
-    setGoogleDriveError(null);
-    showSnackbar("Google Drive disconnected.", "info");
+    setDisconnectDialogOpen(true);
+  };
+
+  const confirmDisconnectGoogleDrive = async () => {
+    try {
+      await disconnectGoogleDrive().unwrap();
+      setIsGoogleDriveConnected(false);
+      localStorage.removeItem('googleDriveConnected');
+      setGoogleDriveError(null);
+      showSnackbar("Google Drive disconnected.", "info");
+    } catch (err) {
+      showSnackbar("Failed to disconnect Google Drive.", "error");
+    } finally {
+      setDisconnectDialogOpen(false);
+    }
   };
 
   const showSnackbar = (message, severity = "success") => {
@@ -657,7 +692,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
       <Box
         sx={{
           minHeight: "100vh",
-          background: isDark ? "#23242A" : "#F5F6FA",
+          background: isDark ? "#000000" : "#F5F6FA",
           px: { xs: 1, sm: 3, md: 6 },
           py: { xs: 2, sm: 4 },
         }}
@@ -694,16 +729,16 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                 onClick={handleGoogleDriveAuth}
                 disabled={isConnectingGoogleDrive}
                 sx={{
-                  background: "linear-gradient(90deg, #4285F4 0%, #34A853 100%)",
+                  background: "#A78BFA",
                   color: "#fff",
                   fontWeight: 700,
                   fontSize: 16,
-                  boxShadow: isDark
-                    ? "0 4px 24px 0 rgba(66,133,244,0.18)"
-                    : "0 4px 24px 0 rgba(66,133,244,0.10)",
                   borderRadius: 3,
                   px: 3,
                   height: 48,
+                  boxShadow: isDark
+                    ? "0 4px 24px 0 rgba(80,80,120,0.18)"
+                    : "0 4px 24px 0 rgba(120,120,180,0.10)",
                 }}
               >
                 {isConnectingGoogleDrive ? (
@@ -711,24 +746,28 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                 ) : (
                   <CloudSyncIcon style={{ fontSize: 22, marginRight: 8 }} />
                 )}
-                {isConnectingGoogleDrive ? 'Connecting...' : 'Connect Google Drive'}
+                {isConnectingGoogleDrive ? 'Connecting...' : 'Sync with Cloud'}
               </SynthButton>
             )}
             <SynthButton
               variant="primary"
-              size="lg"
+              size="sm"
               onClick={() => setUploadDialogOpen(true)}
+              style={{
+                backgroundColor: isDark ? '#a78bfa' : '#a78bfa',
+                color: '#fff'
+              }}
               sx={{
-                background: "linear-gradient(90deg, #A78BFA 0%, #6366F1 100%)",
+                background: "#818CF8",
                 color: "#fff",
                 fontWeight: 700,
                 fontSize: 16,
+                borderRadius: 3,
+                px: 2,
+                height: 36,
                 boxShadow: isDark
                   ? "0 4px 24px 0 rgba(80,80,120,0.18)"
                   : "0 4px 24px 0 rgba(120,120,180,0.10)",
-                borderRadius: 3,
-                px: 3,
-                height: 48,
               }}
               disabled={!isGoogleDriveConnected}
             >
@@ -802,7 +841,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
             alignItems: "center",
             gap: 2,
             mb: 4,
-            background: isDark ? "#23242A" : "#F5F6FA",
+            background: isDark ? "#161717" : "#F5F6FA",
             borderRadius: 4,
             boxShadow: isDark
               ? 'inset 8px 8px 24px #181A20, inset -8px -8px 24px #23242A, 0 2px 12px 0 rgba(0,0,0,0.25)'
@@ -818,8 +857,9 @@ const DocumentationPage = ({ projectDataFromParent }) => {
             sx={{
               flex: 1,
               minWidth: 220,
-              background: isDark ? "#181A20" : "#fff",
-              borderRadius: 3,
+              background: isDark ? "#2f2f2f" : "#fff",
+              borderRadius: 1,
+              border: isDark ? '1px  #e5e7eb' : '1px  #e5e7eb',
               boxShadow: isDark
                 ? 'inset 4px 4px 12px #181A20, inset -4px -4px 12px #23242A'
                 : 'inset 2px 2px 8px #e5e7eb, inset -2px -2px 8px #fff',
@@ -832,7 +872,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
             sx={{
               display: "flex",
               alignItems: "center",
-              background: isDark ? "#181A20" : "#fff",
+              background: isDark ? "#2f2f2f" : "#fff",
               borderRadius: 3,
               px: 2,
               boxShadow: isDark
@@ -840,7 +880,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                 : 'inset 1px 1px 4px #e5e7eb, inset -1px -1px 4px #fff',
               minWidth: 120,
               height: 40,
-              border: isDark ? '1px solid #444' : '1px solid #e5e7eb',
+              border: isDark ? '1px solid #e5e7eb' : '1px solid #e5e7eb',
             }}
           >
             <Typography sx={{ color: isDark ? "#E5E7EB" : "#23242A", fontWeight: 500, mr: 1 }}>
@@ -876,10 +916,12 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                 size="small"
                 variant="outlined"
                 defaultValue="All Projects"
+                
                 sx={{
                   minWidth: 120,
-                  background: isDark ? "#181A20" : "#fff",
-                  borderRadius: 3,
+                  background: isDark ? "#2f2f2f" : "#fff",
+                  borderRadius: 1,
+                  border: isDark ? '1px #e5e7eb' : '1px  #e5e7eb',
                   boxShadow: isDark
                     ? 'inset 2px 2px 8px #181A20, inset -2px -2px 8px #23242A'
                     : 'inset 1px 1px 4px #e5e7eb, inset -1px -1px 4px #fff',
@@ -900,8 +942,9 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                 defaultValue="All Sprints"
                 sx={{
                   minWidth: 120,
-                  background: isDark ? "#181A20" : "#fff",
-                  borderRadius: 3,
+                  background: isDark ? "#2f2f2f" : "#fff",
+                  borderRadius: 1,
+                  border: isDark ? '1px  #e5e7eb' : '1px #e5e7eb',
                   boxShadow: isDark
                     ? 'inset 2px 2px 8px #181A20, inset -2px -2px 8px #23242A'
                     : 'inset 1px 1px 4px #e5e7eb, inset -1px -1px 4px #fff',
@@ -922,8 +965,9 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                 defaultValue="All Types"
                 sx={{
                   minWidth: 120,
-                  background: isDark ? "#181A20" : "#fff",
-                  borderRadius: 3,
+                  background: isDark ? "#2f2f2f" : "#fff",
+                  borderRadius: 1,
+                  border: isDark ? '1px #e5e7eb' : '1px #e5e7eb',
                   boxShadow: isDark
                     ? 'inset 2px 2px 8px #181A20, inset -2px -2px 8px #23242A'
                     : 'inset 1px 1px 4px #e5e7eb, inset -1px -1px 4px #fff',
@@ -955,7 +999,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                   justifyContent: "center",
                   minHeight: "300px",
                   border: isDark ? "2px dashed #444" : "2px dashed #ddd",
-                  background: isDark ? "#181A20" : "#fff",
+                  background: isDark ? "#161717" : "#fff",
                   borderRadius: 4,
                   boxShadow: isDark
                     ? "0 8px 32px rgba(0,0,0,0.18)"
@@ -982,7 +1026,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                     size="lg"
                     onClick={() => setUploadDialogOpen(true)}
                     sx={{
-                      background: "linear-gradient(90deg, #A78BFA 0%, #6366F1 100%)",
+                      background: "#818CF8",
                       color: "#fff",
                       fontWeight: 700,
                       fontSize: 16,
@@ -1004,13 +1048,13 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                     onClick={handleGoogleDriveAuth}
                     disabled={isConnectingGoogleDrive}
                     sx={{
-                      background: "linear-gradient(90deg, #4285F4 0%, #34A853 100%)",
+                      background: "#A78BFA",
                       color: "#fff",
                       fontWeight: 700,
                       fontSize: 16,
                       boxShadow: isDark
-                        ? "0 4px 24px 0 rgba(66,133,244,0.18)"
-                        : "0 4px 24px 0 rgba(66,133,244,0.10)",
+                        ? "0 4px 24px 0 rgba(80,80,120,0.18)"
+                        : "0 4px 24px 0 rgba(120,120,180,0.10)",
                       borderRadius: 3,
                       px: 3,
                       height: 48,
@@ -1021,7 +1065,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                     ) : (
                       <CloudSyncIcon style={{ fontSize: 22, marginRight: 8 }} />
                     )}
-                    {isConnectingGoogleDrive ? 'Connecting...' : 'Connect Google Drive'}
+                    {isConnectingGoogleDrive ? 'Connecting...' : 'Sync with Cloud'}
                   </SynthButton>
                 )}
               </Box>
@@ -1141,12 +1185,17 @@ const DocumentationPage = ({ projectDataFromParent }) => {
           onClose={handleUploadDialogClose}
           fullWidth
           maxWidth="sm"
+          PaperProps={{
+            sx: {
+              background: isDark ? '#000000' : '#fff',
+            },
+          }}
         >
-          <DialogTitle sx={{ color: "primary.main" }}>
-            <UploadFileIcon sx={{ verticalAlign: "middle", mr: 1 }} /> Upload
+          <DialogTitle sx={{ color: "primary.main", background: isDark ? '#161717' : '#fff' }}>
+            <UploadFileIcon sx={{ verticalAlign: "middle", mr: 1 , }} /> Upload
             New Document
           </DialogTitle>
-          <DialogContent dividers sx={{ p: 3 }}>
+          <DialogContent dividers sx={{ p: 3, background: isDark ? '#161717' : '#fff' }}>
             <TextField
               autoFocus
               margin="dense"
@@ -1156,7 +1205,13 @@ const DocumentationPage = ({ projectDataFromParent }) => {
               fullWidth
               value={uploadForm.documentTitle}
               onChange={handleUploadChange}
-              sx={{ mb: 2.5 }}
+              sx={{
+                mb: 2.5,
+                background: isDark ? '#2f2f2f' : '#fff',
+                '& .MuiInputBase-input': { color: isDark ? '#fff' : undefined },
+                '& .MuiInputLabel-root': { color: isDark ? '#fff' : undefined },
+              }}
+              InputLabelProps={{ style: { color: isDark ? '#fff' : undefined } }}
               required
             />
             <TextField
@@ -1169,15 +1224,25 @@ const DocumentationPage = ({ projectDataFromParent }) => {
               rows={3}
               value={uploadForm.documentShortDescription}
               onChange={handleUploadChange}
-              sx={{ mb: 2.5 }}
+              sx={{
+                mb: 2.5,
+                background: isDark ? '#2f2f2f' : '#fff',
+                '& .MuiInputBase-input': { color: isDark ? '#fff' : undefined },
+                '& .MuiInputLabel-root': { color: isDark ? '#fff' : undefined },
+              }}
+              InputLabelProps={{ style: { color: isDark ? '#fff' : undefined } }}
               required
             />
-            <FileInputButton component="label" fullWidth>
+            <FileInputButton component="label" fullWidth sx= {{ background: isDark ? '#2f2f2f' : '#fff'}}>
               <CloudUploadIcon sx={{ fontSize: 36, mb: 1 }} />
               {uploadForm.documentFile
                 ? uploadForm.documentFile.name
                 : "Click to Select File"}
-              <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+              <Typography
+                variant="caption"
+                display="block"
+                sx={{ mt: 0.5, color: isDark ? '#fff' : undefined }}
+              >
                 (PDF, DOCX, TXT)
               </Typography>
               <input
@@ -1196,11 +1261,11 @@ const DocumentationPage = ({ projectDataFromParent }) => {
               </Typography>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
+          <DialogActions sx={{ p: "16px 24px" , background: isDark ? '#161717' : '#fff' }}>
             <Button
               onClick={handleUploadDialogClose}
               variant="text"
-              sx={{ color: "text.secondary" }}
+              style={{ color: isDark ? '#fff' : undefined }}
             >
               Cancel
             </Button>
@@ -1213,6 +1278,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                 !uploadForm.documentFile ||
                 !uploadForm.documentTitle
               }
+              style={{ color: isDark ? '#fff' : undefined , backgroundColor: "#55DD33"}}
             >
               {isUploading ? (
                 <CircularProgress size={22} color="inherit" />
@@ -1272,7 +1338,11 @@ const DocumentationPage = ({ projectDataFromParent }) => {
               {editForm.documentFile
                 ? editForm.documentFile.name
                 : "Click to Select New File"}
-              <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+              <Typography
+                variant="caption"
+                display="block"
+                sx={{ mt: 0.5, color: isDark ? '#fff' : undefined }}
+              >
                 (PDF, DOCX, TXT)
               </Typography>
               <input
@@ -1353,6 +1423,18 @@ const DocumentationPage = ({ projectDataFromParent }) => {
                 "Delete"
               )}
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Disconnect Confirmation Dialog */}
+        <Dialog open={disconnectDialogOpen} onClose={() => setDisconnectDialogOpen(false)}>
+          <DialogTitle>Disconnect Google Drive</DialogTitle>
+          <DialogContent>
+            <Typography>Are you sure you want to disconnect Google Drive?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDisconnectDialogOpen(false)} color="primary">Cancel</Button>
+            <Button onClick={confirmDisconnectGoogleDrive} color="error">Disconnect</Button>
           </DialogActions>
         </Dialog>
 
