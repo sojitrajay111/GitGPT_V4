@@ -29,11 +29,12 @@ function sendStatusUpdate(res, message, type = "status", data = {}) {
   // Ensure the connection is still open before writing
   if (!res.headersSent) {
     // Check if headers have been sent (prevents errors if client disconnects)
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
+    // This part should ideally be set ONCE at the beginning of the stream,
+    // not on every sendStatusUpdate call. If called multiple times, writeHead
+    // will throw an error once headers are sent.
+    // For Server-Sent Events, the header is typically sent once when the connection is established.
+    // Let's remove this check for now and assume the caller (generateSalesforceCodeAndPush)
+    // sets the header correctly once.
   }
   // Format as a server-sent event
   res.write(`data: ${JSON.stringify({ type, message, ...data })}\n\n`);
@@ -97,13 +98,14 @@ async function fetchRepoContents(
           item.name.endsWith(".dockerfile") ||
           item.name.endsWith(".cls") || // Salesforce Apex classes
           item.name.endsWith(".trigger") || // Salesforce Apex triggers
+          item.name.endsWith("-meta.xml") || // Explicitly include Salesforce metadata XMLs
           item.name.startsWith("."); // Include dotfiles
 
         if (item.type === "file" && isCodeOrTextFile && item.download_url) {
           try {
             const fileContentResponse = await fetch(item.download_url, {
               headers: {
-                Authorization: octokit.auth, // Use Octokit's auth
+                Authorization: `token ${octokit.auth}`, // Correct way to pass PAT for fetch
                 "User-Agent": "GitGPT-App", // Generic user agent
               },
             });
@@ -165,12 +167,13 @@ async function fetchRepoContents(
         contents.name.endsWith(".dockerfile") ||
         contents.name.endsWith(".cls") || // Salesforce Apex classes
         contents.name.endsWith(".trigger") || // Salesforce Apex triggers
+        contents.name.endsWith("-meta.xml") || // Explicitly include Salesforce metadata XMLs
         contents.name.startsWith(".");
       if (isCodeOrTextFile) {
         try {
           const fileContentResponse = await fetch(contents.download_url, {
             headers: {
-              Authorization: octokit.auth,
+              Authorization: `token ${octokit.auth}`, // Correct way to pass PAT for fetch
               "User-Agent": "GitGPT-App",
             },
           });
@@ -542,31 +545,52 @@ const generateSalesforceCodeAndPush = async (req, res) => {
   const authenticatedUserId = req.user.id;
 
   // Set response headers for Server-Sent Events immediately
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-  });
+  // This should be done only once.
+  if (!res.headersSent) {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+  }
+
+  // Helper to send status and check connection.
+  // Updated sendStatusUpdate to be safer when used multiple times.
+  const sendSafeStatusUpdate = (message, type = "status", data = {}) => {
+    try {
+      if (!res.writableEnded) {
+        // Check if the response stream is still open
+        res.write(`data: ${JSON.stringify({ type, message, ...data })}\n\n`);
+      } else {
+        console.warn(
+          "Attempted to send status update after client disconnected or response ended."
+        );
+      }
+    } catch (writeError) {
+      console.error("Error sending SSE message:", writeError);
+    }
+  };
 
   // Handle client disconnect
   req.on("close", () => {
     console.log("Client disconnected during Salesforce code generation.");
-    res.end(); // End the response if the client closes the connection
+    if (!res.writableEnded) {
+      res.end(); // Ensure the response is ended if client closes connection
+    }
   });
 
   try {
-    sendStatusUpdate(res, "AI code generation initiated...");
+    sendSafeStatusUpdate("AI code generation initiated...");
 
     // 1. Fetch project and user's GitHub data
     const project = await Project.findById(projectId);
     if (!project) {
-      sendStatusUpdate(res, "Project not found.", "error");
+      sendSafeStatusUpdate("Project not found.", "error");
       return res.end();
     }
     const githubRepoUrl = project.githubRepoLink;
     if (!githubRepoUrl) {
-      sendStatusUpdate(
-        res,
+      sendSafeStatusUpdate(
         "GitHub repository link not found for this project. Please configure it in project settings.",
         "error"
       );
@@ -577,8 +601,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       userId: authenticatedUserId,
     });
     if (!userGitHubData || !userGitHubData.githubPAT) {
-      sendStatusUpdate(
-        res,
+      sendSafeStatusUpdate(
         "User's GitHub PAT not found. Please authenticate with GitHub.",
         "error"
       );
@@ -591,7 +614,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
 
     const userStory = await UserStory.findById(userStoryId);
     if (!userStory) {
-      sendStatusUpdate(res, "User story not found.", "error");
+      sendSafeStatusUpdate("User story not found.", "error");
       return res.end();
     }
 
@@ -599,8 +622,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       /github\.com\/([^\/]+)\/([^\/]+)(?:\.git)?$/i
     );
     if (!repoMatch) {
-      sendStatusUpdate(
-        res,
+      sendSafeStatusUpdate(
         "Invalid GitHub repository URL from project.",
         "error"
       );
@@ -612,7 +634,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     let baseBranchSha;
     let actualBaseBranchName = "main"; // Default to 'main' as a safe fallback for PR base
 
-    sendStatusUpdate(res, "Fetching repository context...");
+    sendSafeStatusUpdate("Fetching repository context...");
     // Determine the actual base branch and its SHA (prioritize 'dev', then default)
     try {
       // First, attempt to directly get the 'dev' branch by exact name
@@ -671,14 +693,14 @@ const generateSalesforceCodeAndPush = async (req, res) => {
           }
         } catch (listError) {
           if (listError.status === 404) {
-            sendStatusUpdate(
+            sendSafeStatusUpdate(
               res,
               `Repository '${owner}/${repoName}' appears to be empty or uninitialized. Please create an initial commit and a 'dev' branch or a default branch (e.g., 'main') first.`,
               "error"
             );
             return res.end();
           }
-          sendStatusUpdate(
+          sendSafeStatusUpdate(
             res,
             `Failed to list branches or get default branch details for ${owner}/${repoName}: ${listError.message}`,
             "error"
@@ -686,7 +708,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
           return res.end();
         }
       } else {
-        sendStatusUpdate(
+        sendSafeStatusUpdate(
           res,
           `Failed to get 'dev' branch details for ${owner}/${repoName}: ${error.message}`,
           "error"
@@ -733,6 +755,11 @@ const generateSalesforceCodeAndPush = async (req, res) => {
           "force-app/main/default/objects",
           "force-app/main/default/flows",
           "force-app/main/default/triggers",
+          "force-app/main/default/flexipages", // Added common metadata types
+          "force-app/main/default/tabs",
+          "force-app/main/default/layouts",
+          "force-app/main/default/applications",
+          "force-app/main/default/permissionsets",
         ];
         let filesRead = [];
 
@@ -761,10 +788,11 @@ const generateSalesforceCodeAndPush = async (req, res) => {
           existingCodeContext = filesRead
             .map((file) => `// File: ${file.path}\n${file.content}`)
             .join("\n\n---\n\n");
-          if (existingCodeContext.length > 10000) {
+          if (existingCodeContext.length > 20000) {
+            // Increased context size
             // Limit context size to avoid exceeding token limits
             existingCodeContext =
-              existingCodeContext.substring(0, 10000) +
+              existingCodeContext.substring(0, 20000) +
               "\n\n// ... (truncated for brevity)";
           }
           console.log("Existing Salesforce code context collected for AI.");
@@ -795,9 +823,60 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     }
 
     // 3. Prepare AI Prompt
+    // --- START AI PROMPT MODIFICATIONS ---
     let aiPrompt;
+    const commonRequirements = `
+      **GENERAL REQUIREMENTS FOR ALL CODE GENERATION:**
+      - **Salesforce DX Structure:** Generate files within the standard Salesforce DX project structure (e.g., \`force-app/main/default/classes/\`, \`force-app/main/default/lwc/\`, \`force-app/main/default/objects/\`, etc.).
+      - **Metadata XMLs:** For every component that requires a metadata XML file (e.g., Apex classes, Lightning Web Components, Custom Objects, Custom Fields, Flows, Apex Triggers), ensure its corresponding \`-meta.xml\` file is also generated with the correct API version (e.g., \`59.0\` or \`60.0\`) and status. This is CRITICAL for deployment.
+      - **Apex Best Practices:**
+          - **Security (FLS & CRUD):** ALL DML operations (insert, update, delete, upsert) and SOQL queries MUST enforce Field Level Security (FLS) and Object Level Security (CRUD). Use \`WITH SECURITY_ENFORCED\` for SOQL and \`Security.stripInaccessible()\` or manual \`isAccessible()\` checks for DML. Apex classes should generally use \`with sharing\`.
+          - **Bulkification:** All Apex code (especially triggers and methods interacting with DML/SOQL) must be bulk-safe, meaning they can handle lists of records efficiently without hitting governor limits. Avoid SOQL or DML inside loops.
+          - **Governor Limits:** Be mindful of all Salesforce governor limits (CPU time, heap size, query rows, DML statements, etc.) and write efficient code to stay within them.
+          - **Error Handling:** Implement robust try-catch blocks. For methods exposed to Lightning components (\`@AuraEnabled\`), throw \`AuraHandledException\` with user-friendly messages for client-side consumption. Do NOT return generic error strings directly.
+          - **Apex Test Classes:** For every Apex class and trigger, generate a corresponding test class (e.g., \`MyClassTest.cls\` for \`MyClass.cls\`).
+              - Test classes must achieve at least **75% code coverage** for the Apex code they test.
+              - Include test methods for **positive scenarios**, **negative/error scenarios**, and **bulk data scenarios**.
+              - Use \`Test.startTest()\` and \`Test.stopTest()\` to isolate governor limits.
+              - Create realistic test data within the test methods.
+              - Use \`System.assert()\` or \`System.assertEquals()\` for proper assertions.
+              - Ensure tests run in \`System.runAs()\` context if user permissions are relevant.
+      - **Lightning Web Component (LWC) Best Practices:**
+          - **Reactivity:** Use \`@api\` for public properties, \`@track\` judiciously only for objects/arrays whose internal values change, and avoid \`@track\` for primitive properties.
+          - **Modularity:** Design small, reusable components.
+          - **Error Handling:** Use \`ShowToastEvent\` for user-facing success, warning, and error messages.
+          - **Performance:** Optimize rendering and data fetching. Avoid heavy synchronous logic.
+          - **Accessibility:** Consider ARIA attributes and semantic HTML.
+          - **HTML Validation:** Utilize standard HTML5 validation attributes (\`required\`, \`pattern\`, \`type\`, etc.) for \`lightning-input\` and other input fields.
+          - **User Experience:** Implement loading spinners (\`lightning-spinner\`) for asynchronous operations.
+      - **Code Quality:**
+          - **Readability:** Write clean, well-structured, and easily understandable code.
+          - **Comments:** Provide concise and meaningful comments where complexity warrants.
+          - **Naming Conventions:** Follow Salesforce naming conventions (PascalCase for classes, camelCase for variables/methods, kebab-case for LWC components, etc.).
+      - **Idempotency:** Where applicable, consider if operations can be safely retried.
+      - **API Version:** Ensure all metadata (Apex, LWC, XMLs) uses a consistent and recent Salesforce API version (e.g., v59.0 or v60.0).
+
+      **OUTPUT FORMAT:**
+      Provide the generated/modified code as a JSON object where keys are file paths (relative to the Salesforce DX project root, e.g., \`force-app/main/default/classes/MyClass.cls\`, \`force-app/main/default/classes/MyClass.cls-meta.xml\`) and values are the file contents. Only include files that are newly created or modified.
+      Example:
+      \`\`\`json
+      {
+        "force-app/main/default/classes/ExistingClass.cls": "public class ExistingClass { /* ... modified content ... */ }",
+        "force-app/main/default/classes/ExistingClass.cls-meta.xml": "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\\n<ApexClass xmlns=\\"http://soap.sforce.com/2006/04/metadata\\">\\n    <apiVersion>59.0</apiVersion>\\n    <status>Active</status>\\n</ApexClass>",
+        "force-app/main/default/lwc/newComponent/newComponent.js": "import { LightningElement, api } from 'lwc';\\nimport { ShowToastEvent } from 'lightning/platformShowToastEvent';\\n\\nexport default class NewComponent extends LightningElement {\\n    @api recordId;\\n\\n    // ... more JS ...\\n}",
+        "force-app/main/default/lwc/newComponent/newComponent.html": "<template>\\n    <lightning-card title=\\"New Component\\">\\n        <lightning-spinner if:true={isLoading} alternative-text=\\"Loading\\"></lightning-spinner>\\n        <div class=\\"slds-var-p-around_medium\\">\\n            \\n        </div>\\n    </lightning-card>\\n</template>",
+        "force-app/main/default/lwc/newComponent/newComponent.js-meta.xml": "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\\n<LightningComponentBundle xmlns=\\"http://soap.sforce.com/2006/04/metadata\\">\\n    <apiVersion>59.0</apiVersion>\\n    <isExposed>true</isExposed>\\n    <targets>\\n        <target>lightning__RecordPage</target>\\n        <target>lightning__AppPage</target>\\n    </targets>\\n</LightningComponentBundle>",
+        "sfdx-project.json": "{\\"packageDirectories\\":[{\\"path\\":\\"force-app\\",\\"default\\":true}],\\"namespace\\":\\"\\",\\"sfdcApiVersion\\":\\"59.0\\",\\"sourceApiVersion\\":\\"59.0\\"}",
+        "force-app/main/default/objects/MyCustomObject__c/MyCustomObject__c.object-meta.xml": "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\\n<CustomObject xmlns=\\"http://soap.sforce.com/2006/04/metadata\\">\\n    <fullName>MyCustomObject__c</fullName>\\n    <label>My Custom Object</label>\\n    <pluralLabel>My Custom Objects</pluralLabel>\\n    <enableActivities>true</enableActivities>\\n    <description>Description of my custom object.</description>\\n    <nameField>\\n        <displayFormat>MCO-{0000}</displayFormat>\\n        <label>My Custom Object Name</label>\\n        <type>AutoNumber</type>\\n    </nameField>\\n    <visibility>Public</visibility>\\n</CustomObject>",
+        "force-app/main/default/objects/MyCustomObject__c/fields/MyCustomField__c.field-meta.xml": "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\\n<CustomField xmlns=\\"http://soap.sforce.com/2006/04/metadata\\">\\n    <fullName>MyCustomField__c</fullName>\\n    <externalId>false</externalId>\\n    <label>My Custom Field</label>\\n    <length>255</length>\\n    <required>false</required>\\n    <trackTrending>false</trackTrending>\\n    <type>Text</type>\\n    <unique>false</unique>\\n</CustomField>"
+      }
+      \`\`\`
+    `;
+
     if (isSalesforceDXRepo) {
-      aiPrompt = `You are an expert Salesforce Developer AI.
+      aiPrompt = `You are an expert Salesforce Developer AI. Your task is to act as a highly skilled and diligent Salesforce developer.
+      ${commonRequirements}
+
       **TASK:** Modify or extend the existing Salesforce codebase to implement the following user story and its subtasks. If new components are needed, create them. If existing components need modification, extend them minimally and purposefully.
 
       **User Story Details:**
@@ -811,29 +890,14 @@ const generateSalesforceCodeAndPush = async (req, res) => {
         existingCodeContext ||
         "No specific existing code context available. Generate new files if needed."
       }
-
-      **REQUIREMENTS:**
-      - Analyze the existing codebase (if provided) to identify relevant components for modification or extension.
-      - Create new Salesforce metadata files (Apex classes, LWC components, custom objects/fields via XML, Flows via XML, Validation Rules via XML, etc.) if required by the user story.
-      - Modify existing Salesforce files where necessary to fulfill requirements. Prioritize extending existing files rather than rewriting them.
-      - Add or update Apex test classes to cover new/modified logic, ensuring at least 75% code coverage.
-      - Maintain consistency with existing code quality, style, and structure.
-      - Adhere strictly to Salesforce best practices: governor limits, security (FLS, CRUD, 'with sharing' for Apex), bulkification, and proper error handling.
-      - Ensure all generated/modified code seamlessly integrates with the existing codebase and is ready for deployment.
-
-      **OUTPUT FORMAT:**
-      Provide the generated/modified code as a JSON object where keys are file paths (relative to the Salesforce DX project root, e.g., 'force-app/main/default/classes/MyClass.cls') and values are the file contents. Only include files that are newly created or modified. Example:
-      {
-        "force-app/main/default/classes/ExistingClass.cls": "public class ExistingClass { /* ... modified content ... */ }",
-        "force-app/main/default/lwc/newComponent/newComponent.js": "import { LightningElement } from 'lwc';",
-        // ... more files ...
-      }
       `;
     } else {
       console.log(
         `Repository detected as empty or lacking Salesforce DX structure. Generating full structure.`
       );
-      aiPrompt = `You are an expert Salesforce Developer AI.
+      aiPrompt = `You are an expert Salesforce Developer AI. Your task is to act as a highly skilled and diligent Salesforce developer.
+      ${commonRequirements}
+
       **TASK:** Generate a complete Salesforce DX project structure and all necessary Salesforce code (Apex, Lightning Web Components, metadata for custom objects, fields, flows, validation rules, etc.) to fully implement the following user story and its subtasks from scratch.
 
       **User Story Details:**
@@ -841,30 +905,14 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       Description: ${userStory.description}
       Acceptance Criteria: ${userStory.acceptanceCriteria}
       Testing Scenarios: ${userStory.testingScenarios}
-
-      **REQUIREMENTS:**
-      - Generate a standard Salesforce DX project structure (e.g., force-app/main/default/classes, force-app/main/default/lwc, etc.) including a sfdx-project.json file.
-      - Create all required files for Apex classes, Lightning Web Components, metadata for custom objects, fields, flows, validation rules, etc., based on the user story.
-      - Include necessary Apex test classes for all Apex code with at least 75% code coverage.
-      - Adhere strictly to Salesforce best practices: governor limits, security (FLS, CRUD, 'with sharing' for Apex), bulkification, and proper error handling.
-      - Ensure all generated code is functional and ready for deployment to a Salesforce org.
-
-      **OUTPUT FORMAT:**
-      Provide the generated code as a JSON object where keys are file paths (relative to the Salesforce DX project root, e.g., 'force-app/main/default/classes/MyClass.cls') and values are the file contents. Example:
-      {
-        "sfdx-project.json": "{\\"packageDirectories\\":[{\\"path\\":\\"force-app\\",\\"default\\":true}],\\"namespace\\":\\"\\",\\"sfdcApiVersion\\":\\"58.0\\",\\"sourceApiVersion\\":\\"58.0\\"}",
-        "force-app/main/default/classes/MyApexClass.cls": "public class MyApexClass { /* ... */ }",
-        "force-app/main/default/lwc/myLWC/myLWC.js": "import { LightningElement } from 'lwc';",
-        // ... more files ...
-      }
       `;
     }
+    // --- END AI PROMPT MODIFICATIONS ---
 
     // 4. Call AI to generate Salesforce code
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      sendStatusUpdate(
-        res,
+      sendSafeStatusUpdate(
         "AI service configuration error: GEMINI_API_KEY is not set.",
         "error"
       );
@@ -901,7 +949,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       ],
     };
 
-    sendStatusUpdate(res, "Sending request to AI model...");
+    sendSafeStatusUpdate("Sending request to AI model...");
     console.log("Calling Gemini API for Salesforce code generation...");
     const aiResponse = await fetch(geminiApiUrl, {
       method: "POST",
@@ -912,8 +960,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     if (!aiResponse.ok) {
       const errorData = await aiResponse.text();
       console.error("Error from Gemini API:", errorData);
-      sendStatusUpdate(
-        res,
+      sendSafeStatusUpdate(
         `Gemini API request failed: ${aiResponse.status} - ${errorData}`,
         "error"
       );
@@ -923,8 +970,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     const result = await aiResponse.json();
 
     if (result.candidates && result.candidates[0].finishReason === "SAFETY") {
-      sendStatusUpdate(
-        res,
+      sendSafeStatusUpdate(
         "AI code generation content was blocked by safety filters.",
         "error"
       );
@@ -939,9 +985,13 @@ const generateSalesforceCodeAndPush = async (req, res) => {
 
     if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
       try {
-        generatedCodeFiles = JSON.parse(
-          result.candidates[0].content.parts[0].text
-        );
+        const rawContent = result.candidates[0].content.parts[0].text;
+        // The AI might enclose the JSON in markdown code blocks.
+        // Attempt to extract if present, otherwise parse directly.
+        const jsonMatch = rawContent.match(/```json\n([\s\S]*?)\n```/);
+        const jsonString = jsonMatch ? jsonMatch[1] : rawContent;
+
+        generatedCodeFiles = JSON.parse(jsonString);
         if (
           typeof generatedCodeFiles !== "object" ||
           Array.isArray(generatedCodeFiles)
@@ -952,8 +1002,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
         }
       } catch (parseError) {
         console.error("Failed to parse AI generated code JSON:", parseError);
-        sendStatusUpdate(
-          res,
+        sendSafeStatusUpdate(
           "Failed to parse AI code generation response.",
           "error"
         );
@@ -964,15 +1013,14 @@ const generateSalesforceCodeAndPush = async (req, res) => {
         "Unexpected AI response structure for code generation:",
         result
       );
-      sendStatusUpdate(
-        res,
+      sendSafeStatusUpdate(
         "Failed to get AI generated Salesforce code.",
         "error"
       );
       return res.end();
     }
-    sendStatusUpdate(res, "AI response received. Generating code...");
-    sendStatusUpdate(res, "Code generation completed. Preparing for GitHub...");
+    sendSafeStatusUpdate("AI response received. Generating code...");
+    sendSafeStatusUpdate("Code generation completed. Preparing for GitHub...");
 
     // 5. Create a new branch name and check for uniqueness
     const userStoryTitleWords = userStory.userStoryTitle
@@ -1007,7 +1055,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       // else: branch does not exist, safe to use the original name
     }
 
-    sendStatusUpdate(res, `Creating new branch '${newBranchName}'...`);
+    sendSafeStatusUpdate(`Creating new branch '${newBranchName}'...`);
     // 6. Create Blobs and Tree for the new commit
     const treeUpdates = [];
     let linesOfCodeAddedByAI = 0; // Initialize counter for AI LOC
@@ -1021,6 +1069,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     });
 
     const existingFilesMap = new Map();
+    const existingFileShas = new Map(); // Store SHA to compare content
     latestTree.tree.forEach((item) => {
       if (item.type === "blob") {
         existingFilesMap.set(item.path, item.sha);
@@ -1033,6 +1082,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       const existingSha = existingFilesMap.get(filePathRelative);
       let blobSha;
       let isFileModified = false;
+      let previousContent = "";
 
       if (existingSha) {
         try {
@@ -1041,11 +1091,10 @@ const generateSalesforceCodeAndPush = async (req, res) => {
             repo: repoName,
             file_sha: existingSha,
           });
-          const existingContentDecoded = Buffer.from(
-            blob.content,
-            "base64"
-          ).toString("utf8");
-          if (existingContentDecoded === fileContent) {
+          previousContent = Buffer.from(blob.content, "base64").toString(
+            "utf8"
+          );
+          if (previousContent === fileContent) {
             blobSha = existingSha;
             console.log(
               `File ${filePathRelative} unchanged, reusing existing blob.`
@@ -1066,6 +1115,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       }
 
       if (!blobSha) {
+        // Only create a new blob if content changed or it's a new file
         const { data: blobData } = await octokit.rest.git.createBlob({
           owner,
           repo: repoName,
@@ -1085,19 +1135,8 @@ const generateSalesforceCodeAndPush = async (req, res) => {
 
       // Calculate lines of code added by AI
       if (isFileModified) {
-        if (!existingSha) {
-          // New file, count all lines
-          linesOfCodeAddedByAI += fileContent.split("\n").length;
-        } else {
-          // Modified file, calculate diff to find added lines
-          // This requires fetching the old content to diff, which can be expensive.
-          // For simplicity, for now, we'll assume a new blob means new lines.
-          // A more accurate LOC counting would involve fetching previous blob and running a diff.
-          // For initial implementation, we'll just count total lines of the new content as 'added'
-          // if the file was modified, simplifying for demo purposes.
-          // In a production scenario, you'd use a more robust diffing approach.
-          linesOfCodeAddedByAI += fileContent.split("\n").length; // Simplified: Count all lines in modified file as new
-        }
+        const diffResult = parseDiffForLoc(previousContent, fileContent);
+        linesOfCodeAddedByAI += diffResult.added; // Use actual added lines from diff
       }
     }
 
@@ -1152,7 +1191,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
         throw error;
       }
     }
-    sendStatusUpdate(res, "Pushing generated code...");
+    sendSafeStatusUpdate("Pushing generated code...");
 
     // 9. Create a Pull Request (from newBranchName to targetBranchForPR)
     const prTitle = `feat(AI): Implement User Story: ${userStory.userStoryTitle} [UserStoryId: ${userStoryId}]`;
@@ -1169,7 +1208,7 @@ ${userStory.testingScenarios}
 
 *This code was automatically generated by the AI and requires human review for accuracy, best practices, and integration.*`;
 
-    sendStatusUpdate(res, "Creating Pull Request...");
+    sendSafeStatusUpdate("Creating Pull Request...");
     console.log(`Attempting to create PR:`);
     console.log(`Owner: ${owner}`);
     console.log(`Repo: ${repoName}`);
@@ -1183,7 +1222,7 @@ ${userStory.testingScenarios}
       head: newBranchName,
       base: actualBaseBranchName,
       body: prBody,
-      draft: true,
+      draft: true, // Always create as draft for AI-generated code
     });
     console.log(`Pull Request created: ${pr.html_url}`);
 
@@ -1208,7 +1247,7 @@ ${userStory.testingScenarios}
       `User story ${userStoryId} updated with GitHub branch, PR URL, and status.`
     );
 
-    sendStatusUpdate(res, "Process completed successfully!", "complete", {
+    sendSafeStatusUpdate("Process completed successfully!", "complete", {
       githubBranch: newBranchName,
       githubRepoUrl: githubRepoUrl,
       prUrl: pr.html_url,
@@ -1224,7 +1263,7 @@ ${userStory.testingScenarios}
     if (error.response?.data?.message) {
       errorMessage += ` (GitHub API Error: ${error.response.data.message})`;
     }
-    sendStatusUpdate(res, errorMessage, "error");
+    sendSafeStatusUpdate(errorMessage, "error");
     res.end();
   }
 };
