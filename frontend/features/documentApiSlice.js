@@ -118,6 +118,14 @@ export const documentApi = createApi({
         { type: "Document", id: "LIST" },
       ],
     }),
+
+    // Disconnect Google Drive
+    disconnectGoogleDrive: builder.mutation({
+      query: () => ({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/google/disconnect-drive`,
+        method: 'POST',
+      }),
+    }),
   }),
 });
 
@@ -128,4 +136,5 @@ export const {
   useUpdateDocumentMutation,
   useDeleteDocumentMutation,
   useInitGoogleDriveMutation,
+  useDisconnectGoogleDriveMutation,
 } = documentApi;
