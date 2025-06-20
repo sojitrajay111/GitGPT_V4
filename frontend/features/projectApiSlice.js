@@ -1,3 +1,4 @@
+// features/projectApiSlice.js
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 // Define the API slice for project-related operations
@@ -16,15 +17,21 @@ export const projectApiSlice = createApi({
     },
   }),
 
-  tagTypes: ["Project", "GitHubRepos", "GitHubStatus", "ProjectCollaborators"],
+  tagTypes: ["Project", "GitHubRepos", "GitHubStatus", "ProjectCollaborators", "ProjectReport"],
   // "GitHubRepos" added because project creation can affect GitHub state
 
   // Define the API endpoints
   endpoints: (builder) => ({
     getProjects: builder.query({
-      query: (userId) => `/projects/user/${userId}`, // Endpoint path for fetching projects by user ID
+      query: (userId) => `/projects/user/${userId}`, // Endpoint path for fetching projects by user ID (currently used for manager)
       providesTags: ["Project"], // Tag this query's data
     }),
+    // --- ADD THIS NEW ENDPOINT FOR DEVELOPER PROJECTS ---
+    getDeveloperProjects: builder.query({
+      query: (userId) => `/projects/developer/${userId}`, // **IMPORTANT: Define the correct backend path for developer projects**
+      providesTags: ["Project"], // Tag this query's data (or a specific 'DeveloperProject' tag if needed)
+    }),
+    // --- END OF NEW ENDPOINT ---
 
     createProject: builder.mutation({
       query: (projectData) => ({
@@ -77,17 +84,37 @@ export const projectApiSlice = createApi({
       }),
       invalidatesTags: ["Project"], // Invalidate the general 'Project' tag to refetch project lists
     }),
+    getProjectReportData: builder.query({
+      query: (projectId) => ({
+        url: `/projects/${projectId}/report`,
+        method: 'GET',
+      }),
+      transformResponse: (response) => {
+        console.log('Project Report API Raw Response:', response);
+        return response.data; // Extract the actual data payload
+      },
+      transformErrorResponse: (response) => {
+        console.error('Project Report Data Error:', response);
+        return response;
+      },
+      providesTags: (result, error, projectId) => [{
+        type: 'ProjectReport',
+        id: projectId
+      }],
+    }),
   }),
 });
 
 // Export the generated hooks for each endpoint for use in React components
 export const {
   useGetProjectsQuery,
+  useGetDeveloperProjectsQuery, // <-- NOW THIS HOOK WILL BE GENERATED AND EXPORTED!
   useCreateProjectMutation,
   useGetUserGithubReposQuery,
   useGetGitHubAuthStatusQuery,
   useGetProjectByIdQuery,
   useGetCollaboratorsQuery,
-  useUpdateProjectMutation, // New: Export update project hook
-  useDeleteProjectMutation, // New: Export delete project hook
+  useUpdateProjectMutation,
+  useDeleteProjectMutation,
+  useGetProjectReportDataQuery,
 } = projectApiSlice;

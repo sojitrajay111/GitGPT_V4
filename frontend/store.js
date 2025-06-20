@@ -7,20 +7,31 @@ import { userStoryApiSlice } from "./features/userStoryApiSlice";
 import { codeAnalysisApiSlice } from "./features/codeAnalysisApiSlice";
 import { documentApi } from "./features/documentApiSlice";
 import { developerApiSlice } from "./features/developerApiSlice";
+import { themeApi } from "./features/themeApiSlice";
+import { gptApiSlice } from "./features/gptApiSlice";
+import { configurationApiSlice } from "./features/configurationApiSlice";
+import { jiraApi } from "./features/jiraSlice";
+import { userManagementApi } from "./features/usermanagementSlice";
+import { companyApi } from "./features/companyApi";
 import serviceReducer from "./features/serviceSlice"; // ✅ Import serviceReducer
-
 import storage from "redux-persist/lib/storage";
 import { persistReducer, persistStore } from "redux-persist";
+import { setupListeners } from "@reduxjs/toolkit/query";
+import { userProfileApiSlice } from "./features/userProfileApiSlice";
+import { projectMetricsApiSlice } from "./features/projectMetricsApiSlice";
 
 // Configuration for persisting only the 'service' slice
-const persistConfig = {
+const servicePersistConfig = {
   key: "service",
   storage,
-  whitelist: ["service"],
+  whitelist: ["service"], // Only persist the service slice
 };
 
-// Wrap serviceReducer with persistence
-const persistedServiceReducer = persistReducer(persistConfig, serviceReducer);
+// Create persisted service reducer
+const persistedServiceReducer = persistReducer(
+  servicePersistConfig,
+  serviceReducer
+);
 
 export const store = configureStore({
   reducer: {
@@ -29,21 +40,45 @@ export const store = configureStore({
     [projectApiSlice.reducerPath]: projectApiSlice.reducer,
     [userStoryApiSlice.reducerPath]: userStoryApiSlice.reducer,
     [codeAnalysisApiSlice.reducerPath]: codeAnalysisApiSlice.reducer,
-    [documentApi.reducerPath]: documentApi.reducer, // Add documentApi
-    [developerApiSlice.reducerPath]: developerApiSlice.reducer, // Add developerApi
-    service: persistedServiceReducer, // ✅ Add persisted service reducer
+    [userManagementApi.reducerPath]: userManagementApi.reducer,
+    [themeApi.reducerPath]: themeApi.reducer,
+    [documentApi.reducerPath]: documentApi.reducer,
+    [developerApiSlice.reducerPath]: developerApiSlice.reducer,
+    [gptApiSlice.reducerPath]: gptApiSlice.reducer,
+    [jiraApi.reducerPath]: jiraApi.reducer,
+    [configurationApiSlice.reducerPath]: configurationApiSlice.reducer,
+    [companyApi.reducerPath]: companyApi.reducer,
+    [projectMetricsApiSlice.reducerPath]: projectMetricsApiSlice.reducer,
+
+    service: persistedServiceReducer,
+
     auth: authReducer,
+    [userProfileApiSlice.reducerPath]: userProfileApiSlice.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({ serializableCheck: false }).concat(
-      authApiSlice.middleware,
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ["persist/PERSIST", "persist/REHYDRATE"],
+      },
+    }).concat(
       githubApiSlice.middleware,
+      authApiSlice.middleware,
       projectApiSlice.middleware,
       userStoryApiSlice.middleware,
       codeAnalysisApiSlice.middleware,
-      documentApi.middleware, // Add documentApi middleware
-      developerApiSlice.middleware // Add developerApi middleware
+      themeApi.middleware,
+      userManagementApi.middleware,
+      documentApi.middleware,
+      developerApiSlice.middleware,
+      gptApiSlice.middleware,
+      jiraApi.middleware,
+      configurationApiSlice.middleware,
+      companyApi.middleware,
+      userProfileApiSlice.middleware,
+      projectMetricsApiSlice.middleware
     ),
 });
+
+setupListeners(store.dispatch);
 
 export const persistor = persistStore(store);

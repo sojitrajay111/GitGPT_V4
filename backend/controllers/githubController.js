@@ -1169,12 +1169,90 @@ const updateExistingPullRequest = async (req, res) => {
 
 // --- END: New/Updated functions for Branch and PR Management ---
 
+// New: Get GitHub integration details
+const getGitHubDetails = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const githubData = await GitHubData.findOne({ userId }).select("-githubPAT");
+    
+    console.log("DEBUG: Fetched GitHub Data:", githubData); // TEMPORARY LOG: Inspect retrieved data
+
+    if (!githubData) {
+      return res.status(200).json({
+        success: true,
+        message: "No GitHub details found for this user.",
+        data: null
+      });
+    }
+
+    res.status(200).json({ success: true, data: githubData });
+  } catch (error) {
+    console.error("Error fetching GitHub details:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// New: Add or update GitHub integration details
+const addOrUpdateGitHubDetails = async (req, res) => {
+  try {
+    const userId = req.user.id; // Assuming userId is available from authentication middleware
+    const { githubName, githubEmail, githubToken } = req.body;
+
+    if (!githubName || !githubEmail || !githubToken) {
+      return res.status(400).json({ success: false, message: "All fields are required." });
+    }
+
+    let githubData = await GitHubData.findOne({ userId });
+
+    if (githubData) {
+      // Update existing details
+      githubData.githubUsername = githubName;
+      githubData.githubEmail = githubEmail;
+      githubData.githubPAT = githubToken; // Store the actual token
+      await githubData.save();
+      return res.status(200).json({ success: true, message: "GitHub details updated successfully." });
+    } else {
+      // Create new details
+      githubData = new GitHubData({
+        userId,
+        githubUsername: githubName,
+        githubEmail: githubEmail,
+        githubPAT: githubToken,
+      });
+      await githubData.save();
+      return res.status(201).json({ success: true, message: "GitHub details added successfully." });
+    }
+  } catch (error) {
+    console.error("Error adding/updating GitHub details:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// New: Delete GitHub integration details
+const deleteGitHubDetails = async (req, res) => {
+  try {
+    const userId = req.user.id; // Assuming userId is available from authentication middleware
+    const result = await GitHubData.findOneAndDelete({ userId });
+
+    if (!result) {
+      return res.status(404).json({ success: false, message: "No GitHub details found to delete." });
+    }
+    
+    await User.findByIdAndUpdate(userId, { isAuthenticatedToGithub: false });
+
+    res.status(200).json({ success: true, message: "GitHub details deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting GitHub details:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 module.exports = {
   authenticateGitHub,
   getGitHubStatus,
   disconnectGitHub,
-  getGitHubData, // Legacy
-  checkGitHubAuthStatus, // Legacy
+  getGitHubData,
+  checkGitHubAuthStatus,
   getUserGithubRepos,
   searchGithubUsers,
   addCollaborator,
@@ -1182,17 +1260,15 @@ module.exports = {
   deleteCollaborator,
   updateCollaboratorPermissions,
   handleGitHubWebhook,
-  // Your existing createBranch and getRepoBranches might be slightly different.
-  // I've added new ones (listRepoBranches, createNewBranch, etc.) to ensure they match the new page's needs.
-  // You can choose to replace your old ones or keep both if they serve different purposes.
-  createBranch: createNewBranch, // Using the new one for the /repos/:owner/:repo/branches POST route
-  getRepoBranches: listRepoBranches, // Using the new one for the /repos/:owner/:repo/branches GET route
+  createBranch: createNewBranch,
+  getRepoBranches: listRepoBranches,
   getUserAndGithubData,
-
-  // Explicitly exporting new functions for PRs and branch deletion
-  deleteExistingBranch, // For DELETE /repos/:owner/:repo/branches/:branchNameEncoded
-  listPullRequests, // For GET /repos/:owner/:repo/pulls
-  createNewPullRequest, // For POST /repos/:owner/:repo/pulls
-  updateExistingPullRequest, // For PATCH /repos/:owner/:repo/pulls/:pullNumber
-  deleteGithubRepo, // New: Export delete GitHub repository function
+  deleteExistingBranch,
+  listPullRequests,
+  createNewPullRequest,
+  updateExistingPullRequest,
+  deleteGithubRepo,
+  getGitHubDetails,
+  addOrUpdateGitHubDetails,
+  deleteGitHubDetails,
 };

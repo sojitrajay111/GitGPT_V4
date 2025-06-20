@@ -28,15 +28,45 @@ const documentSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    cloudinaryLink: {
+    // Google Drive fields
+    googleDriveFileId: {
       type: String,
-      required: false, // Not required for generated documents initially
+      required: false,
       trim: true,
     },
-    cloudinaryPublicId: { type: String, required: true }, // Crucial for Cloudinary operations
+    googleDriveLink: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    googleDriveViewLink: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    // Legacy Cloudinary fields (for backward compatibility)
+    cloudinaryLink: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    cloudinaryPublicId: { 
+      type: String, 
+      required: false,
+      trim: true,
+    },
+    size: {
+      type: Number,
+      required: false,
+    },
+    originalFileName: {
+      type: String,
+      required: false,
+      trim: true,
+    },
     // For generated documents, you might store the full content directly
     // If you plan to generate very large documents, consider storing them
-    // as files in Cloudinary or similar, and saving the link here.
+    // as files in Google Drive or similar, and saving the link here.
     // For now, we'll assume short descriptions are enough, or a separate
     // field for generated content if not a file.
     // documentFullContent: {

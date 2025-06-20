@@ -2,6 +2,7 @@ const Document = require("../models/Document");
 const User = require("../models/User");
 const Project = require("../models/Project");
 const cloudinary = require("cloudinary").v2;
+const googleDriveService = require("../services/googleDriveService");
 // const fs = require('fs'); // No longer needed for local unlinking with memoryStorage
 // const path = require('path'); // If you were constructing paths, also likely not needed
 
@@ -15,7 +16,7 @@ cloudinary.config({
 });
 
 /**
- * Helper function to upload a buffer to Cloudinary
+ * Helper function to upload a buffer to Cloudinary (Legacy support)
  * @param {Buffer} buffer - The file buffer
  * @param {string} originalname - The original file name for context
  * @param {string} folder - The Cloudinary folder to upload to
@@ -26,7 +27,7 @@ const uploadToCloudinary = (buffer, originalname, folder) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: folder,
-        resource_type: "auto",
+        resource_type: "raw",
         // public_id: originalname.split('.')[0] // Optional: set a public_id based on filename
       },
       (error, result) => {
@@ -42,12 +43,36 @@ const uploadToCloudinary = (buffer, originalname, folder) => {
 };
 
 /**
- * @desc Upload a new document to Cloudinary and save its details to MongoDB
+ * Helper function to upload file to Google Drive
+ * @param {Buffer} buffer - The file buffer
+ * @param {string} fileName - The file name
+ * @param {string} mimeType - The MIME type
+ * @returns {Promise<object>} - Google Drive upload result
+ */
+const uploadToGoogleDrive = async (buffer, fileName, mimeType) => {
+  try {
+    // Get the main folder ID (this ensures the 'GitGPT documents' folder exists)
+    const folderId = await googleDriveService.createOrGetMainFolder(); // CHANGED HERE
+    // Upload file to the main folder
+    const result = await googleDriveService.uploadFile(buffer, fileName, mimeType, folderId);
+    return result;
+  } catch (error) {
+    console.error("Google Drive upload error:", error);
+    throw error;
+  }
+};
+
+/**
+ * @desc Upload a new document to Google Drive and save its details to MongoDB
  * @route POST /api/documents/upload
  * @access Private
  */
 const uploadDocument = async (req, res) => {
   try {
+    console.log('DEBUG: req.file =', req.file);
+    if (req.file && req.file.buffer) {
+      console.log('DEBUG: req.file.buffer type =', req.file.buffer.constructor.name);
+    }
     const { documentTitle, documentShortDescription, projectId } = req.body;
     const creatorId = req.user.id;
 
@@ -80,25 +105,71 @@ const uploadDocument = async (req, res) => {
     if (!req.file) {
       return res
         .status(400)
-        .json({ success: false, message: "No file uploaded." });
+        .json({ success: false, message: "No file uploaded (req.file missing)." });
+    }
+    if (!req.file.buffer || !req.file.originalname) {
+      return res
+        .status(400)
+        .json({ success: false, message: "File buffer or originalname missing in req.file." });
+    }
+    if (!(req.file.buffer instanceof Buffer)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "File buffer is not a Buffer. Check frontend upload logic." });
     }
 
-    // Upload file to Cloudinary from buffer
-    const result = await uploadToCloudinary(
-      req.file.buffer,
-      req.file.originalname,
-      `project_documents/${projectId}`
-    );
+    // Use user's Google Drive tokens for this upload
+    let isGoogleDriveAvailable = false;
+    if (user.googleDriveTokens) {
+      const { google } = require('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        'http://localhost:3001/api/google/oauth-callback'
+      );
+      oauth2Client.setCredentials(user.googleDriveTokens);
+      googleDriveService.initializeWithOAuth2Client(oauth2Client);
+      isGoogleDriveAvailable = await googleDriveService.checkAccess();
+    } else {
+      // If no user.googleDriveTokens, rely on existing initialization (e.g., service account)
+      // or assume it's not available. For user-based OAuth, this path might not be relevant.
+      isGoogleDriveAvailable = await googleDriveService.checkAccess();
+    }
 
-    const newDocument = await Document.create({
+    let documentData = {
       creatorId,
       projectId,
       documentTitle,
       documentShortDescription,
       createdUser,
-      cloudinaryLink: result.secure_url,
-      cloudinaryPublicId: result.public_id, // Save public_id
-    });
+      size: req.file.size,
+      originalFileName: req.file.originalname,
+    };
+
+    if (isGoogleDriveAvailable) {
+      // Upload to Google Drive
+      const result = await uploadToGoogleDrive(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype
+      );
+
+      documentData.googleDriveFileId = result.fileId;
+      documentData.googleDriveLink = result.downloadLink;
+      documentData.googleDriveViewLink = result.viewLink;
+    } else {
+      // Fallback to Cloudinary if Google Drive is not available
+      const result = await uploadToCloudinary(
+        req.file.buffer,
+        req.file.originalname,
+        `project_documents/${projectId}`
+      );
+
+      documentData.cloudinaryLink = result.secure_url;
+      documentData.cloudinaryPublicId = result.public_id;
+    }
+
+    const newDocument = await Document.create(documentData);
 
     res.status(201).json({
       success: true,
@@ -194,14 +265,14 @@ const saveGeneratedDocument = async (req, res) => {
 
     // For generated documents, you might create a text file and upload it,
     // or store content differently. Here, we assume no direct file upload.
-    // If you want to upload generated content as a file to Cloudinary:
+    // If you want to upload generated content as a file to Google Drive:
     // 1. Create a buffer from documentFullDescription.
-    // 2. Call uploadToCloudinary.
-    // 3. Save cloudinaryLink and cloudinaryPublicId.
+    // 2. Call uploadToGoogleDrive.
+    // 3. Save googleDriveFileId and googleDriveLink.
 
     // This example saves metadata only, assuming no file for 'generated' docs.
-    // If 'generated' docs should also be files on Cloudinary, adjust this.
-    // For simplicity, let's assume generated docs don't have a Cloudinary file for now.
+    // If 'generated' docs should also be files on Google Drive, adjust this.
+    // For simplicity, let's assume generated docs don't have a Google Drive file for now.
     // If they should, you'd need a placeholder or upload the generated text.
     const newDocument = await Document.create({
       creatorId,
@@ -211,13 +282,15 @@ const saveGeneratedDocument = async (req, res) => {
       createdUser,
       // documentFullDescription, // Add to schema if storing directly
       // If you generate a file and upload it:
-      // cloudinaryLink: generatedFileResult.secure_url,
-      // cloudinaryPublicId: generatedFileResult.public_id,
+      // googleDriveFileId: generatedFileResult.fileId,
+      // googleDriveLink: generatedFileResult.downloadLink,
+      // googleDriveViewLink: generatedFileResult.viewLink,
       // For now, let's make these non-mandatory if it's a generated doc without a file.
-      // You'll need to adjust your model if cloudinaryLink/PublicId are not always required.
+      // You'll need to adjust your model if googleDriveFileId/Link are not always required.
       // A better approach: always upload something, even if it's a .txt of the description.
-      cloudinaryLink: "N/A (Generated Document)", // Placeholder
-      cloudinaryPublicId: "N/A (Generated Document)", // Placeholder
+      googleDriveFileId: "N/A (Generated Document)", // Placeholder
+      googleDriveLink: "N/A (Generated Document)", // Placeholder
+      googleDriveViewLink: "N/A (Generated Document)", // Placeholder
     });
 
     res.status(201).json({
@@ -272,46 +345,71 @@ const updateDocument = async (req, res) => {
     if (documentShortDescription)
       updateData.documentShortDescription = documentShortDescription;
 
-    // If a new file is uploaded, replace the old one in Cloudinary
+    // If a new file is uploaded, replace the old one
     if (req.file) {
-      // Delete old file from Cloudinary if it exists and has a public ID
-      if (
-        document.cloudinaryPublicId &&
-        document.cloudinaryPublicId !== "N/A (Generated Document)"
-      ) {
-        try {
-          // Determine resource_type. If you only upload PDFs, it's 'raw' or 'image' based on how you treat them.
-          // For general files, 'raw' is safer unless they are images/videos.
-          // If you stored PDFs as 'image' type in Cloudinary (e.g. for transformations), use 'image'.
-          // If you stored them as 'raw', use 'raw'. 'auto' usually works for upload_stream.
-          // For deletion, you need the correct resource_type if it's not 'image'.
-          // Let's assume 'raw' for non-image files like PDF/DOCX unless specified otherwise.
-          // If your PDFs are treated as images by Cloudinary (e.g. for page previews), it might be 'image'.
-          // For simplicity, if `resource_type` was 'auto' on upload, Cloudinary figures it out.
-          // Deletion might need explicit type if not 'image'.
-          // Let's try with just public_id. If errors, specify resource_type.
-          await cloudinary.uploader.destroy(document.cloudinaryPublicId, {
-            resource_type: "raw",
-          });
-          // If you upload various types and used 'auto', deletion might also work with 'auto' or try specific types.
-          // For PDFs specifically, if they are not treated as images, resource_type 'raw' is common.
-        } catch (deleteError) {
-          console.warn(
-            "Failed to delete old file from Cloudinary, proceeding with update:",
-            deleteError.message
-          );
-          // Decide if this is a critical error. For now, we'll log and continue.
+      // Check if Google Drive is available
+      const isGoogleDriveAvailable = await googleDriveService.checkAccess();
+      
+      if (isGoogleDriveAvailable) {
+        // Delete old file from Google Drive if it exists
+        if (document.googleDriveFileId && document.googleDriveFileId !== "N/A (Generated Document)") {
+          try {
+            await googleDriveService.deleteFile(document.googleDriveFileId);
+          } catch (deleteError) {
+            console.warn(
+              "Failed to delete old file from Google Drive, proceeding with update:",
+              deleteError.message
+            );
+          }
         }
-      }
 
-      // Upload new file
-      const result = await uploadToCloudinary(
-        req.file.buffer,
-        req.file.originalname,
-        `project_documents/${document.projectId}` // Use existing project ID
-      );
-      updateData.cloudinaryLink = result.secure_url;
-      updateData.cloudinaryPublicId = result.public_id;
+        // Upload new file to Google Drive
+        const result = await uploadToGoogleDrive(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+
+        updateData.googleDriveFileId = result.fileId;
+        updateData.googleDriveLink = result.downloadLink;
+        updateData.googleDriveViewLink = result.viewLink;
+        
+        // Clear old Cloudinary data if it exists
+        updateData.cloudinaryLink = null;
+        updateData.cloudinaryPublicId = null;
+      } else {
+        // Fallback to Cloudinary
+        // Delete old file from Cloudinary if it exists and has a public ID
+        if (
+          document.cloudinaryPublicId &&
+          document.cloudinaryPublicId !== "N/A (Generated Document)"
+        ) {
+          try {
+            await cloudinary.uploader.destroy(document.cloudinaryPublicId, {
+              resource_type: "raw",
+            });
+          } catch (deleteError) {
+            console.warn(
+              "Failed to delete old file from Cloudinary, proceeding with update:",
+              deleteError.message
+            );
+          }
+        }
+
+        // Upload new file to Cloudinary
+        const result = await uploadToCloudinary(
+          req.file.buffer,
+          req.file.originalname,
+          `project_documents/${document.projectId}`
+        );
+        updateData.cloudinaryLink = result.secure_url;
+        updateData.cloudinaryPublicId = result.public_id;
+        
+        // Clear old Google Drive data if it exists
+        updateData.googleDriveFileId = null;
+        updateData.googleDriveLink = null;
+        updateData.googleDriveViewLink = null;
+      }
     }
 
     updateData.updatedAt = Date.now(); // Explicitly set updatedAt
@@ -366,13 +464,18 @@ const deleteDocument = async (req, res) => {
       });
     }
 
-    // Delete file from Cloudinary if it exists and has a public ID
-    if (
-      document.cloudinaryPublicId &&
-      document.cloudinaryPublicId !== "N/A (Generated Document)"
-    ) {
+    // Delete file from storage
+    if (document.googleDriveFileId && document.googleDriveFileId !== "N/A (Generated Document)") {
       try {
-        // Similar to update, specify resource_type if needed. 'raw' is a good default for general files.
+        await googleDriveService.deleteFile(document.googleDriveFileId);
+      } catch (deleteError) {
+        console.warn(
+          "Failed to delete file from Google Drive, proceeding with DB deletion:",
+          deleteError.message
+        );
+      }
+    } else if (document.cloudinaryPublicId && document.cloudinaryPublicId !== "N/A (Generated Document)") {
+      try {
         await cloudinary.uploader.destroy(document.cloudinaryPublicId, {
           resource_type: "raw",
         });
@@ -381,7 +484,6 @@ const deleteDocument = async (req, res) => {
           "Failed to delete file from Cloudinary, proceeding with DB deletion:",
           deleteError.message
         );
-        // Decide if this is critical. For now, log and continue.
       }
     }
 
@@ -400,10 +502,59 @@ const deleteDocument = async (req, res) => {
   }
 };
 
+/**
+ * @desc Initialize Google Drive connection
+ * @route POST /api/documents/init-google-drive
+ * @access Private
+ */
+const initGoogleDrive = async (req, res) => {
+  try {
+    const { credentials } = req.body;
+    
+    if (!credentials) {
+      return res.status(400).json({
+        success: false,
+        message: "Google Drive credentials are required.",
+      });
+    }
+
+    const isInitialized = googleDriveService.initialize(credentials);
+    
+    if (isInitialized) {
+      const hasAccess = await googleDriveService.checkAccess();
+      
+      if (hasAccess) {
+        res.status(200).json({
+          success: true,
+          message: "Google Drive initialized successfully!",
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: "Failed to access Google Drive. Please check your credentials.",
+        });
+      }
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "Failed to initialize Google Drive.",
+      });
+    }
+  } catch (error) {
+    console.error("Error initializing Google Drive:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while initializing Google Drive.",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   uploadDocument,
   getDocumentsByProjectId,
   saveGeneratedDocument,
   updateDocument,
   deleteDocument,
+  initGoogleDrive,
 };

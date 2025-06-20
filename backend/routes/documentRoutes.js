@@ -6,9 +6,10 @@ const {
   saveGeneratedDocument,
   updateDocument, // Added
   deleteDocument, // Added
+  initGoogleDrive, // Added
 } = require("../controllers/documentController");
 const authenticateUser = require("../middleware/authMiddleware");
-const multer = require("multer");
+const multer = require("multer"); // Import multer
 
 // Configure multer for memory storage
 // This stores the file in memory as req.file.buffer
@@ -17,12 +18,12 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // Optional: Limit file size (e.g., 10MB)
   fileFilter: function (req, file, cb) {
-    // Optional: Filter file types (e.g., only PDFs)
+    // Optional: Filter file types (e.g., only PDFs, DOCX, TXT)
     if (
       file.mimetype === "application/pdf" ||
       file.mimetype ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-      file.mimetype === "text/plain"
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || // .docx
+      file.mimetype === "text/plain" // .txt
     ) {
       cb(null, true);
     } else {
@@ -33,6 +34,11 @@ const upload = multer({
     }
   },
 });
+
+// @route POST /api/documents/init-google-drive
+// @desc Initialize Google Drive connection
+// @access Private
+router.post("/init-google-drive", authenticateUser, initGoogleDrive);
 
 // @route POST /api/documents/upload
 // @desc Upload a new document (with file)

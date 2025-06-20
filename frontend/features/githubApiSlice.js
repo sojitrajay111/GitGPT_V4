@@ -24,6 +24,7 @@ export const githubApiSlice = createApi({
     "GitHubPullRequests",
     "UserAndGitHubData",
     "Project", // Added for invalidating projects upon repo deletion if needed
+    "GitHubDetails", // New tag for GitHub integration details
   ],
 
   endpoints: (builder) => ({
@@ -213,6 +214,37 @@ export const githubApiSlice = createApi({
       }),
       invalidatesTags: ["GitHubRepo", "Project"], // Invalidate relevant caches if project view depends on GitHub repos
     }),
+    // New: Query to get user's GitHub integration details
+    getGitHubDetails: builder.query({
+      query: (userId) => `/details/${userId}`,
+      providesTags: (result, error, userId) => [{
+        type: "GitHubDetails",
+        id: userId
+      }],
+    }),
+    // New: Mutation to add or update user's GitHub integration details
+    addOrUpdateGitHubDetails: builder.mutation({
+      query: ({ userId, githubName, githubEmail, githubToken }) => ({
+        url: `/details/${userId}`,
+        method: "POST", // Or PUT if your backend uses PUT for updates
+        body: { githubName, githubEmail, githubToken },
+      }),
+      invalidatesTags: (result, error, { userId }) => [{
+        type: "GitHubDetails",
+        id: userId
+      }],
+    }),
+    // New: Mutation to delete user's GitHub integration details
+    deleteGitHubDetails: builder.mutation({
+      query: (userId) => ({
+        url: `/details/${userId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, userId) => [{
+        type: "GitHubDetails",
+        id: userId
+      }],
+    }),
   }),
 });
 
@@ -235,4 +267,7 @@ export const {
   useUpdatePullRequestMutation,
   useGetUserAndGithubDataQuery,
   useDeleteGithubRepoMutation, // New: Export delete GitHub repo hook
+  useGetGitHubDetailsQuery, // New: Export the new query hook
+  useAddOrUpdateGitHubDetailsMutation, // New: Export the new mutation hook
+  useDeleteGitHubDetailsMutation, // New: Export the new mutation hook
 } = githubApiSlice;

@@ -1,3 +1,4 @@
+// userStoryApiSlice.js
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 // Create a base query that will inject the token into the headers
@@ -68,7 +69,7 @@ export const userStoryApiSlice = createApi({
       ],
     }),
 
-    // Mutation for AI content generation
+    // Mutation for AI content generation (for story text enhancement)
     generateAiStory: builder.mutation({
       query: (data) => ({
         url: "/user-stories/generate-ai-story",
@@ -76,13 +77,25 @@ export const userStoryApiSlice = createApi({
         body: data,
       }),
     }),
+
+    // NEW: Mutation for AI Salesforce Code Generation and GitHub Push/PR
+    generateSalesforceCode: builder.mutation({
+      query: ({ userStoryId, projectId, githubRepoUrl }) => ({
+        url: `/user-stories/${userStoryId}/generate-salesforce-code`,
+        method: "POST",
+        body: { projectId, githubRepoUrl },
+      }),
+      // We don't invalidate tags here because updates are streamed via SSE and refetch is called manually.
+      // If the backend also sends a direct update, invalidation might be needed.
+    }),
   }),
 });
 
 export const {
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
-  useUpdateUserStoryMutation, // Export new hook
-  useDeleteUserStoryMutation, // Export new hook
+  useUpdateUserStoryMutation,
+  useDeleteUserStoryMutation,
   useGenerateAiStoryMutation,
+  useGenerateSalesforceCodeMutation, // Export the new hook
 } = userStoryApiSlice;

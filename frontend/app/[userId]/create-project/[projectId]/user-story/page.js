@@ -1,52 +1,35 @@
+// page.js
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
+  Box,
   CircularProgress,
   Alert,
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
-  Avatar,
-  Chip,
   Stack,
   Snackbar,
-  IconButton,
-  Divider,
-  Grid,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
+  Typography,
 } from "@mui/material";
-import { ThemeProvider, createTheme, styled } from "@mui/material/styles";
-import AddIcon from "@mui/icons-material/Add";
-import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
-import DescriptionIcon from "@mui/icons-material/Description";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
+import { styled } from "@mui/material/styles";
+
+// Import modularized components
+import UserStoryHeader from "@/components/User-story/UserStoryHeader";
+import UserStorySearchFilter from "@/components/User-story/UserStorySearchFilter";
+import UserStoryCard from "@/components/User-story/UserStoryCard";
+import UserStoryForm from "@/components/User-story/UserStoryForm";
+import UserStoryDetail from "@/components/User-story/UserStoryDetail";
+import DeleteConfirmationDialog from "@/components/User-story/DeleteConfirmationDialog";
+import CodeGenerationLoadingDialog from "@/components/User-story/CodeGenerationLoadingDialog";
+import AppTheme from "@/components/User-story/AppTheme";
+
 import {
   useGetUserStoriesQuery,
   useCreateUserStoryMutation,
   useUpdateUserStoryMutation,
   useDeleteUserStoryMutation,
   useGenerateAiStoryMutation,
+  useGenerateSalesforceCodeMutation,
 } from "@/features/userStoryApiSlice";
 import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
@@ -54,127 +37,53 @@ import {
   useGetCollaboratorPermissionsQuery,
   useGetDeveloperUserStoriesQuery,
 } from "@/features/developerApiSlice";
-import { skipToken } from "@reduxjs/toolkit/query";
-import { ChevronLeft } from "lucide-react";
+import { useGetThemeQuery } from "@/features/themeApiSlice";
 
-// Professional theme
-const freshTheme = createTheme({
-  palette: {
-    primary: { main: "#5e72e4" },
-    secondary: { main: "#11cdef" },
-    success: { main: "#2dce89" },
-    error: { main: "#f5365c" },
-    background: { default: "#f8f9fe", paper: "#ffffff" },
-    text: { primary: "#32325d", secondary: "#525f7f" },
-  },
-  typography: {
-    fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif",
-    h4: { fontWeight: 700, fontSize: "1.8rem" },
-    h6: { fontWeight: 600, fontSize: "1.1rem" },
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: "12px",
-          padding: "8px 20px",
-          fontWeight: 600,
-          textTransform: "none",
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: "16px",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
-          border: "1px solid #e9ecef",
-          transition: "all 0.3s ease",
-          "&:hover": {
-            transform: "translateY(-3px)",
-            boxShadow:
-              "0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08)",
-          },
-        },
-      },
-    },
-    MuiDialog: {
-      styleOverrides: { paper: { borderRadius: "16px" } },
-    },
-  },
-});
+// Define styled components that were previously in page.js, if they are only used here.
+// If they are generic enough, they can be moved to a shared styles file or to AppTheme.
 
-// Styled components
-const HeaderCard = styled(Card)(({ theme }) => ({
-  background: "linear-gradient(87deg, #5e72e4 0, #825ee4 100%)",
+// Re-defining HeaderCard only if it's strictly used here and not generic
+const HeaderCard = styled(Box)(({ theme }) => ({
+  background:
+    theme.palette.mode === "dark"
+      ? "linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)"
+      : "linear-gradient(135deg, #5e72e4 0%, #825ee4 100%)",
   color: "white",
-  padding: theme.spacing(3),
+  padding: theme.spacing(4),
   marginBottom: theme.spacing(4),
+  boxShadow:
+    theme.palette.mode === "dark"
+      ? "0 10px 30px rgba(0,0,0,0.5), 0 -5px 15px rgba(255,255,255,0.05)"
+      : "0 10px 30px rgba(0,0,0,0.2), 0 -5px 15px rgba(255,255,255,0.1)",
+  borderRadius: "20px",
+  position: "relative",
+  overflow: "hidden",
+  // Note: keyframes 'rotate' used here needs to be defined or imported
+  // For simplicity, defining it here or ensuring AppTheme exports it is needed.
+  // For now, removing the animation if `rotate` is not globally available or passed.
+  // "&::before": { ... animation: `${rotate} 20s linear infinite`, ... }
 }));
-
-const StoryCard = styled(Card)(({ theme }) => ({
-  borderLeft: `5px solid ${theme.palette.primary.main}`,
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-}));
-
-const AIContentBox = styled(Box)(({ theme }) => ({
-  background: "linear-gradient(120deg, #f8f9fe 0%, #f0f5ff 100%)",
-  border: `1px solid #dee2e6`,
-  borderRadius: "12px",
-  padding: theme.spacing(2),
-  marginTop: theme.spacing(2),
-}));
-
-const TruncatedText = ({ content, maxLines = 5, title }) => {
-  const [expanded, setExpanded] = useState(false);
-  const lines = content ? content.split("\n") : [];
-  const needsTruncation = lines.length > maxLines;
-
-  const displayedContent =
-    expanded || !needsTruncation
-      ? content
-      : lines.slice(0, maxLines).join("\n") + (needsTruncation ? "..." : "");
-
-  return (
-    <Box mb={1.5}>
-      {title && (
-        <Typography
-          variant="body2"
-          color="text.primary"
-          fontWeight={500}
-          mb={0.5}
-        >
-          {title}
-        </Typography>
-      )}
-      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-        {displayedContent}
-      </Typography>
-      {needsTruncation && (
-        <Button
-          onClick={() => setExpanded(!expanded)}
-          size="small"
-          sx={{ mt: 1, p: 0 }}
-        >
-          {expanded ? "Show Less" : "Read More"}
-        </Button>
-      )}
-    </Box>
-  );
-};
 
 const UserStoryPage = () => {
   const params = useParams();
   const router = useRouter();
   const { userId, projectId } = params;
 
-  // State for dialogs and forms
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // State for forms and views
+  const [activePanel, setActivePanel] = useState("list");
+  const [selectedStory, setSelectedStory] = useState(null);
+
+  // State for delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editingStory, setEditingStory] = useState(null);
   const [storyToDelete, setStoryToDelete] = useState(null);
+
+  // State for code generation loading and status
+  const [isGeneratingCodeProcess, setIsGeneratingCodeProcess] = useState(false);
+  const [currentGenerationStatus, setCurrentGenerationStatus] = useState("");
+  const [completedGenerationSteps, setCompletedGenerationSteps] = useState([]);
+  const [generationError, setGenerationError] = useState(null);
+  const [githubResult, setGithubResult] = useState(null);
+  const [activeGenerationStoryId, setActiveGenerationStoryId] = useState(null);
 
   // Form fields state
   const [userStoryTitle, setUserStoryTitle] = useState("");
@@ -184,20 +93,38 @@ const UserStoryPage = () => {
   const [selectedCollaboratorGithubIds, setSelectedCollaboratorGithubIds] =
     useState([]);
   const [generatedStoryContent, setGeneratedStoryContent] = useState("");
+  const [storyStatus, setStoryStatus] = useState("PLANNING");
+  const [storyPriority, setStoryPriority] = useState("Medium");
+  const [estimatedTime, setEstimatedTime] = useState("");
 
-  // State for menus and notifications
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [currentStoryId, setCurrentStoryId] = useState(null);
+  // State for search and filter
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  // State for snackbar notifications
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
 
+  // State for theme mode, initialized from RTK Query
+  const {
+    data: themeData,
+    isLoading: isThemeLoading,
+    isError: isThemeError,
+  } = useGetThemeQuery(userId, {
+    skip: !userId,
+  });
+
+  const themeMode = themeData?.theme || "light";
+
   // RTK Query Hooks
   const { data: userData } = useGetUserAndGithubDataQuery(userId);
   const userRole = userData?.user?.role;
   const githubId = userData?.githubData?.githubId;
+
+  const projectGithubRepoUrl = "https://github.com/your-org/your-repo-name"; // Placeholder
 
   const { data: developerPermissions } = useGetCollaboratorPermissionsQuery(
     { projectId, githubId },
@@ -223,6 +150,7 @@ const UserStoryPage = () => {
     useDeleteUserStoryMutation();
   const [generateAiStory, { isLoading: isGenerating }] =
     useGenerateAiStoryMutation();
+  const [triggerSalesforceCodeGeneration] = useGenerateSalesforceCodeMutation();
 
   const canManageStories =
     userRole === "manager" ||
@@ -231,13 +159,6 @@ const UserStoryPage = () => {
   const showSnackbar = (message, severity = "success") =>
     setSnackbar({ open: true, message, severity });
 
-  // Handlers for story actions menu
-  const handleMenuClick = (event, storyId) => {
-    setAnchorEl(event.currentTarget);
-    setCurrentStoryId(storyId);
-  };
-  const handleMenuClose = () => setAnchorEl(null);
-
   const resetForm = () => {
     setUserStoryTitle("");
     setDescription("");
@@ -245,44 +166,53 @@ const UserStoryPage = () => {
     setTestingScenarios("");
     setSelectedCollaboratorGithubIds([]);
     setGeneratedStoryContent("");
-    setEditingStory(null);
+    setStoryStatus("PLANNING");
+    setStoryPriority("Medium");
+    setEstimatedTime("");
+    setSelectedStory(null);
   };
 
-  // Open dialog for creating
-  const handleOpenCreateDialog = () => {
+  const handleOpenCreateForm = () => {
     resetForm();
-    setDialogOpen(true);
+    setActivePanel("create");
   };
 
-  // Open dialog for editing
-  const handleOpenEditDialog = () => {
-    const story = userStories.find((s) => s._id === currentStoryId);
-    if (story) {
-      setEditingStory(story);
-      setUserStoryTitle(story.userStoryTitle);
-      setDescription(story.description);
-      setAcceptanceCriteria(story.acceptanceCriteria);
-      setTestingScenarios(story.testingScenarios);
-      setSelectedCollaboratorGithubIds(
-        story.collaborators.map((c) => c.githubId)
-      );
-      setGeneratedStoryContent(story.aiEnhancedUserStory || "");
-      setDialogOpen(true);
-    }
-    handleMenuClose();
+  const handleOpenEditForm = (story) => {
+    setSelectedStory(story);
+    setUserStoryTitle(story.userStoryTitle);
+    setDescription(story.description);
+    setAcceptanceCriteria(story.acceptanceCriteria);
+    setTestingScenarios(story.testingScenarios);
+    setSelectedCollaboratorGithubIds(
+      story.collaborators?.map((c) => c.githubId) || []
+    );
+    setGeneratedStoryContent(story.aiEnhancedUserStory || "");
+    setStoryStatus(story.status || "PLANNING");
+    setStoryPriority(story.priority || "Medium");
+    setEstimatedTime(story.estimatedTime || "");
+    setActivePanel("edit");
   };
 
-  // Open dialog for deleting
-  const handleOpenDeleteDialog = () => {
-    const story = userStories.find((s) => s._id === currentStoryId);
+  const handleViewStory = (story) => {
+    setSelectedStory(story);
+    setActivePanel("view");
+  };
+
+  const handleOpenDeleteDialog = (story) => {
     setStoryToDelete(story);
     setDeleteDialogOpen(true);
-    handleMenuClose();
   };
 
   const handleCloseDialogs = () => {
-    setDialogOpen(false);
     setDeleteDialogOpen(false);
+    if (!isGeneratingCodeProcess) {
+      setIsGeneratingCodeProcess(false);
+      setCompletedGenerationSteps([]);
+      setCurrentGenerationStatus("");
+      setGenerationError(null);
+      setGithubResult(null);
+      setActiveGenerationStoryId(null);
+    }
   };
 
   const handleCollaboratorChange = (event) => {
@@ -308,12 +238,143 @@ const UserStoryPage = () => {
         testingScenarios,
       }).unwrap();
       setGeneratedStoryContent(result.aiEnhancedText);
+      setStoryStatus("IN REVIEW");
       showSnackbar("AI content generated successfully!");
     } catch (err) {
       showSnackbar(
         err.data?.message || "Failed to generate AI content.",
         "error"
       );
+    }
+  };
+
+  const handleGenerateSalesforceCode = async () => {
+    const storyToGenerate = selectedStory;
+    if (!storyToGenerate?._id) {
+      showSnackbar("Please select a user story first.", "warning");
+      return;
+    }
+    if (!projectGithubRepoUrl) {
+      showSnackbar(
+        "Project GitHub repository URL is not configured. Please update project settings.",
+        "error"
+      );
+      return;
+    }
+
+    setIsGeneratingCodeProcess(true);
+    setActiveGenerationStoryId(storyToGenerate._id);
+    setCompletedGenerationSteps([]);
+    setCurrentGenerationStatus("AI code generation initiated...");
+    setGenerationError(null);
+    setGithubResult(null);
+
+    setCompletedGenerationSteps([
+      { message: "AI code generation initiated..." },
+    ]);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user-stories/${storyToGenerate._id}/generate-salesforce-code`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            projectId,
+            githubRepoUrl: projectGithubRepoUrl,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setGenerationError(
+          errorData.message ||
+            "An unknown error occurred during generation setup."
+        );
+        setCurrentGenerationStatus("Failed to start.");
+        showSnackbar(
+          errorData.message || "Failed to start code generation.",
+          "error"
+        );
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        let lastIndex = 0;
+        let newlineIndex;
+        while ((newlineIndex = buffer.indexOf("\n\n", lastIndex)) !== -1) {
+          const eventString = buffer.substring(lastIndex, newlineIndex);
+          lastIndex = newlineIndex + 2;
+
+          if (eventString.startsWith("data: ")) {
+            try {
+              const eventData = JSON.parse(eventString.substring(6));
+
+              setCompletedGenerationSteps((prev) => {
+                if (
+                  prev.length === 0 ||
+                  prev[prev.length - 1]?.message !== eventData.message
+                ) {
+                  return [...prev, { message: eventData.message }];
+                }
+                return prev;
+              });
+
+              setCurrentGenerationStatus(eventData.message);
+
+              if (eventData.type === "complete") {
+                setGithubResult(eventData);
+                showSnackbar(
+                  "Salesforce code generated and PR created successfully!",
+                  "success"
+                );
+                refetchUserStories();
+                setSelectedStory((prev) => ({
+                  ...prev,
+                  githubBranch: eventData.githubBranch,
+                  prUrl: eventData.prUrl,
+                  status: "AI DEVELOPED",
+                }));
+              } else if (eventData.type === "error") {
+                setGenerationError(eventData.message);
+                setCurrentGenerationStatus("Process failed.");
+                showSnackbar(eventData.message, "error");
+              }
+            } catch (parseError) {
+              console.error("Error parsing SSE data:", parseError);
+            }
+          }
+        }
+        buffer = buffer.substring(lastIndex);
+      }
+    } catch (err) {
+      console.error("Fetch error during Salesforce code generation:", err);
+      setGenerationError(
+        err.message || "Network error during code generation."
+      );
+      setCurrentGenerationStatus("Failed to connect or stream.");
+      showSnackbar(
+        err.message || "Network error during code generation.",
+        "error"
+      );
+    } finally {
+      setTimeout(() => {
+        setIsGeneratingCodeProcess(false);
+        setActiveGenerationStoryId(null);
+      }, 1000);
     }
   };
 
@@ -325,12 +386,15 @@ const UserStoryPage = () => {
       testingScenarios,
       collaboratorGithubIds: selectedCollaboratorGithubIds,
       aiEnhancedUserStory: generatedStoryContent,
+      status: storyStatus,
+      priority: storyPriority,
+      estimatedTime: estimatedTime,
     };
 
     try {
-      if (editingStory) {
+      if (selectedStory && activePanel === "edit") {
         await updateUserStory({
-          userStoryId: editingStory._id,
+          userStoryId: selectedStory._id,
           ...storyData,
         }).unwrap();
         showSnackbar("User story updated successfully!");
@@ -338,8 +402,9 @@ const UserStoryPage = () => {
         await createUserStory({ projectId, ...storyData }).unwrap();
         showSnackbar("User story created successfully!");
       }
-      handleCloseDialogs();
+      resetForm();
       refetchUserStories();
+      setActivePanel("list");
     } catch (err) {
       showSnackbar(err.data?.message || "An error occurred.", "error");
     }
@@ -351,6 +416,8 @@ const UserStoryPage = () => {
       showSnackbar("User story deleted successfully!");
       handleCloseDialogs();
       refetchUserStories();
+      setActivePanel("list");
+      setSelectedStory(null);
     } catch (err) {
       showSnackbar(
         err.data?.message || "Failed to delete user story.",
@@ -359,327 +426,205 @@ const UserStoryPage = () => {
     }
   };
 
-  const userStories =
+  const allUserStories =
     userRole === "developer"
       ? developerUserStories
       : userStoriesData?.userStories || [];
 
+  const filteredUserStories = useMemo(() => {
+    return allUserStories.filter((story) => {
+      const matchesSearch = story.userStoryTitle
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesCompletedStatus = showCompleted
+        ? story.status === "COMPLETED"
+        : story.status !== "COMPLETED";
+      return matchesSearch && matchesCompletedStatus;
+    });
+  }, [allUserStories, searchTerm, showCompleted]);
+
+  filteredUserStories.sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
+
   return (
-    <ThemeProvider theme={freshTheme}>
-      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1200, margin: "0 auto" }}>
-        <HeaderCard>
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-          >
-            <Box>
-              <Typography variant="h4" component="h1" gutterBottom>
-                User Stories
-              </Typography>
-              <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                Create, manage, and track user stories for your project.
+    <AppTheme
+      themeMode={themeMode}
+      isThemeLoading={isThemeLoading}
+      isThemeError={isThemeError}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          height: "100vh",
+          backgroundColor: (theme) => theme.palette.background.default,
+          color: (theme) => theme.palette.text.primary,
+          overflowX: "hidden",
+          position: "relative",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: (theme) =>
+              theme.palette.mode === "dark"
+                ? "radial-gradient(circle at 20% 30%, rgba(128, 176, 255, 0.1) 0%, transparent 30%), radial-gradient(circle at 80% 70%, rgba(224, 176, 255, 0.1) 0%, transparent 30%)"
+                : "radial-gradient(circle at 20% 30%, rgba(94, 114, 228, 0.1) 0%, transparent 30%), radial-gradient(circle at 80% 70%, rgba(17, 205, 239, 0.1) 0%, transparent 30%)",
+            zIndex: 0,
+          },
+        }}
+      >
+        {/* Left Sidebar */}
+        <Box
+          sx={{
+            width: { xs: "100%", sm: 350 },
+            flexShrink: 0,
+            borderRight: (theme) => `1px solid ${theme.palette.divider}`,
+            backgroundColor: (theme) => theme.palette.background.paper,
+            p: 3,
+            display:
+              activePanel === "list" ? "flex" : { xs: "none", sm: "flex" },
+            flexDirection: "column",
+            overflowY: "auto",
+            boxShadow: (theme) =>
+              theme.palette.mode === "dark"
+                ? "5px 0 15px rgba(0,0,0,0.5)"
+                : "5px 0 15px rgba(0,0,0,0.1)",
+            zIndex: 1,
+            position: "relative",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              background: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "linear-gradient(45deg, rgba(128,176,255,0.05) 0%, transparent 50%, rgba(224,176,255,0.05) 100%)"
+                  : "linear-gradient(45deg, rgba(94,114,228,0.05) 0%, transparent 50%, rgba(17,205,239,0.05) 100%)",
+              opacity: 0.3,
+              zIndex: -1,
+            },
+          }}
+        >
+          <UserStoryHeader
+            canManageStories={canManageStories}
+            onOpenCreateForm={handleOpenCreateForm}
+          />
+
+          <UserStorySearchFilter
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            showCompleted={showCompleted}
+            onShowCompletedChange={setShowCompleted}
+          />
+
+          {storiesLoading ? (
+            <Box display="flex" justifyContent="center" py={5}>
+              <CircularProgress />
+            </Box>
+          ) : filteredUserStories.length === 0 ? (
+            <Box textAlign="center" py={2}>
+              <Typography color="text.secondary" variant="body2">
+                No user stories found.
               </Typography>
             </Box>
-            {canManageStories && (
-              <Button
-                variant="contained"
-                onClick={handleOpenCreateDialog}
-                startIcon={<AddIcon />}
-                sx={{
-                  backgroundColor: "white",
-                  color: "primary.main",
-                  "&:hover": { backgroundColor: "grey.100" },
-                }}
-              >
-                Create Story
-              </Button>
-            )}
-          </Box>
-        </HeaderCard>
+          ) : (
+            <Stack spacing={2} sx={{ flexGrow: 1, overflowY: "auto" }}>
+              {filteredUserStories.map((story) => (
+                <UserStoryCard
+                  key={story._id}
+                  story={story}
+                  isSelected={selectedStory?._id === story._id}
+                  onClick={() => handleViewStory(story)}
+                />
+              ))}
+            </Stack>
+          )}
+        </Box>
 
-        {storiesLoading ? (
-          <Box display="flex" justifyContent="center" py={5}>
-            <CircularProgress />
-          </Box>
-        ) : userStories?.length === 0 ? (
-          <Box textAlign="center" py={5}>
-            <Typography color="text.secondary">
-              No user stories found.
-            </Typography>
-          </Box>
-        ) : (
-          <Grid container spacing={3}>
-            {userStories?.map((story) => (
-              <Grid item xs={12} sm={6} md={4} key={story._id}>
-                <StoryCard>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="flex-start"
-                    >
-                      <Typography variant="h6" sx={{ pr: 1, flexGrow: 1 }}>
-                        {story.userStoryTitle}
-                      </Typography>
-                      {canManageStories && (
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuClick(e, story._id)}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
-                      )}
-                    </Box>
-                    <Box display="flex" alignItems="center" my={1}>
-                      <AccessTimeIcon
-                        sx={{
-                          color: "text.secondary",
-                          mr: 1,
-                          fontSize: "1.1rem",
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        Created:{" "}
-                        {new Date(story.createdAt).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-
-                    <Divider sx={{ my: 2 }} />
-
-                    {story.aiEnhancedUserStory ? (
-                      <AIContentBox>
-                        <Typography
-                          variant="subtitle2"
-                          color="primary"
-                          fontWeight={600}
-                          gutterBottom
-                        >
-                          AI ENHANCED SUGGESTIONS
-                        </Typography>
-                        <TruncatedText
-                          content={story.aiEnhancedUserStory}
-                          maxLines={5}
-                        />
-                      </AIContentBox>
-                    ) : (
-                      <>
-                        <TruncatedText
-                          content={story.description}
-                          maxLines={5}
-                          title="Description"
-                        />
-                        <TruncatedText
-                          content={story.acceptanceCriteria}
-                          maxLines={3}
-                          title="Acceptance Criteria"
-                        />
-                      </>
-                    )}
-                  </CardContent>
-                  {story.collaborators && story.collaborators.length > 0 && (
-                    <CardContent sx={{ pt: 0 }}>
-                      <Stack direction="row" spacing={1} flexWrap="wrap">
-                        {story.collaborators.map((c) => (
-                          <Chip
-                            key={c.githubId}
-                            avatar={<Avatar src={c.avatarUrl} />}
-                            label={c.username}
-                            size="small"
-                          />
-                        ))}
-                      </Stack>
-                    </CardContent>
-                  )}
-                </StoryCard>
-              </Grid>
-            ))}
-          </Grid>
-        )}
-
-        {/* Action Menu */}
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
+        {/* Right Content Area */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            p: 3,
+            backgroundColor: "transparent",
+            overflowY: "auto",
+            display:
+              activePanel !== "list" ? "flex" : { xs: "none", sm: "flex" },
+            flexDirection: "column",
+            zIndex: 1,
+          }}
         >
-          <MenuItem onClick={handleOpenEditDialog}>
-            <ListItemIcon>
-              <EditIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Edit</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={handleOpenDeleteDialog}>
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" color="error" />
-            </ListItemIcon>
-            <ListItemText primaryTypographyProps={{ color: "error" }}>
-              Delete
-            </ListItemText>
-          </MenuItem>
-        </Menu>
+          {activePanel === "create" || activePanel === "edit" ? (
+            <UserStoryForm
+              activePanel={activePanel}
+              selectedStory={selectedStory}
+              userStoryTitle={userStoryTitle}
+              setUserStoryTitle={setUserStoryTitle}
+              description={description}
+              setDescription={setDescription}
+              acceptanceCriteria={acceptanceCriteria}
+              setAcceptanceCriteria={setAcceptanceCriteria}
+              testingScenarios={testingScenarios}
+              setTestingScenarios={setTestingScenarios}
+              storyStatus={storyStatus}
+              setStoryStatus={setStoryStatus}
+              storyPriority={storyPriority}
+              setStoryPriority={setStoryPriority}
+              estimatedTime={estimatedTime}
+              setEstimatedTime={setEstimatedTime}
+              selectedCollaboratorGithubIds={selectedCollaboratorGithubIds}
+              handleCollaboratorChange={handleCollaboratorChange}
+              generatedStoryContent={generatedStoryContent}
+              handleGenerateStory={handleGenerateStory}
+              isGenerating={isGenerating}
+              handleSubmit={handleSubmit}
+              isCreating={isCreating}
+              isUpdating={isUpdating}
+              onCancel={() => setActivePanel("list")}
+              collaboratorsData={collaboratorsData}
+              collaboratorsLoading={collaboratorsLoading}
+            />
+          ) : (
+            <UserStoryDetail
+              selectedStory={selectedStory}
+              onBackToList={() => setActivePanel("list")}
+              onOpenEditForm={handleOpenEditForm}
+              onOpenDeleteDialog={handleOpenDeleteDialog}
+              canManageStories={canManageStories}
+              projectGithubRepoUrl={projectGithubRepoUrl}
+              handleGenerateSalesforceCode={handleGenerateSalesforceCode}
+              isGeneratingCodeProcess={isGeneratingCodeProcess}
+              activeGenerationStoryId={activeGenerationStoryId}
+            />
+          )}
+        </Box>
 
-        {/* Create / Edit Dialog */}
-        <Dialog
-          open={dialogOpen}
-          onClose={handleCloseDialogs}
-          fullWidth
-          maxWidth="md"
-        >
-          <DialogTitle>
-            {editingStory ? "Edit User Story" : "Create New User Story"}
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ pt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="User Story Title"
-                  value={userStoryTitle}
-                  onChange={(e) => setUserStoryTitle(e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={4}
-                  label="Description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Acceptance Criteria"
-                  value={acceptanceCriteria}
-                  onChange={(e) => setAcceptanceCriteria(e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Testing Scenarios"
-                  value={testingScenarios}
-                  onChange={(e) => setTestingScenarios(e.target.value)}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography variant="h6" mt={2}>
-                  Assign Collaborators
-                </Typography>
-                {collaboratorsLoading ? (
-                  <CircularProgress size={24} />
-                ) : (
-                  <FormGroup sx={{ display: "flex", flexDirection: "row" }}>
-                    {collaboratorsData?.collaborators.map((c) => (
-                      <FormControlLabel
-                        key={c.githubId}
-                        control={
-                          <Checkbox
-                            checked={selectedCollaboratorGithubIds.includes(
-                              c.githubId
-                            )}
-                            onChange={handleCollaboratorChange}
-                            value={c.githubId}
-                          />
-                        }
-                        label={
-                          <Box display="flex" alignItems="center">
-                            <Avatar
-                              src={c.avatarUrl}
-                              sx={{ width: 24, height: 24, mr: 1 }}
-                            />
-                            {c.username}
-                          </Box>
-                        }
-                      />
-                    ))}
-                  </FormGroup>
-                )}
-              </Grid>
-
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="flex-end" my={1}>
-                  <Button
-                    variant="outlined"
-                    onClick={handleGenerateStory}
-                    disabled={isGenerating}
-                    startIcon={<AutoFixHighIcon />}
-                  >
-                    {isGenerating
-                      ? "Generating..."
-                      : editingStory
-                      ? "Regenerate with AI"
-                      : "Enhance with AI"}
-                  </Button>
-                </Box>
-                {generatedStoryContent && (
-                  <AIContentBox>
-                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                      {generatedStoryContent}
-                    </Typography>
-                  </AIContentBox>
-                )}
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseDialogs}>Cancel</Button>
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
-              disabled={isCreating || isUpdating}
-            >
-              {isCreating || isUpdating ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : editingStory ? (
-                "Save Changes"
-              ) : (
-                "Create Story"
-              )}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <Dialog
+        <DeleteConfirmationDialog
           open={deleteDialogOpen}
           onClose={handleCloseDialogs}
-          maxWidth="xs"
-        >
-          <DialogTitle>Confirm Deletion</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to delete the story "
-              <strong>{storyToDelete?.userStoryTitle}</strong>"? This action
-              cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button onClick={handleCloseDialogs}>Cancel</Button>
-            <Button
-              onClick={handleDelete}
-              variant="contained"
-              color="error"
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogActions>
-        </Dialog>
+          storyToDelete={storyToDelete}
+          onConfirmDelete={handleDelete}
+          isDeleting={isDeleting}
+        />
 
-        {/* Snackbar for notifications */}
+        <CodeGenerationLoadingDialog
+          open={
+            isGeneratingCodeProcess &&
+            activeGenerationStoryId === selectedStory?._id
+          }
+          onClose={handleCloseDialogs}
+          currentGenerationStatus={currentGenerationStatus}
+          completedGenerationSteps={completedGenerationSteps}
+          generationError={generationError}
+          githubResult={githubResult}
+          projectGithubRepoUrl={projectGithubRepoUrl}
+        />
+
         <Snackbar
           open={snackbar.open}
           autoHideDuration={6000}
@@ -695,7 +640,7 @@ const UserStoryPage = () => {
           </Alert>
         </Snackbar>
       </Box>
-    </ThemeProvider>
+    </AppTheme>
   );
 };
 

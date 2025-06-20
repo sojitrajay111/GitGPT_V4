@@ -23,6 +23,9 @@ const {
   getUserAndGithubData,
   getCollaboratorsByProjectId, // Added this to imports as it's used in a route
   deleteGithubRepo, // New: Import deleteGithubRepo
+  getGitHubDetails, // New: Import getGitHubDetails
+  addOrUpdateGitHubDetails, // New: Import addOrUpdateGitHubDetails
+  deleteGitHubDetails, // New: Import deleteGitHubDetails
 } = require("../controllers/githubController");
 
 // Middleware to authenticate user (ensure this path is correct)
@@ -32,6 +35,11 @@ const authenticateUser = require("../middleware/authMiddleware");
 router.get("/status", authenticateUser, getGitHubStatus);
 router.post("/authenticate", authenticateUser, authenticateGitHub);
 router.delete("/disconnect", authenticateUser, disconnectGitHub);
+
+// New: Routes for managing user's GitHub integration details
+router.get("/details/:userId", authenticateUser, getGitHubDetails);
+router.post("/details/:userId", authenticateUser, addOrUpdateGitHubDetails);
+router.delete("/details/:userId", authenticateUser, deleteGitHubDetails);
 
 // --- User and Repository Info ---
 router.get("/repos", authenticateUser, getUserGithubRepos); // List user's own repos (for project creation)
