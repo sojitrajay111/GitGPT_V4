@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema(
         "Please enter a valid email",
       ],
     },
+    
     password: { type: String, required: false }, // Password is not required initially for invited users
     role: {
       type: String,

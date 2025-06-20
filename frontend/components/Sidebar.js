@@ -61,16 +61,15 @@ const Sidebar = ({
     }
   }, [theme, isThemeLoading, isThemeError]);
 
-  const handleToggleTheme = async () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    try {
-      await updateTheme({ userId, theme: newTheme }).unwrap();
-      // The `useGetThemeQuery` will automatically refetch and update the UI
-    } catch (error) {
-      console.error("Failed to update theme preference:", error);
-      // Optionally show an error message to the user
-    }
-  };
+const handleToggleTheme = async () => {
+  const newTheme = theme === "dark" ? "light" : "dark";
+  try {
+    const response = await updateTheme({ userId, theme: newTheme }).unwrap();
+    console.log("Theme updated:", response);
+  } catch (error) {
+    console.error("Failed to update theme preference:", error?.data || error?.message || error);
+  }
+};
 
   const username = userData?.user?.username || "Loading...";
   const email = userData?.githubData?.githubEmail || "Loading...";
