@@ -54,6 +54,15 @@ import {
 import { useRouter, useParams } from "next/navigation";
 import { useGetThemeQuery } from "@/features/themeApiSlice";
 import { SynthButton } from "@/components/ui/SynthButton";
+import ArtifactGrid from "@/components/documentations_components/ArtifactGrid";
+import UploadDialog from "@/components/documentations_components/UploadDialog";
+import EditDialog from "@/components/documentations_components/EditDialog";
+import DeleteDialog from "@/components/documentations_components/DeleteDialog";
+import GoogleDriveStatus from "@/components/documentations_components/GoogleDriveStatus";
+import DocumentationHeader from "@/components/documentations_components/DocumentationHeader";
+import FilterBar from "@/components/documentations_components/FilterBar";
+import DisconnectDialog from "@/components/documentations_components/DisconnectDialog";
+import CustomSnackbar from "@/components/documentations_components/CustomSnackbar";
 
 // --- Modern Light Theme (Copied from previous response for consistency) ---
 const modernLightTheme = createTheme({
@@ -698,760 +707,82 @@ const DocumentationPage = ({ projectDataFromParent }) => {
         }}
       >
         {/* HEADER + BUTTONS */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box>
-            <Typography
-              variant="h3"
-              sx={{
-                fontWeight: 800,
-                color: isDark ? "#fff" : "#23242A",
-                mb: 0.5,
-                fontSize: { xs: "2rem", sm: "2.5rem" },
-              }}
-            >
-              Artifacts
-            </Typography>
-            <Typography
-              sx={{
-                color: isDark ? "#6B7280" : "#6B7280",
-                fontSize: { xs: "1rem", sm: "1.15rem" },
-                mb: 2,
-              }}
-            >
-              Manage and organize your project documents
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {!isGoogleDriveConnected && (
-              <SynthButton
-                variant="primary"
-                size="lg"
-                onClick={handleGoogleDriveAuth}
-                disabled={isConnectingGoogleDrive}
-                sx={{
-                  background: "#A78BFA",
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 16,
-                  borderRadius: 3,
-                  px: 3,
-                  height: 48,
-                  boxShadow: isDark
-                    ? "0 4px 24px 0 rgba(80,80,120,0.18)"
-                    : "0 4px 24px 0 rgba(120,120,180,0.10)",
-                }}
-              >
-                {isConnectingGoogleDrive ? (
-                  <CircularProgress size={20} color="inherit" style={{ marginRight: 8 }} />
-                ) : (
-                  <CloudSyncIcon style={{ fontSize: 22, marginRight: 8 }} />
-                )}
-                {isConnectingGoogleDrive ? 'Connecting...' : 'Sync with Cloud'}
-              </SynthButton>
-            )}
-            <SynthButton
-              variant="primary"
-              size="sm"
-              onClick={() => setUploadDialogOpen(true)}
-              style={{
-                backgroundColor: isDark ? '#a78bfa' : '#a78bfa',
-                color: '#fff'
-              }}
-              sx={{
-                background: "#818CF8",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 16,
-                borderRadius: 3,
-                px: 2,
-                height: 36,
-                boxShadow: isDark
-                  ? "0 4px 24px 0 rgba(80,80,120,0.18)"
-                  : "0 4px 24px 0 rgba(120,120,180,0.10)",
-              }}
-              disabled={!isGoogleDriveConnected}
-            >
-              <CloudUploadIcon style={{ fontSize: 22, marginRight: 8 }} />
-              Upload Artifact
-            </SynthButton>
-            {isGoogleDriveConnected && (
-              <SynthButton
-                variant="flat"
-                size="sm"
-                onClick={handleDisconnectGoogleDrive}
-                style={{
-                  backgroundColor: isDark ? '#EF4444' : '#DC2626',
-                  color: '#fff'
-                }}
-                sx={{ height: 36, px: 2 }}
-              >
-                Disconnect
-              </SynthButton>
-            )}
-          </Box>
-        </Box>
-
+        <DocumentationHeader
+          isDark={isDark}
+          isGoogleDriveConnected={isGoogleDriveConnected}
+          isConnectingGoogleDrive={isConnectingGoogleDrive}
+          onGoogleDriveAuth={handleGoogleDriveAuth}
+          onUpload={() => setUploadDialogOpen(true)}
+          onDisconnect={handleDisconnectGoogleDrive}
+        />
         {/* Google Drive Connection Status */}
-        {googleDriveError && (
-          <Box sx={{ mb: 3 }}>
-            <Alert 
-              severity="error" 
-              onClose={() => setGoogleDriveError(null)}
-              sx={{ 
-                borderRadius: 2,
-                background: isDark ? '#1F2937' : '#FEF2F2',
-                border: isDark ? '1px solid #374151' : '1px solid #FECACA'
-              }}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                Google Drive Connection Error
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 0.5 }}>
-                {googleDriveError}
-              </Typography>
-            </Alert>
-          </Box>
-        )}
-
-        {!isGoogleDriveConnected && (
-          <Box sx={{ mb: 3 }}>
-            <Alert 
-              severity="info" 
-              sx={{ 
-                borderRadius: 2,
-                background: isDark ? '#1E3A8A' : '#EFF6FF',
-                border: isDark ? '1px solid #3B82F6' : '1px solid #BFDBFE'
-              }}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                Google Drive Required
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 0.5 }}>
-                Connect to Google Drive to upload and manage your project artifacts. Documents will be stored securely in your GitGPT documents folder.
-              </Typography>
-            </Alert>
-          </Box>
-        )}
-
+        <GoogleDriveStatus
+          isGoogleDriveConnected={isGoogleDriveConnected}
+          googleDriveError={googleDriveError}
+          isDark={isDark}
+          onConnect={handleGoogleDriveAuth}
+          onDisconnect={handleDisconnectGoogleDrive}
+          isConnectingGoogleDrive={isConnectingGoogleDrive}
+          setGoogleDriveError={setGoogleDriveError}
+        />
         {/* TOP BAR: Search, Filters, Toggle */}
-        <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 2,
-            mb: 4,
-            background: isDark ? "#161717" : "#F5F6FA",
-            borderRadius: 4,
-            boxShadow: isDark
-              ? 'inset 8px 8px 24px #181A20, inset -8px -8px 24px #23242A, 0 2px 12px 0 rgba(0,0,0,0.25)'
-              : 'inset 4px 4px 16px #e5e7eb, inset -4px -4px 16px #fff, 0 2px 8px 0 rgba(100,120,150,0.04)',
-            p: 2,
-            border: isDark ? '1px solid #444' : '1px solid #e5e7eb',
-          }}
-        >
-          {/* Search */}
-          <TextField
-            variant="outlined"
-            placeholder="Search artifacts..."
-            sx={{
-              flex: 1,
-              minWidth: 220,
-              background: isDark ? "#2f2f2f" : "#fff",
-              borderRadius: 1,
-              border: isDark ? '1px  #e5e7eb' : '1px  #e5e7eb',
-              boxShadow: isDark
-                ? 'inset 4px 4px 12px #181A20, inset -4px -4px 12px #23242A'
-                : 'inset 2px 2px 8px #e5e7eb, inset -2px -2px 8px #fff',
-              input: { color: isDark ? "#fff" : "#23242A" },
-            }}
-            size="small"
-          />
-          {/* Show Filters toggle */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              background: isDark ? "#2f2f2f" : "#fff",
-              borderRadius: 3,
-              px: 2,
-              boxShadow: isDark
-                ? 'inset 2px 2px 8px #181A20, inset -2px -2px 8px #23242A'
-                : 'inset 1px 1px 4px #e5e7eb, inset -1px -1px 4px #fff',
-              minWidth: 120,
-              height: 40,
-              border: isDark ? '1px solid #e5e7eb' : '1px solid #e5e7eb',
-            }}
-          >
-            <Typography sx={{ color: isDark ? "#E5E7EB" : "#23242A", fontWeight: 500, mr: 1 }}>
-              Show Filters
-            </Typography>
-            <SynthButton
-              size="sm"
-              variant="flat"
-              style={{ minWidth: 40, width: 40, height: 24, padding: 0, background: 'none', boxShadow: 'none' }}
-              onClick={() => setShowFilters((prev) => !prev)}
-            >
-              <Box sx={{ width: 32, height: 18, background: isDark ? "#333" : "#ddd", borderRadius: 9, position: "relative", transition: 'background 0.2s' }}>
-                <Box
-                  sx={{
-                    width: 14,
-                    height: 14,
-                    background: showFilters ? (isDark ? "#6366F1" : "#6366F1") : (isDark ? "#888" : "#fff"),
-                    borderRadius: "50%",
-                    position: "absolute",
-                    left: showFilters ? 16 : 2,
-                    top: 2,
-                    transition: 'left 0.2s, background 0.2s',
-                  }}
-                />
-              </Box>
-            </SynthButton>
-          </Box>
-          {/* Filters (only if showFilters is true) */}
-          {showFilters && (
-            <>
-              <TextField
-                select
-                size="small"
-                variant="outlined"
-                defaultValue="All Projects"
-                
-                sx={{
-                  minWidth: 120,
-                  background: isDark ? "#2f2f2f" : "#fff",
-                  borderRadius: 1,
-                  border: isDark ? '1px #e5e7eb' : '1px  #e5e7eb',
-                  boxShadow: isDark
-                    ? 'inset 2px 2px 8px #181A20, inset -2px -2px 8px #23242A'
-                    : 'inset 1px 1px 4px #e5e7eb, inset -1px -1px 4px #fff',
-                  ml: 1,
-                  color: isDark ? '#E5E7EB' : '#23242A',
-                  '& .MuiInputBase-input, & .MuiSelect-select': {
-                    color: isDark ? '#E5E7EB' : '#23242A',
-                  },
-                }}
-                SelectProps={{ native: true }}
-              >
-                <option>All Projects</option>
-              </TextField>
-              <TextField
-                select
-                size="small"
-                variant="outlined"
-                defaultValue="All Sprints"
-                sx={{
-                  minWidth: 120,
-                  background: isDark ? "#2f2f2f" : "#fff",
-                  borderRadius: 1,
-                  border: isDark ? '1px  #e5e7eb' : '1px #e5e7eb',
-                  boxShadow: isDark
-                    ? 'inset 2px 2px 8px #181A20, inset -2px -2px 8px #23242A'
-                    : 'inset 1px 1px 4px #e5e7eb, inset -1px -1px 4px #fff',
-                  ml: 1,
-                  color: isDark ? '#E5E7EB' : '#23242A',
-                  '& .MuiInputBase-input, & .MuiSelect-select': {
-                    color: isDark ? '#E5E7EB' : '#23242A',
-                  },
-                }}
-                SelectProps={{ native: true }}
-              >
-                <option>All Sprints</option>
-              </TextField>
-              <TextField
-                select
-                size="small"
-                variant="outlined"
-                defaultValue="All Types"
-                sx={{
-                  minWidth: 120,
-                  background: isDark ? "#2f2f2f" : "#fff",
-                  borderRadius: 1,
-                  border: isDark ? '1px #e5e7eb' : '1px #e5e7eb',
-                  boxShadow: isDark
-                    ? 'inset 2px 2px 8px #181A20, inset -2px -2px 8px #23242A'
-                    : 'inset 1px 1px 4px #e5e7eb, inset -1px -1px 4px #fff',
-                  ml: 1,
-                  color: isDark ? '#E5E7EB' : '#23242A',
-                  '& .MuiInputBase-input, & .MuiSelect-select': {
-                    color: isDark ? '#E5E7EB' : '#23242A',
-                  },
-                }}
-                SelectProps={{ native: true }}
-              >
-                <option>All Types</option>
-              </TextField>
-            </>
-          )}
-        </Box>
-
+        <FilterBar
+          isDark={isDark}
+          showFilters={showFilters}
+          setShowFilters={setShowFilters}
+        />
         {/* ARTIFACT CARDS */}
-        <Grid container spacing={4}>
-          {(!documents || documents.length === 0) ? (
-            <Grid item xs={12}>
-              <Box
-                sx={{
-                  textAlign: "center",
-                  p: { xs: 3, sm: 5 },
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: "300px",
-                  border: isDark ? "2px dashed #444" : "2px dashed #ddd",
-                  background: isDark ? "#161717" : "#fff",
-                  borderRadius: 4,
-                  boxShadow: isDark
-                    ? "0 8px 32px rgba(0,0,0,0.18)"
-                    : "0 8px 32px rgba(100,120,150,0.08)",
-                }}
-              >
-                <NotesIcon sx={{ fontSize: 60, color: isDark ? "#555" : "#bbb", mb: 2 }} />
-                <Typography variant="h5" color={isDark ? "#fff" : "#23242A"} gutterBottom>
-                  No Artifacts Yet
-                </Typography>
-                <Typography
-                  variant="body1"
-                  color={isDark ? "#B0B3B8" : "#6B7280"}
-                  sx={{ mb: 3 }}
-                >
-                  {isGoogleDriveConnected 
-                    ? "It looks a bit empty here. Start by uploading an artifact to Google Drive."
-                    : "Connect to Google Drive first to start uploading and managing your project artifacts."
-                  }
-                </Typography>
-                {isGoogleDriveConnected ? (
-                  <SynthButton
-                    variant="primary"
-                    size="lg"
-                    onClick={() => setUploadDialogOpen(true)}
-                    sx={{
-                      background: "#818CF8",
-                      color: "#fff",
-                      fontWeight: 700,
-                      fontSize: 16,
-                      boxShadow: isDark
-                        ? "0 4px 24px 0 rgba(80,80,120,0.18)"
-                        : "0 4px 24px 0 rgba(120,120,180,0.10)",
-                      borderRadius: 3,
-                      px: 3,
-                      height: 48,
-                    }}
-                  >
-                    <CloudUploadIcon style={{ fontSize: 22, marginRight: 8 }} />
-                    Upload Artifact
-                  </SynthButton>
-                ) : (
-                  <SynthButton
-                    variant="primary"
-                    size="lg"
-                    onClick={handleGoogleDriveAuth}
-                    disabled={isConnectingGoogleDrive}
-                    sx={{
-                      background: "#A78BFA",
-                      color: "#fff",
-                      fontWeight: 700,
-                      fontSize: 16,
-                      boxShadow: isDark
-                        ? "0 4px 24px 0 rgba(80,80,120,0.18)"
-                        : "0 4px 24px 0 rgba(120,120,180,0.10)",
-                      borderRadius: 3,
-                      px: 3,
-                      height: 48,
-                    }}
-                  >
-                    {isConnectingGoogleDrive ? (
-                      <CircularProgress size={20} color="inherit" style={{ marginRight: 8 }} />
-                    ) : (
-                      <CloudSyncIcon style={{ fontSize: 22, marginRight: 8 }} />
-                    )}
-                    {isConnectingGoogleDrive ? 'Connecting...' : 'Sync with Cloud'}
-                  </SynthButton>
-                )}
-              </Box>
-            </Grid>
-          ) : (
-            documents.map((doc) => (
-              <Grid item xs={12} sm={6} md={3} lg={3} key={doc._id} sx={{ display: 'flex', justifyContent: 'center' }}>
-                <Box
-                  sx={{
-                    background: isDark ? "#23242A" : "#fff",
-                    borderRadius: 4,
-                    boxShadow: isDark
-                      ? "0 8px 32px rgba(0,0,0,0.18)"
-                      : "0 8px 32px rgba(100,120,150,0.08)",
-                    p: 3,
-                    display: "flex",
-                    flexDirection: "column",
-                    minHeight: 220,
-                    maxHeight: 220,
-                    width: CARD_WIDTH,
-                    maxWidth: '100%',
-                    position: "relative",
-                    transition: "box-shadow 0.2s, transform 0.2s",
-                    '&:hover': {
-                      boxShadow: isDark
-                        ? "0 16px 48px rgba(0,0,0,0.28)"
-                        : "0 16px 48px rgba(100,120,150,0.16)",
-                      transform: "translateY(-2px) scale(1.01)",
-                    },
-                  }}
-                >
-                  {/* File Icon */}
-                  <Box sx={{ position: "absolute", top: 18, left: 18 }}>
-                    <CloudUploadIcon sx={{ fontSize: 32, color: isDark ? "#B0B3B8" : "#6366F1" }} />
-                  </Box>
-                  {/* Download Icon */}
-                  <Box sx={{ position: "absolute", top: 18, right: 18, display: 'flex', gap: 1 }}>
-                    {(doc.googleDriveViewLink && doc.googleDriveViewLink !== "N/A (Generated Document)") || 
-                     (doc.cloudinaryLink && doc.cloudinaryLink !== "N/A (Generated Document)") ? (
-                      <Tooltip title="View" arrow>
-                        <IconButton
-                          onClick={() => {
-                            // Use Google Drive view link if available, otherwise fall back to Cloudinary
-                            const viewLink = doc.googleDriveViewLink || doc.cloudinaryLink;
-                            window.open(viewLink, '_blank');
-                          }}
-                          sx={{ color: isDark ? "#fff" : "#6366F1", background: isDark ? "#181A20" : "#E8EAF6", borderRadius: 2 }}
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                    ) : (
-                      <IconButton disabled sx={{ color: isDark ? "#555" : "#bbb", background: isDark ? "#181A20" : "#E8EAF6", borderRadius: 2 }}>
-                        <VisibilityIcon />
-                      </IconButton>
-                    )}
-                    <Tooltip title="Delete" arrow>
-                      <IconButton
-                        onClick={() => handleDeleteDialogOpen(doc)}
-                        sx={{ ml: 1, color: isDark ? '#F87171' : '#B91C1C', background: isDark ? '#181A20' : '#FEE2E2', borderRadius: 2 }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  {/* Title */}
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      fontWeight: 700,
-                      color: isDark ? "#fff" : "#23242A",
-                      mt: 4,
-                      mb: 0.5,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                    title={doc.documentTitle}
-                  >
-                    {doc.documentTitle}
-                  </Typography>
-                  {/* Description */}
-                  <Typography
-                    sx={{
-                      color: isDark ? "#B0B3B8" : "#6B7280",
-                      fontSize: 15,
-                      mb: 0.5,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      width: '100%',
-                      minHeight: 24,
-                      maxWidth: DESC_MAX_WIDTH,
-                    }}
-                    title={doc.documentShortDescription}
-                  >
-                    {doc.documentShortDescription || "-"}
-                  </Typography>
-                  {/* Size */}
-                  <Typography sx={{ color: isDark ? "#B0B3B8" : "#6B7280", fontSize: 14, mb: 0.5 }}>
-                    {doc.size ? formatFileSize(doc.size) : (doc.documentFile && doc.documentFile.size ? formatFileSize(doc.documentFile.size) : "-")}
-                  </Typography>
-                  <Divider sx={{ my: 1.5, borderColor: isDark ? "#333" : "#eee" }} />
-                  {/* Modified Time */}
-                  <Typography sx={{ color: isDark ? "#B0B3B8" : "#6B7280", fontSize: 13 }}>
-                    Modified {doc.updatedAt ? timeAgo(new Date(doc.updatedAt)) : "-"}
-                  </Typography>
-                </Box>
-              </Grid>
-            ))
-          )}
-        </Grid>
-
+        <ArtifactGrid
+          documents={documents}
+          isDark={isDark}
+          isGoogleDriveConnected={isGoogleDriveConnected}
+          isConnectingGoogleDrive={isConnectingGoogleDrive}
+          onUpload={() => setUploadDialogOpen(true)}
+          onConnect={handleGoogleDriveAuth}
+          onDelete={handleDeleteDialogOpen}
+        />
         {/* Upload Dialog */}
-        <Dialog
+        <UploadDialog
           open={uploadDialogOpen}
           onClose={handleUploadDialogClose}
-          fullWidth
-          maxWidth="sm"
-          PaperProps={{
-            sx: {
-              background: isDark ? '#000000' : '#fff',
-            },
-          }}
-        >
-          <DialogTitle sx={{ color: "primary.main", background: isDark ? '#161717' : '#fff' }}>
-            <UploadFileIcon sx={{ verticalAlign: "middle", mr: 1 , }} /> Upload
-            New Document
-          </DialogTitle>
-          <DialogContent dividers sx={{ p: 3, background: isDark ? '#161717' : '#fff' }}>
-            <TextField
-              autoFocus
-              margin="dense"
-              name="documentTitle"
-              label="Document Title"
-              type="text"
-              fullWidth
-              value={uploadForm.documentTitle}
-              onChange={handleUploadChange}
-              sx={{
-                mb: 2.5,
-                background: isDark ? '#2f2f2f' : '#fff',
-                '& .MuiInputBase-input': { color: isDark ? '#fff' : undefined },
-                '& .MuiInputLabel-root': { color: isDark ? '#fff' : undefined },
-              }}
-              InputLabelProps={{ style: { color: isDark ? '#fff' : undefined } }}
-              required
-            />
-            <TextField
-              margin="dense"
-              name="documentShortDescription"
-              label="Short Description"
-              type="text"
-              fullWidth
-              multiline
-              rows={3}
-              value={uploadForm.documentShortDescription}
-              onChange={handleUploadChange}
-              sx={{
-                mb: 2.5,
-                background: isDark ? '#2f2f2f' : '#fff',
-                '& .MuiInputBase-input': { color: isDark ? '#fff' : undefined },
-                '& .MuiInputLabel-root': { color: isDark ? '#fff' : undefined },
-              }}
-              InputLabelProps={{ style: { color: isDark ? '#fff' : undefined } }}
-              required
-            />
-            <FileInputButton component="label" fullWidth sx= {{ background: isDark ? '#2f2f2f' : '#fff'}}>
-              <CloudUploadIcon sx={{ fontSize: 36, mb: 1 }} />
-              {uploadForm.documentFile
-                ? uploadForm.documentFile.name
-                : "Click to Select File"}
-              <Typography
-                variant="caption"
-                display="block"
-                sx={{ mt: 0.5, color: isDark ? '#fff' : undefined }}
-              >
-                (PDF, DOCX, TXT)
-              </Typography>
-              <input
-                type="file"
-                hidden
-                onChange={handleUploadFileChange}
-                accept=".pdf,.doc,.docx,.txt,text/plain"
-              />
-            </FileInputButton>
-            {uploadForm.documentFile && (
-              <Typography
-                variant="caption"
-                sx={{ mt: 1, display: "block", textAlign: "center" }}
-              >
-                Selected: {uploadForm.documentFile.name}
-              </Typography>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" , background: isDark ? '#161717' : '#fff' }}>
-            <Button
-              onClick={handleUploadDialogClose}
-              variant="text"
-              style={{ color: isDark ? '#fff' : undefined }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUploadSubmit}
-              variant="contained"
-              color="primary"
-              disabled={
-                isUploading ||
-                !uploadForm.documentFile ||
-                !uploadForm.documentTitle
-              }
-              style={{ color: isDark ? '#fff' : undefined , backgroundColor: "#55DD33"}}
-            >
-              {isUploading ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                "Upload Document"
-              )}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
+          onChange={handleUploadChange}
+          onFileChange={handleUploadFileChange}
+          onSubmit={handleUploadSubmit}
+          form={uploadForm}
+          isUploading={isUploading}
+          isDark={isDark}
+        />
         {/* Edit Document Dialog */}
-        <Dialog
+        <EditDialog
           open={editDialogOpen}
           onClose={handleEditDialogClose}
-          fullWidth
-          maxWidth="sm"
-        >
-          <DialogTitle sx={{ color: "primary.dark" }}>
-            <EditIcon sx={{ verticalAlign: "middle", mr: 1 }} /> Edit Document
-            Details
-          </DialogTitle>
-          <DialogContent dividers sx={{ p: 3 }}>
-            <TextField
-              autoFocus
-              margin="dense"
-              name="documentTitle"
-              label="Document Title"
-              type="text"
-              fullWidth
-              value={editForm.documentTitle}
-              onChange={handleEditChange}
-              sx={{ mb: 2.5 }}
-              required
-            />
-            <TextField
-              margin="dense"
-              name="documentShortDescription"
-              label="Short Description"
-              type="text"
-              fullWidth
-              multiline
-              rows={3}
-              value={editForm.documentShortDescription}
-              onChange={handleEditChange}
-              sx={{ mb: 2.5 }}
-              required
-            />
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ mt: 2, mb: 1 }}
-            >
-              Replace existing file (optional):
-            </Typography>
-            <FileInputButton component="label" fullWidth>
-              <CloudUploadIcon sx={{ fontSize: 36, mb: 1 }} />
-              {editForm.documentFile
-                ? editForm.documentFile.name
-                : "Click to Select New File"}
-              <Typography
-                variant="caption"
-                display="block"
-                sx={{ mt: 0.5, color: isDark ? '#fff' : undefined }}
-              >
-                (PDF, DOCX, TXT)
-              </Typography>
-              <input
-                type="file"
-                hidden
-                onChange={handleEditFileChange}
-                accept=".pdf,.doc,.docx,.txt,text/plain"
-              />
-            </FileInputButton>
-            {editForm.documentFile && (
-              <Typography
-                variant="caption"
-                sx={{ mt: 1, display: "block", textAlign: "center" }}
-              >
-                Selected for replacement: {editForm.documentFile.name}
-              </Typography>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button
-              onClick={handleEditDialogClose}
-              variant="text"
-              sx={{ color: "text.secondary" }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleEditSubmit}
-              variant="contained"
-              color="primary"
-              disabled={isUpdating || !editForm.documentTitle}
-            >
-              {isUpdating ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
+          onChange={handleEditChange}
+          onFileChange={handleEditFileChange}
+          onSubmit={handleEditSubmit}
+          form={editForm}
+          isUpdating={isUpdating}
+          isDark={isDark}
+        />
         {/* Delete Confirmation Dialog */}
-        <Dialog
+        <DeleteDialog
           open={deleteConfirmOpen}
           onClose={handleDeleteDialogClose}
-          maxWidth="xs"
-        >
-          <DialogTitle sx={{ backgroundColor: "error.main", color: "white" }}>
-            <DeleteIcon sx={{ verticalAlign: "middle", mr: 1 }} /> Confirm
-            Deletion
-          </DialogTitle>
-          <DialogContent sx={{ pt: "20px !important" }}>
-            <Typography>
-              Are you sure you want to delete the document: <br />
-              <strong>"{currentDocument?.documentTitle}"</strong>?
-            </Typography>
-            <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>
-              This action cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ p: "16px 24px" }}>
-            <Button
-              onClick={handleDeleteDialogClose}
-              variant="text"
-              sx={{ color: "text.secondary" }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDeleteConfirm}
-              variant="contained"
-              color="error"
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
+          onConfirm={handleDeleteConfirm}
+          documentTitle={currentDocument?.documentTitle}
+          isDeleting={isDeleting}
+        />
         {/* Disconnect Confirmation Dialog */}
-        <Dialog open={disconnectDialogOpen} onClose={() => setDisconnectDialogOpen(false)}>
-          <DialogTitle>Disconnect Google Drive</DialogTitle>
-          <DialogContent>
-            <Typography>Are you sure you want to disconnect Google Drive?</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDisconnectDialogOpen(false)} color="primary">Cancel</Button>
-            <Button onClick={confirmDisconnectGoogleDrive} color="error">Disconnect</Button>
-          </DialogActions>
-        </Dialog>
-
-        <Snackbar
+        <DisconnectDialog
+          open={disconnectDialogOpen}
+          onClose={() => setDisconnectDialogOpen(false)}
+          onConfirm={confirmDisconnectGoogleDrive}
+        />
+        <CustomSnackbar
           open={snackbarOpen}
-          autoHideDuration={6000}
           onClose={handleSnackbarClose}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert
-            onClose={handleSnackbarClose}
-            severity={snackbarSeverity}
-            sx={{ width: "100%" }}
-          >
-            {snackbarMessage}
-          </Alert>
-        </Snackbar>
+          message={snackbarMessage}
+          severity={snackbarSeverity}
+        />
       </Box>
     </ThemeProvider>
   );

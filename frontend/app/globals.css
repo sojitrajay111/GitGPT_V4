@@ -118,3 +118,21 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Autofill background fix for dark mode */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:hover,
+.dark textarea:-webkit-autofill,
+.dark textarea:-webkit-autofill:focus,
+.dark textarea:-webkit-autofill:hover,
+.dark select:-webkit-autofill,
+.dark select:-webkit-autofill:focus,
+.dark select:-webkit-autofill:hover {
+  box-shadow: 0 0 0 1000px #23242A inset !important;
+  -webkit-box-shadow: 0 0 0 1000px #23242A inset !important;
+  -webkit-text-fill-color: #fff !important;
+  color: #fff !important;
+  caret-color: #fff !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
