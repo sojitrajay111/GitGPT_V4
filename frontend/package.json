@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "rm -rf node_modules/.cache && npm rebuild"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
