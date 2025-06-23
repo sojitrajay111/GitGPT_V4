@@ -432,7 +432,7 @@ const UserStoryPage = () => {
       : userStoriesData?.userStories || [];
 
   const filteredUserStories = useMemo(() => {
-    return allUserStories.filter((story) => {
+    return allUserStories?.filter((story) => {
       const matchesSearch = story.userStoryTitle
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
@@ -443,7 +443,7 @@ const UserStoryPage = () => {
     });
   }, [allUserStories, searchTerm, showCompleted]);
 
-  filteredUserStories.sort(
+  filteredUserStories?.sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
   );
 
@@ -526,7 +526,7 @@ const UserStoryPage = () => {
             <Box display="flex" justifyContent="center" py={5}>
               <CircularProgress />
             </Box>
-          ) : filteredUserStories.length === 0 ? (
+          ) : filteredUserStories?.length === 0 ? (
             <Box textAlign="center" py={2}>
               <Typography color="text.secondary" variant="body2">
                 No user stories found.
@@ -534,7 +534,7 @@ const UserStoryPage = () => {
             </Box>
           ) : (
             <Stack spacing={2} sx={{ flexGrow: 1, overflowY: "auto" }}>
-              {filteredUserStories.map((story) => (
+              {filteredUserStories?.map((story) => (
                 <UserStoryCard
                   key={story._id}
                   story={story}
