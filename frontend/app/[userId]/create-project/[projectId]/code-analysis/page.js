@@ -1,29 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@mui/material"; // Retaining MUI Button for consistency if other MUI components are still in use
+import { Loader2, ShieldAlert, ArrowLeftCircle, MessageSquare, X } from "lucide-react"; // Common icons
 
-// Icons from lucide-react
-import {
-  Bot,
-  User,
-  Send,
-  Plus,
-  GitFork,
-  Github,
-  ArrowLeft,
-  Menu,
-  X,
-  Loader2,
-  GitPullRequest,
-  UploadCloud,
-  Trash2,
-  ShieldAlert,
-  ArrowLeftCircle,
-  ChevronLeft,
-  MessageSquare,
-} from "lucide-react";
-
+// RTK Query Hooks
 import { useGetProjectByIdQuery } from "@/features/projectApiSlice";
 import {
   useCreateGitHubBranchMutation,
@@ -38,98 +20,61 @@ import {
   useStartCodeAnalysisSessionMutation,
   useDeleteCodeAnalysisSessionMutation,
 } from "@/features/codeAnalysisApiSlice";
-import { useParams } from "next/navigation";
-import { Button } from "@mui/material";
-import MarkdownRenderer from "@/components/code-analysis/AiResponse";
-import { playErrorSound } from '@/utills/playErrorSound';
 
-// Helper function to parse AI response for code blocks
-const parseAiCodeResponse = (aiResponseText) => {
-  if (typeof aiResponseText !== "string") return [];
-  const codeBlocks = [];
-  const regex = /```(?:\w+)?\n(?:\/\/|#)\s*([^\n]+)\n([\s\S]*?)```/g;
-  let match;
-  while ((match = regex.exec(aiResponseText)) !== null) {
-    codeBlocks.push({
-      filePath: match[1].trim(),
-      content: match[2].trim(),
-    });
-  }
-  return codeBlocks;
-};
+// Extracted Components
+import LoadingScreen from "@/components/common/LoadingScreen";
+import ErrorScreen from "@/components/common/ErrorScreen";
+import ChatSidebar from "@/components/code-analysis/ChatSidebar";
+import ChatMainArea from "@/components/code-analysis/ChatmainArea";
+import NewBranchModal from "@/components/code-analysis/NewBranchModal";
+import DeleteConfirmationModal from "@/components/code-analysis/DeleteConfirmationModal";
 
-const App = () => {
+
+const CodeAnalysisPage = () => {
   const params = useParams();
   const router = useRouter();
 
   const projectId = params.projectId;
-
-  // IMPORTANT: This 'loggedInUserId' must come from your actual authentication system.
-  // It represents the ID of the user currently logged into the application.
-  // Example with a hypothetical useAuth hook:
-  // const { user } = useAuth();
-  // const loggedInUserId = user?.id;
-  // For this isolated component, we'll assume it's correctly provided,
-  // perhaps through a parent component or context that wraps this.
-  // If params.userId is *intended* to be the logged-in user's ID, then the routing needs to ensure that.
   const loggedInUserId = params.userId; // Assuming params.userId is the ID of the currently logged-in user.
 
+  // --- State Management ---
   const [githubData, setGithubData] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Refers to current user's GitHub auth status
-
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Current user's GitHub auth status
   const [project, setProject] = useState(null);
   const [selectedBranch, setSelectedBranch] = useState("");
   const [branches, setBranches] = useState([]);
-  const [branchFetchError, setBranchFetchError] = useState(null); // New state for branch fetch errors
-
+  const [branchFetchError, setBranchFetchError] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
-
   const [isNewBranchModalOpen, setIsNewBranchModalOpen] = useState(false);
   const [newBranchName, setNewBranchName] = useState("");
   const [baseBranch, setBaseBranch] = useState("");
-
-  const [lastAiResponseForCodePush, setLastAiResponseForCodePush] =
-    useState(null);
+  const [lastAiResponseForCodePush, setLastAiResponseForCodePush] = useState(null);
   const [currentChatSessionId, setCurrentChatSessionId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [sessionToDeleteId, setSessionToDeleteId] = useState(null);
 
-  // RTK Query Hooks
+  // --- RTK Query Hooks ---
   const {
     data: projectData,
     isLoading: isLoadingProject,
     error: projectError,
   } = useGetProjectByIdQuery(projectId, { skip: !projectId });
 
-  // Fetch GitHub status for the *currently logged-in user* (loggedInUserId)
   const { data: statusResponse } = useGetGitHubStatusQuery(loggedInUserId, {
     skip: !loggedInUserId,
   });
 
-  useEffect(() => {
-    if (statusResponse?.success) {
-      setIsAuthenticated(statusResponse.isAuthenticated);
-      if (statusResponse.isAuthenticated && statusResponse.data) {
-        setGithubData(statusResponse.data);
-      } else {
-        setGithubData(null);
-      }
-    }
-  }, [statusResponse]);
-
   const repolink = projectData?.project?.githubRepoLink;
   let repoName = "";
-  let repoOwner = ""; // Initialize repoOwner
+  let repoOwner = "";
   if (repolink && typeof repolink === "string" && repolink.startsWith("http")) {
     try {
       const url = new URL(repolink);
       const pathParts = url.pathname.split("/");
       if (pathParts.length >= 3) {
-        // Ensure enough parts for owner and repo
-        repoOwner = pathParts[1]; // Extract owner
+        repoOwner = pathParts[1];
         repoName = pathParts[2].replace(/\.git$/, "");
       }
     } catch (e) {
@@ -137,15 +82,13 @@ const App = () => {
     }
   }
 
-  // Fetch branches using the *project's* owner and repo name,
-  // but only if the *current user* is GitHub authenticated.
   const {
     data: branchesData,
     isLoading: isLoadingBranches,
     error: branchesError,
   } = useGetGitHubRepoBranchesQuery(
     { owner: repoOwner, repo: repoName },
-    { skip: !repoOwner || !repoName || !isAuthenticated } // Crucial: skip if current user is not authenticated
+    { skip: !repoOwner || !repoName || !isAuthenticated }
   );
 
   const [
@@ -158,7 +101,6 @@ const App = () => {
     { isLoading: isStartingSession, error: startSessionError },
   ] = useStartCodeAnalysisSessionMutation();
 
-  // Fetch sessions for the *current project* and *current logged-in user*
   const {
     data: sessionsData,
     isLoading: isLoadingHistory,
@@ -190,6 +132,19 @@ const App = () => {
     { isLoading: isDeletingSession, error: deleteSessionError },
   ] = useDeleteCodeAnalysisSessionMutation();
 
+
+  // --- Effects ---
+  useEffect(() => {
+    if (statusResponse?.success) {
+      setIsAuthenticated(statusResponse.isAuthenticated);
+      if (statusResponse.isAuthenticated && statusResponse.data) {
+        setGithubData(statusResponse.data);
+      } else {
+        setGithubData(null);
+      }
+    }
+  }, [statusResponse]);
+
   useEffect(() => {
     if (projectData?.project) {
       setProject(projectData.project);
@@ -202,7 +157,7 @@ const App = () => {
         .filter((branch) => branch && typeof branch.name === "string")
         .sort((a, b) => a.name.localeCompare(b.name));
       setBranches(sortedBranchesByName);
-      setBranchFetchError(null); // Clear error on successful fetch
+      setBranchFetchError(null);
 
       if (sortedBranchesByName.length > 0 && !selectedBranch) {
         const mainBranch = sortedBranchesByName.find((b) => b.name === "main");
@@ -220,7 +175,6 @@ const App = () => {
     } else if (branchesError) {
       console.error("Error fetching branches:", branchesError);
       let errorMessage = "Failed to load branches. ";
-      // More robust error message extraction
       if (branchesError.data?.message) {
         errorMessage += branchesError.data.message;
       } else if (branchesError.message) {
@@ -262,13 +216,15 @@ const App = () => {
     }
   }, [messagesData, messagesError, currentChatSessionId, isLoadingMessages]);
 
-  const messagesContainerRef = useRef(null);
+  const messagesContainerRef = useRef(null); // Ref for scrolling
+
+  // Effect to scroll to bottom of messages when new messages arrive
   useEffect(() => {
     if (messagesContainerRef.current) {
       const { scrollHeight, clientHeight, scrollTop } =
         messagesContainerRef.current;
       const isScrolledToBottom = scrollHeight - scrollTop <= clientHeight + 20;
-      if (isScrolledToBottom || messages.length <= 2) {
+      if (isScrolledToBottom || messages.length <= 2) { // Auto-scroll if near bottom or few messages
         messagesContainerRef.current.scrollTo({
           top: scrollHeight,
           behavior: "smooth",
@@ -276,6 +232,12 @@ const App = () => {
       }
     }
   }, [messages]);
+
+
+  // --- Handlers ---
+  const handleGoBack = useCallback(() => {
+    router.back();
+  }, [router]);
 
   const handleSessionChange = useCallback(
     async (sessionId = null) => {
@@ -286,12 +248,8 @@ const App = () => {
         }
       } else {
         if (
-          !project ||
-          !selectedBranch ||
-          !isAuthenticated || // Check current user's GitHub auth
-          !loggedInUserId || // Ensure logged-in user ID is available
-          !repoOwner || // Use repoOwner here
-          !repoName
+          !project || !selectedBranch || !isAuthenticated ||
+          !loggedInUserId || !repoOwner || !repoName
         ) {
           console.error("Cannot start new session: Missing critical data.", {
             projectExists: !!project,
@@ -306,7 +264,7 @@ const App = () => {
         try {
           const result = await startCodeAnalysisSession({
             projectId: projectId,
-            githubRepoName: `${repoOwner}/${repoName}`, // Use repoOwner
+            githubRepoName: `${repoOwner}/${repoName}`,
             selectedBranch,
           }).unwrap();
           if (result.session?._id) {
@@ -315,79 +273,50 @@ const App = () => {
             console.error("New session started but no ID returned:", result);
           }
         } catch (err) {
-          // Improved error logging for start session
           console.error(
             "Failed to start new session:",
-            err.data?.message || err.message || err // This should now show "Not authorized..."
+            err.data?.message || err.message || err
           );
-          // Optionally, display this error to the user in the UI
-          // For example, using a state variable like `sessionStartError`
-          // setSessionStartError(err.data?.message || err.message || "Failed to start session.");
         }
       }
     },
     [
-      project,
-      selectedBranch,
-      startCodeAnalysisSession,
-      isAuthenticated, // Added
-      loggedInUserId, // Added
-      projectId,
-      repoOwner, // Added
-      repoName,
-      currentChatSessionId,
+      project, selectedBranch, startCodeAnalysisSession, isAuthenticated,
+      loggedInUserId, projectId, repoOwner, repoName, currentChatSessionId,
     ]
   );
 
+  // Effect to automatically select or start a session
   useEffect(() => {
     if (
-      !isLoadingProject &&
-      !isLoadingBranches &&
-      !isStartingSession &&
-      project &&
-      selectedBranch &&
-      sessionsData?.sessions &&
-      isAuthenticated && // Check current user's GitHub auth
-      loggedInUserId && // Ensure logged-in user ID is available
-      repoOwner && // Use repoOwner
-      repoName
+      !isLoadingProject && !isLoadingBranches && !isStartingSession &&
+      project && selectedBranch && sessionsData?.sessions &&
+      isAuthenticated && loggedInUserId && repoOwner && repoName
     ) {
       if (!currentChatSessionId) {
         const existingSessionForBranch = sessionsData.sessions.find(
           (session) =>
             session.projectId === projectId &&
             session.selectedBranch === selectedBranch &&
-            session.githubRepoName === `${repoOwner}/${repoName}` && // Use repoOwner
-            session.userId === loggedInUserId // Crucial: Match session to logged-in user
+            session.githubRepoName === `${repoOwner}/${repoName}` &&
+            session.userId === loggedInUserId
         );
         if (existingSessionForBranch) {
           setCurrentChatSessionId(existingSessionForBranch._id);
         } else if (!isStartingSession) {
-          handleSessionChange();
+          handleSessionChange(); // Start a new session if none exists for this project/branch/user
         }
       }
     }
   }, [
-    currentChatSessionId,
-    project,
-    selectedBranch,
-    isLoadingProject,
-    isLoadingBranches,
-    isStartingSession,
-    sessionsData,
-    handleSessionChange,
-    projectId,
-    isAuthenticated, // Added
-    loggedInUserId, // Added
-    repoOwner, // Added
-    repoName,
+    currentChatSessionId, project, selectedBranch, isLoadingProject,
+    isLoadingBranches, isStartingSession, sessionsData, handleSessionChange,
+    projectId, isAuthenticated, loggedInUserId, repoOwner, repoName,
   ]);
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || !currentChatSessionId || isSendingMessage)
-      return;
+    if (!inputMessage.trim() || !currentChatSessionId || isSendingMessage) return;
     const userMessageText = inputMessage;
-    console.log("Sending message:", userMessageText);
     setInputMessage("");
     const tempUserMessage = {
       _id: `temp-user-${Date.now()}`,
@@ -409,20 +338,15 @@ const App = () => {
         setLastAiResponseForCodePush(result.aiMessage.text);
       }
     } catch (err) {
-       playErrorSound();
+      // Assuming playErrorSound is defined and imported
+      // playErrorSound();
       console.error("Failed to send message:", err);
-      console.error("Error sending code analysis message:", err.message);
-      if (err.response && err.response.promptFeedback) {
-        console.error("Prompt Feedback:", err.response.promptFeedback);
-      }
-     
       const systemErrorMessage = {
         _id: `error-send-${Date.now()}`,
         sessionId: currentChatSessionId,
         sender: "system",
-        text: `Error sending message: ${
-          err.data?.message || err.message || "Unknown error"
-        }`,
+        text: `Error sending message: ${err.data?.message || err.error || err.message || "Unknown error"
+          }`,
         isError: true,
         createdAt: new Date().toISOString(),
       };
@@ -435,31 +359,25 @@ const App = () => {
 
   const handleCreateNewBranch = async () => {
     if (
-      !project ||
-      !newBranchName.trim() ||
-      !baseBranch.trim() ||
-      !isAuthenticated || // Check current user's GitHub auth
-      !repoOwner || // Use repoOwner
-      !repoName
+      !project || !newBranchName.trim() || !baseBranch.trim() ||
+      !isAuthenticated || !repoOwner || !repoName
     ) {
       console.error("Missing data for creating branch.");
       return;
     }
     try {
       const result = await createGitHubBranch({
-        owner: repoOwner, // Use repoOwner here
+        owner: repoOwner,
         repo: repoName,
         newBranchName: newBranchName.trim(),
         baseBranch,
       }).unwrap();
       const createdBranchName =
-        result.branch?.name ||
-        result.branch?.ref?.split("/").pop() ||
-        newBranchName.trim();
+        result.branch?.name || result.branch?.ref?.split("/").pop() || newBranchName.trim();
       setSelectedBranch(createdBranchName);
       setNewBranchName("");
       setIsNewBranchModalOpen(false);
-      setCurrentChatSessionId(null);
+      setCurrentChatSessionId(null); // Force new session for new branch
       const systemMessage = {
         _id: `system-branch-${Date.now()}`,
         text: `Successfully created branch: ${createdBranchName} (from ${baseBranch}). Switched to this branch.`,
@@ -472,9 +390,8 @@ const App = () => {
       const systemErrorMessage = {
         _id: `error-branch-create-${Date.now()}`,
         sender: "system",
-        text: `Failed to create branch: ${
-          err.data?.message || err.message || "Unknown error"
-        }`,
+        text: `Failed to create branch: ${err.data?.message || err.message || "Unknown error"
+          }`,
         isError: true,
         createdAt: new Date().toISOString(),
       };
@@ -484,13 +401,8 @@ const App = () => {
 
   const handleGenerateAndPushCode = async () => {
     if (
-      !project ||
-      !selectedBranch ||
-      !lastAiResponseForCodePush ||
-      !currentChatSessionId ||
-      !isAuthenticated || // Check current user's GitHub auth
-      !repoOwner || // Use repoOwner
-      !repoName
+      !project || !selectedBranch || !lastAiResponseForCodePush ||
+      !currentChatSessionId || !isAuthenticated || !repoOwner || !repoName
     ) {
       console.error("Missing data for code push.");
       return;
@@ -500,15 +412,10 @@ const App = () => {
       .slice()
       .reverse()
       .find((msg) => msg.sender === "user");
-    const commitTitle = `AI changes for: ${
-      lastUserMessage?.text?.substring(0, 45) || "code analysis"
-    }...`;
-    const commitBody = `AI-generated changes based on analysis.\n\nPrompt: ${
-      lastUserMessage?.text || "User prompt not found."
-    }\n\nFull AI Response (for context):\n${lastAiResponseForCodePush.substring(
-      0,
-      300
-    )}...`;
+    const commitTitle = `AI changes for: ${lastUserMessage?.text?.substring(0, 45) || "code analysis"
+      }...`;
+    const commitBody = `AI-generated changes based on analysis.\n\nPrompt: ${lastUserMessage?.text || "User prompt not found."
+      }\n\nFull AI Response (for context):\n${generatedCodeContent.substring(0, 300)}...`;
     const commitMessage = `${commitTitle}\n\n${commitBody}`;
     const aiBranchName = `ai-${selectedBranch.replace(
       /[^a-zA-Z0-9-]/g,
@@ -525,9 +432,8 @@ const App = () => {
       }).unwrap();
       const systemMessage = {
         _id: `system-pr-${Date.now()}`,
-        text: `Successfully pushed to '${
-          result.branchName || aiBranchName
-        }' and created PR.`,
+        text: `Successfully pushed to '${result.branchName || aiBranchName
+          }' and created PR.`,
         sender: "system",
         prUrl: result.prUrl,
         generatedCode: lastAiResponseForCodePush,
@@ -539,9 +445,8 @@ const App = () => {
       console.error("Failed to push code and create PR:", err);
       const errorMessage = {
         _id: `error-pr-push-${Date.now()}`,
-        text: `Failed to push code & create PR: ${
-          err.data?.message || err.message || "Unknown error"
-        }`,
+        text: `Failed to push code & create PR: ${err.data?.message || err.message || "Unknown error"
+          }`,
         sender: "system",
         isError: true,
         createdAt: new Date().toISOString(),
@@ -572,9 +477,8 @@ const App = () => {
         const systemErrorMessage = {
           _id: `error-delete-${Date.now()}`,
           sender: "system",
-          text: `Failed to delete session: ${
-            err.data?.message || err.message || "Unknown error"
-          }`,
+          text: `Failed to delete session: ${err.data?.message || err.message || "Unknown error"
+            }`,
           isError: true,
           createdAt: new Date().toISOString(),
         };
@@ -583,593 +487,110 @@ const App = () => {
     }
   };
 
-  const handleGoBack = () => {
-    router.back();
-  };
-
-  const MessageDisplay = React.memo(({ msg }) => {
-    const isUser = msg.sender === "user";
-    const isAI = msg.sender === "ai";
-    const isSystem = msg.sender === "system";
-
-     const codeBlocksFromAi = isAI ? parseAiCodeResponse(msg.text) : [];
-
-    return (
-      <div className={`flex mb-4 ${isUser ? "justify-end" : "justify-start"}`}>
-        <div
-          className={`py-3 px-4 rounded-2xl 
-            ${
-              isUser
-                ? "max-w-[85%] md:max-w-[75%] lg:max-w-[65%]"
-                : "w-full"
-            } break-words overflow-x-auto
-            ${
-              isUser
-                ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-br-none shadow-md"
-                : isAI
-                ? "bg-gradient-to-br from-gray-800 to-gray-900 text-gray-100 rounded-bl-none border border-gray-700 shadow-md"
-                : "bg-gradient-to-br from-amber-700 to-amber-800 text-amber-50 border border-amber-600 rounded-lg w-full text-xs md:text-sm"
-            }
-            ${
-              isSystem && msg.isError
-                ? "bg-gradient-to-br from-red-700 to-red-800 text-red-50 border-red-600"
-                : ""
-            }`}
-        >
-          <div className="flex items-center mb-1.5">
-            {isUser && (
-              <User size={18} className="mr-2 text-purple-200 flex-shrink-0" />
-            )}
-            {isAI && (
-              <Bot size={18} className="mr-2 text-gray-300 flex-shrink-0" />
-            )}
-            {isSystem && (
-              <Github size={18} className="mr-2 text-amber-200 flex-shrink-0" />
-            )}
-            <span className="font-medium text-sm">
-              {isUser ? "You" : isAI ? "Code Assistant" : "System"}
-            </span>
-            {msg.createdAt && (
-              <span
-                className={`ml-auto text-xs opacity-80 ${
-                  isUser ? "text-purple-100" : "text-gray-300"
-                }`}
-              >
-                {new Date(msg.createdAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            )}
-          </div>
-          <div className="text-sm whitespace-pre-wrap leading-relaxed break-words overflow-x-auto">
-            {isAI ? (
-              <MarkdownRenderer content={msg.text} darkMode={true} />
-            ) : (
-              msg.text
-            )}
-          </div>
-
-          {isSystem && msg.prUrl && (
-            <a
-              href={msg.prUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center text-amber-300 hover:text-amber-100 underline font-medium transition-colors duration-200 text-xs"
-            >
-              View Pull Request{" "}
-              <GitPullRequest size={14} className="inline ml-1" />
-            </a>
-          )}
-
-          {codeBlocksFromAi.length > 0 && (
-            <details className="mt-3 bg-gray-800 p-2 rounded-lg border border-gray-700">
-              <summary className="cursor-pointer text-xs font-medium text-gray-300 hover:text-gray-100 flex items-center">
-                <UploadCloud size={14} className="mr-1.5" /> View Extracted Code
-              </summary>
-              <div className="mt-2 space-y-2">
-                {codeBlocksFromAi.map((block, index) => (
-                  <div key={index}>
-                    <p className="text-xs text-gray-400 font-mono mb-1">
-                      {block.filePath}
-                    </p>
-                    <pre className="p-2 bg-gray-900 text-gray-100 rounded text-xs overflow-x-auto font-mono">
-                      <code>{block.content}</code>
-                    </pre>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
-        </div>
-      </div>
-    );
-  });
-
+  // --- Render Logic ---
   if (isLoadingProject && !projectData) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
-        <Loader2 className="animate-spin h-10 w-10 text-purple-500" />
-        <p className="ml-3 text-lg text-gray-300">Loading Project...</p>
-      </div>
-    );
+    return <LoadingScreen message="Loading Project..." />;
   }
 
   if (projectError) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-red-900 to-red-800 p-4">
-        <div className="text-center bg-gray-800 p-6 md:p-8 rounded-xl shadow-lg border border-gray-700 max-w-md w-full">
-          <ShieldAlert size={44} className="mx-auto mb-3 text-red-400" />
-          <h1 className="text-xl md:text-2xl font-semibold mb-2 text-white">
-            Project Load Error
-          </h1>
-          <p className="text-sm md:text-base mb-3 text-gray-300">
-            Could not load project details. Please try again.
-          </p>
-          <p className="mt-2 text-xs font-mono bg-red-900/50 p-2 rounded border border-red-800 text-red-200 overflow-x-auto">
-            Error:{" "}
-            {projectError.data?.message ||
-              projectError.status?.toString() ||
-              "Unknown error"}
-          </p>
-          <button
-            onClick={handleGoBack}
-            className="mt-5 flex items-center mx-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg text-sm md:text-base font-medium shadow-md transition-all"
-          >
-            <ArrowLeftCircle size={18} className="mr-1.5" /> Go Back
-          </button>
-        </div>
-      </div>
+      <ErrorScreen
+        title="Project Load Error"
+        message="Could not load project details. Please try again."
+        errorDetails={
+          projectError.data?.message ||
+          projectError.status?.toString() ||
+          "Unknown error"
+        }
+        onGoBack={handleGoBack}
+      />
     );
   }
 
   return (
-    <div className="flex h-screen font-sans bg-gradient-to-br from-gray-900 to-gray-800 text-gray-200 overflow-hidden w-full">
+    <div className="flex h-screen font-sans bg-gray-800 text-gray-200 overflow-hidden w-full">
+      {/* Mobile Sidebar Toggle Button */}
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className={`md:hidden fixed z-30 bottom-4 left-4 p-3 rounded-full shadow-lg bg-gradient-to-br from-purple-600 to-indigo-600 border border-purple-400 transition-all ${
-          isSidebarOpen ? "transform -translate-x-60" : ""
-        }`}
+        className={`md:hidden fixed z-30 bottom-4 left-4 p-3 rounded-full shadow-lg bg-gray-700 border border-gray-600 transition-all ${isSidebarOpen ? "transform -translate-x-60" : ""
+          }`}
       >
         {isSidebarOpen ? (
-          <X size={20} className="text-white" />
+          <X size={20} className="text-gray-200" />
         ) : (
-          <MessageSquare size={20} className="text-white" />
+          <MessageSquare size={20} className="text-gray-200" />
         )}
       </button>
 
-      {/* Sidebar */}
-      <div
-        className={`fixed md:relative z-20 h-full bg-gradient-to-b from-gray-800 to-gray-900 shadow-lg transition-all duration-300 ease-in-out flex flex-col border-r border-gray-700
-          ${
-            isSidebarOpen
-              ? "w-64 translate-x-0"
-              : "-translate-x-full md:translate-x-0 md:w-20"
-          }
-          ${isSidebarOpen ? "block" : "hidden"} md:flex`}
-      >
-        {isSidebarOpen ? (
-          <>
-            <div className="flex justify-between items-center p-4 border-b border-gray-700">
-              <Button
-                onClick={handleGoBack}
-                className="flex items-center bg-gradient-to-r from-gray-600 to-gray-900  text-black"
-                sx={{ color: "white" }}
-              >
-                Go Back
-              </Button>
-              <h2 className="text-lg font-semibold text-gray-200">
-                Chat History
-              </h2>
-              <button
-                onClick={() => setIsSidebarOpen(false)}
-                className="p-1 rounded-full hover:bg-gray-700"
-              >
-                <X size={18} className="text-gray-400" />
-              </button>
-            </div>
-            <div className="flex-grow overflow-y-auto p-2 space-y-1">
-              {isLoadingHistory ? (
-                <div className="flex items-center justify-center h-full pt-10">
-                  <Loader2 className="animate-spin h-6 w-6 text-purple-500" />
-                </div>
-              ) : sessionsData?.sessions?.length > 0 ? (
-                sessionsData.sessions.map((session) => (
-                  <div
-                    key={session._id}
-                    onClick={() =>
-                      currentChatSessionId !== session._id &&
-                      handleSessionChange(session._id)
-                    }
-                    className={`p-2 rounded-lg cursor-pointer transition-colors duration-150 flex justify-between items-center group
-                      ${
-                        currentChatSessionId === session._id
-                          ? "bg-gradient-to-r from-purple-900/50 to-purple-800/50 text-purple-100 border border-purple-700"
-                          : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
-                      }`}
-                  >
-                    <div className="flex-1 overflow-hidden">
-                      <p
-                        className={`font-medium text-sm truncate ${
-                          currentChatSessionId === session._id
-                            ? "text-purple-100"
-                            : "text-gray-200"
-                        }`}
-                      >
-                        {session.title || `Session ...${session._id.slice(-6)}`}
-                      </p>
-                      <p
-                        className={`text-xs mt-0.5 opacity-70 truncate ${
-                          currentChatSessionId === session._id
-                            ? "text-purple-300"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {session.selectedBranch || "N/A"}
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDeleteModal(session._id);
-                      }}
-                      className={`p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${
-                        currentChatSessionId === session._id
-                          ? "hover:bg-purple-700/50 opacity-70"
-                          : "hover:bg-gray-500"
-                      }`}
-                    >
-                      <Trash2
-                        size={14}
-                        className={`${
-                          currentChatSessionId === session._id
-                            ? "text-purple-300 group-hover:text-purple-100"
-                            : "text-gray-400 group-hover:text-gray-200"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-gray-500 text-center py-2">
-                  No chat history
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => handleSessionChange(null)}
-              className="m-3 p-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg text-sm font-medium shadow-md transition-all flex items-center justify-center"
-              disabled={
-                isStartingSession ||
-                !project ||
-                !selectedBranch ||
-                !isAuthenticated // Check current user's GitHub auth
-              }
-            >
-              {isStartingSession ? (
-                <Loader2 className="animate-spin h-4 w-4" />
-              ) : (
-                <Plus size={16} className="mr-2" />
-              )}
-              New Chat
-            </button>
-          </>
-        ) : (
-          // Collapsed sidebar
-          <div className="flex flex-col items-center py-4 h-full">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-2 rounded-full hover:bg-gray-700 mb-4"
-            >
-              <Menu size={20} className="text-gray-300" />
-            </button>
-            <button
-              onClick={() => handleSessionChange(null)}
-              className="p-2 rounded-full hover:bg-gray-700 mb-4"
-              title="New Chat"
-            >
-              <Plus size={20} className="text-gray-300" />
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Chat History Sidebar */}
+      <ChatSidebar
+        userId={loggedInUserId}
+        isOpen={isSidebarOpen}
+        setIsOpen={setIsSidebarOpen} // ✅ FIX: match the state setter name
+        onClose={() => setIsSidebarOpen(false)}
+        sessionsData={sessionsData}
+        isLoadingHistory={isLoadingHistory}
+        currentChatSessionId={currentChatSessionId}
+        handleSessionChange={handleSessionChange}
+        openDeleteModal={openDeleteModal}
+        isStartingSession={isStartingSession}
+        project={project}
+        selectedBranch={selectedBranch}
+        isAuthenticated={isAuthenticated}
+        handleGoBack={handleGoBack}
+      />
+
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative bg-gradient-to-b from-gray-900/80 to-gray-800/80 overflow-x-hidden w-full">
-        {/* Header with improved layout */}
-        <header className="bg-gray-800 p-3 shadow-md z-10 border-b border-gray-700 w-full">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              {project && (
-                <div className="flex items-center">
-                  <Github size={18} className="text-gray-300 mr-2" />
-                  <h1 className="text-sm font-semibold text-gray-100 truncate max-w-[160px] md:max-w-none ">
-                    {project.projectName || "Project Analysis"}
-                  </h1>
-                </div>
-              )}
-            </div>
-
-            {project && (
-              <div className="flex items-center space-x-2">
-                {!isLoadingBranches && branches?.length > 0 && (
-                  <select
-                    value={selectedBranch}
-                    onChange={(e) => {
-                      const newBranch = e.target.value;
-                      if (selectedBranch !== newBranch) {
-                        setSelectedBranch(newBranch);
-                        setCurrentChatSessionId(null);
-                      }
-                    }}
-                    className="bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-sm max-w-[120px] md:max-w-[150px]"
-                  >
-                    {branches.map((branch) => (
-                      <option key={branch.name} value={branch.name}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <button
-                  onClick={() => {
-                    setBaseBranch(selectedBranch || branches?.[0]?.name || "");
-                    setIsNewBranchModalOpen(true);
-                  }}
-                  className="flex items-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-2 py-1 rounded-lg text-xs font-medium shadow-md transition-all"
-                  disabled={
-                    !branches || branches.length === 0 || !isAuthenticated
-                  } // Disable if not authenticated
-                >
-                  <Plus size={14} className="mr-1" /> Branch
-                </button>
-              </div>
-            )}
-          </div>
-        </header>
-
-        {/* Chat messages area */}
-        <main
-          ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 w-full"
-        >
-          {isLoadingMessages && !messages.length && currentChatSessionId && (
-            <div className="flex justify-center items-center h-full pt-10">
-              <Loader2 className="animate-spin h-7 w-7 text-purple-500" />
-            </div>
-          )}
-          {!currentChatSessionId &&
-            !isLoadingHistory &&
-            !isStartingSession &&
-            project && (
-              <div className="text-center text-gray-400 pt-20">
-                <Bot size={36} className="mx-auto mb-3 opacity-60" />
-                <p className="text-sm">
-                  {!selectedBranch && !isLoadingBranches
-                    ? "Please select a branch"
-                    : "Select or start a new chat"}
-                </p>
-              </div>
-            )}
-          {currentChatSessionId &&
-            !isLoadingMessages &&
-            messages.length === 0 && (
-              <div className="text-center text-gray-400 pt-20">
-                <Bot size={36} className="mx-auto mb-3 opacity-60" />
-                <p className="text-sm">This chat is empty</p>
-                <p className="text-xs text-gray-500">
-                  Send a message to start the analysis
-                </p>
-              </div>
-            )}
-          {messages.map((msg) => (
-            <MessageDisplay
-              key={msg._id || `msg-${msg.sender}-${msg.createdAt}`}
-              msg={msg}
-            />
-          ))}
-          {isSendingMessage && (
-            <div className="flex justify-start mb-4">
-              <div className="py-3 px-4 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 text-gray-200 rounded-bl-none border border-gray-700 shadow-md max-w-[75%]">
-                <div className="flex items-center">
-                  <Bot size={18} className="mr-2 text-gray-400" />
-                  <span className="font-medium text-sm">Analyzing...</span>
-                  <Loader2 className="animate-spin h-4 w-4 ml-2 text-purple-500" />
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
-
-        {/* Footer with message input */}
-        <footer className="bg-gray-800 p-3 border-t border-gray-700 w-full">
-          {lastAiResponseForCodePush && !isPushingCode && (
-            <div className="mb-2 flex justify-end">
-              <button
-                onClick={handleGenerateAndPushCode}
-                className="flex items-center bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-md transition-all"
-                disabled={
-                  !currentChatSessionId || isSendingMessage || !isAuthenticated
-                } // Disable if not authenticated
-              >
-                <UploadCloud size={14} className="mr-1" /> Push AI Code
-              </button>
-            </div>
-          )}
-          {isPushingCode && (
-            <div className="mb-2 flex justify-end items-center text-xs text-amber-400 font-medium">
-              <Loader2 className="animate-spin h-4 w-4 mr-1.5" />
-              Pushing code & creating PR...
-            </div>
-          )}
-
-          <div className="flex items-center bg-gray-700 rounded-lg p-1.5 border border-gray-600">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={(e) =>
-                e.key === "Enter" && !isSendingMessage && handleSendMessage()
-              }
-              placeholder={
-                currentChatSessionId
-                  ? "Ask about your code..."
-                  : "Select or start a session"
-              }
-              className="flex-1 bg-transparent px-3 py-2 text-sm text-gray-200 focus:outline-none placeholder-gray-400"
-              disabled={
-                isSendingMessage ||
-                !project ||
-                !selectedBranch ||
-                !currentChatSessionId ||
-                !isAuthenticated // Disable if not authenticated
-              }
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={
-                isSendingMessage ||
-                !inputMessage.trim() ||
-                !project ||
-                !selectedBranch ||
-                !currentChatSessionId ||
-                !isAuthenticated // Disable if not authenticated
-              }
-              className="ml-2 p-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg disabled:opacity-50 shadow-md transition-all"
-            >
-              {isSendingMessage ? (
-                <Loader2 className="animate-spin h-4 w-4" />
-              ) : (
-                <Send size={18} />
-              )}
-            </button>
-          </div>
-
-          <div className="text-xs mt-2 text-gray-500 space-y-0.5">
-            {!project && !isLoadingProject && (
-              <p className="text-red-400">Project not loaded</p>
-            )}
-            {project && !selectedBranch && !isLoadingBranches && (
-              <p className="text-amber-400">Select a branch</p>
-            )}
-            {project &&
-              !isAuthenticated && ( // More explicit check for current user's GitHub auth
-                <p className="text-red-400">
-                  Your GitHub account is not authenticated. Please link your
-                  GitHub account to use code analysis features.
-                </p>
-              )}
-            {branchFetchError && ( // Display specific branch fetch error
-              <p className="text-red-400">{branchFetchError}</p>
-            )}
-          </div>
-        </footer>
-      </div>
+      <ChatMainArea
+        project={project}
+        selectedBranch={selectedBranch}
+        branches={branches}
+        isLoadingBranches={isLoadingBranches}
+        isAuthenticated={isAuthenticated}
+        branchFetchError={branchFetchError}
+        messages={messages}
+        messagesContainerRef={messagesContainerRef}
+        isLoadingMessages={isLoadingMessages}
+        currentChatSessionId={currentChatSessionId}
+        isStartingSession={isStartingSession}
+        inputMessage={inputMessage}
+        setInputMessage={setInputMessage}
+        handleSendMessage={handleSendMessage}
+        isSendingMessage={isSendingMessage}
+        lastAiResponseForCodePush={lastAiResponseForCodePush}
+        isPushingCode={isPushingCode}
+        handleGenerateAndPushCode={handleGenerateAndPushCode}
+        setIsNewBranchModalOpen={setIsNewBranchModalOpen}
+        setBaseBranch={setBaseBranch}
+        setSelectedBranch={setSelectedBranch}
+        repoOwner={repoOwner}
+        repoName={repoName}
+        isLoadingHistory={isLoadingHistory}
+      />
 
       {/* New Branch Modal */}
-      {isNewBranchModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-b from-gray-800 to-gray-900 p-5 rounded-xl shadow-xl w-full max-w-sm border border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-100 mb-4">
-              Create New Branch
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">
-                  Base Branch
-                </label>
-                <select
-                  value={baseBranch}
-                  onChange={(e) => setBaseBranch(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                >
-                  {branches?.map((b) => (
-                    <option key={b.name} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">
-                  New Branch Name
-                </label>
-                <input
-                  type="text"
-                  value={newBranchName}
-                  onChange={(e) =>
-                    setNewBranchName(
-                      e.target.value
-                        .replace(/[^a-zA-Z0-9-._/]/g, "-")
-                        .toLowerCase()
-                    )
-                  }
-                  placeholder="feature/new-login"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end space-x-2">
-              <button
-                onClick={() => setIsNewBranchModalOpen(false)}
-                className="px-4 py-2 text-sm rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium border border-gray-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateNewBranch}
-                className="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium flex items-center border border-purple-500"
-                disabled={
-                  !newBranchName.trim() ||
-                  !baseBranch.trim() ||
-                  !isAuthenticated
-                } // Disable if not authenticated
-              >
-                {isCreatingBranch ? (
-                  <Loader2 className="animate-spin h-4 w-4 mr-1.5" />
-                ) : (
-                  <GitFork size={14} className="mr-1.5" />
-                )}
-                Create Branch
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <NewBranchModal
+        isOpen={isNewBranchModalOpen}
+        onClose={() => setIsNewBranchModalOpen(false)}
+        newBranchName={newBranchName}
+        setNewBranchName={setNewBranchName}
+        baseBranch={baseBranch}
+        setBaseBranch={setBaseBranch}
+        branches={branches}
+        isAuthenticated={isAuthenticated}
+        isCreatingBranch={isCreatingBranch}
+        handleCreateNewBranch={handleCreateNewBranch}
+      />
 
       {/* Delete Confirmation Modal */}
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-b from-gray-800 to-gray-900 p-5 rounded-xl shadow-xl w-full max-w-sm border border-gray-700">
-            <div className="text-center">
-              <ShieldAlert size={36} className="mx-auto mb-3 text-red-400" />
-              <h3 className="text-lg font-semibold text-gray-100 mb-2">
-                Delete Chat Session?
-              </h3>
-              <p className="text-sm text-gray-400 mb-4">
-                This will permanently delete this chat and all its messages.
-              </p>
-            </div>
-            <div className="flex justify-center space-x-3">
-              <button
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="px-4 py-2 text-sm rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium border border-gray-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirmed}
-                className="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium flex items-center border border-red-500"
-              >
-                <Trash2 size={14} className="mr-1.5" />
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        handleDeleteConfirmed={handleDeleteConfirmed}
+      />
     </div>
   );
 };
 
-export default App;
+export default CodeAnalysisPage;

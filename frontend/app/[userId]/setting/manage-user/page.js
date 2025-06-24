@@ -428,6 +428,7 @@ export default function UserManagementSettings() {
         sx={{
           background: currentTheme.palette.background.default,
           py: 3,
+          minHeight: '100vh',
         }}
       >
         <Box sx={{ maxWidth: 1200, margin: "0 auto", width: "100%" }}>

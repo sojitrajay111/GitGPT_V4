@@ -211,7 +211,7 @@ const MarkdownRenderer = ({
               }
 
               return (
-                <div className={`relative group my-4 rounded-lg overflow-x-auto border max-w-full
+                <div className={` group my-4 rounded-lg overflow-x-auto border 
                   ${darkMode 
                     ? 'border-gray-700 bg-gray-800' 
                     : 'border-gray-200 bg-gray-50'}

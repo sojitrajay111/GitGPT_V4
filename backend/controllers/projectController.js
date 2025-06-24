@@ -65,19 +65,24 @@ const createProject = async (req, res) => {
       );
 
       if (!createRepoResponse.ok) {
+        const errorData = await createRepoResponse.json(); // Parse error response
         // If token is invalid or expired (e.g., 401 Unauthorized), update user's auth status
         if (createRepoResponse.status === 401) {
           await User.findByIdAndUpdate(userId, {
             isAuthenticatedToGithub: false,
           });
         }
-        const errorData = await createRepoResponse.json();
-        console.error("GitHub repo creation error:", errorData);
+        console.error(
+          "GitHub repo creation error (status:",
+          createRepoResponse.status,
+          "):",
+          errorData
+        );
         return res.status(createRepoResponse.status).json({
           success: false,
           message: `Failed to create GitHub repository: ${
             errorData.message || "Unknown error"
-          }`,
+          }. Details: ${JSON.stringify(errorData.errors || "N/A")}`, // Include specific errors array if present
         });
       }
 
@@ -121,60 +126,222 @@ const createProject = async (req, res) => {
         console.error("Error creating README.md:", error);
       }
 
-      // Define standard SFDX project files and content
+      // Define ONLY the GitHub Action workflow files to be pushed by the backend.
+      // The SFDX project structure and initial code will be handled by the GitHub Action itself.
       const sfdxProjectFiles = [
+        // --- GitHub Action Workflow File: initialize-sfdx.yml ---
         {
-          path: ".forceignore",
-          content: `# Files matching these patterns are ignored when pushing or retrieving changes.\n# Add patterns for sensitive data, generated files, or anything you don't want in your Salesforce org.\n\n# Example: Ignore local configurations\n.env\nconfig/*.json\n\n# Salesforce DX specific ignores\n**/*.log\n**/debugs/*\n**/test-results/*\n**/reports/*\n**/metadata/*\n**/temp/*\n\n# VS Code specific ignores\n.vscode/*\n!/.vscode/extensions.json\n!/.vscode/settings.json\n!/.vscode/launch.json`,
+          path: ".github/workflows/initialize-sfdx.yml",
+          content: `name: Initialize Salesforce DX Project
+
+on:
+  push:
+    branches:
+      - main # Trigger when the initial commit (e.g., README.md) lands on main
+    # Optional: Only trigger if README.md (or similar initial file) is pushed
+    # paths:
+    #   - 'README.md' 
+    
+jobs:
+  setup-sfdx-project:
+    runs-on: ubuntu-latest
+    
+    # Permissions for GITHUB_TOKEN to push changes and create branches
+    permissions:
+      contents: write
+      pull-requests: write # If you ever wanted to open PRs, good to have
+      id-token: write # If you need OIDC for external services
+
+    steps:
+      - name: Check if SFDX Project is already initialized
+        id: check_init
+        run: |
+          if [ -f "sfdx-project.json" ]; then
+            echo "sfdx-project.json already exists. Skipping initial setup workflow."
+            echo "skip_initial_setup=true" >> \$GITHUB_OUTPUT
+          else
+            echo "sfdx-project.json not found. Proceeding with initial setup."
+            echo "skip_initial_setup=false" >> \$GITHUB_OUTPUT
+          fi
+      
+      - name: Skip if already initialized
+        if: steps.check_init.outputs.skip_initial_setup == 'true'
+        run: |
+          echo "Initial setup already completed, skipping remaining steps."
+          exit 0 # Exit the job successfully
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Use GITHUB_TOKEN to ensure subsequent pushes are authorized
+          token: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Or your preferred Node.js version, ensure it's compatible with SF CLI
+
+      - name: Install Salesforce CLI
+        run: |
+          echo "Installing Salesforce CLI..."
+          npm install --global @salesforce/cli
+          echo "Salesforce CLI installed."
+
+      - name: Get Repository Name
+        id: repo_name_step # Use a descriptive ID for the step
+        run: echo "name=$(echo '\${{ github.repository }}' | cut -d '/' -f 2)" >> \$GITHUB_OUTPUT
+        # This extracts the repository name (e.g., "my-new-salesforce-repo")
+        # and makes it available as \`steps.repo_name_step.outputs.name\`
+
+      - name: Generate SFDX Project Structure
+        run: |
+          echo "Generating Salesforce DX project structure..."
+          # Use the repository name dynamically for project creation
+          # The sf project generate command creates a folder with the project name.
+          # We need to move its content to the root of the repo.
+          sf project generate --name \${{ steps.repo_name_step.outputs.name }} --output-dir . --template standard
+          
+          # Move generated content to the repository root
+          GENERATED_DIR="\${{ steps.repo_name_step.outputs.name }}"
+          echo "Moving contents from \$GENERATED_DIR to repository root..."
+          shopt -s dotglob # Include dotfiles in mv command
+          mv "\$GENERATED_DIR"/* .
+          # Remove the empty generated directory
+          rm -rf "\$GENERATED_DIR"
+          echo "SFDX project structure generated and moved to root."
+
+      - name: Copy Initial Salesforce Code
+        run: |
+          echo "Copying initial Salesforce code from template-sfdx-code..."
+          # This assumes your template code is in a folder named 'template-sfdx-code'
+          # located at the root of THIS repository.
+          # It copies all contents from template-sfdx-code/force-app into the
+          # force-app/main/default directory of the newly generated SFDX project.
+          if [ -d "template-sfdx-code/force-app" ]; then
+            cp -r template-sfdx-code/force-app/* force-app/main/default/
+            echo "Initial Salesforce code copied successfully."
+          else
+            echo "Warning: 'template-sfdx-code/force-app' directory not found. Skipping initial code copy."
+          fi
+
+      - name: Configure Git and Commit Changes
+        run: |
+          echo "Configuring Git user and committing changes..."
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add . # Add all newly generated and copied files
+          # Only commit if there are changes (e.g., if initial code was copied)
+          git commit -m "feat: Initialize Salesforce DX project structure and initial code" || echo "No new changes to commit for initial setup."
+          echo "Changes committed."
+
+      - name: Push Initial SFDX Setup to Main
+        run: |
+          echo "Pushing initial SFDX setup to main branch..."
+          git push origin main
+          echo "Pushed to main branch."
+
+      - name: Create Hierarchical Branches (UAT, QAT, DEV)
+        run: |
+          echo "Creating hierarchical branches..."
+          # Ensure we are on main and have the latest changes before branching
+          git checkout main
+          git pull origin main # Ensure we have the latest commit, including the SFDX setup
+
+          # Create and push uat branch
+          git checkout -b uat
+          git push -u origin uat
+          echo "Branch 'uat' created and pushed."
+
+          # Create and push qat branch from uat (or main, depending on strict hierarchy needs)
+          # For a strict hierarchy, branch from the previous one.
+          # If you want them all from main, uncomment 'git checkout main' before each.
+          git checkout main # Branch from main
+          git checkout -b qat
+          git push -u origin qat
+          echo "Branch 'qat' created and pushed."
+
+          # Create and push dev branch from qat (or main)
+          git checkout main # Branch from main
+          git checkout -b dev
+          git push -u origin dev
+          echo "Branch 'dev' created and pushed."
+        # GITHUB_TOKEN is automatically available and has permissions to push to the same repo
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}`, // Note the escaped "$" characters for YAML variables
         },
+        // --- GitHub Action Workflow File: feature.yml ---
         {
-          path: ".gitignore",
-          content: `# Salesforce DX project specific ignores\n.sfdx/\n.sf/\n# If using npm\nnode_modules/\npackage-lock.json\n\n# If using VS Code\n.vscode/\n\n# Logs\n*.log\n\n# Misc\n.DS_Store\n*.sublime-project\n*.sublime-workspace`,
+          path: ".github/workflows/feature.yml",
+          content: `name: 'Deploy to Salesforce Org'
+
+# Controls when the workflow will run
+on:
+  push:
+    branches:
+      - 'feature/**' # Trigger on push to any 'feature/' branch (e.g., 'feature/my-new-feature')
+
+jobs:
+  # This job handles the entire deployment process
+  validate-and-deploy:
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+    steps:
+      # 1. Checkout the repository code
+      - name: 'Checkout source code'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches all history for all branches and tags
+
+      # 2. Install Salesforce CLI (sfdx)
+      - name: 'Install Salesforce CLI'
+        run: |
+          npm install --global sfdx-cli
+          sfdx --version
+
+      # 3. Authenticate to the Salesforce Org using JWT
+      # This step uses the secrets you configured in your GitHub repository settings.
+      - name: 'Authenticate to Salesforce Org'
+        run: |
+          echo "\${{ secrets.SF_SERVER_KEY }}" > server.key
+          sfdx auth:jwt:grant --clientid "\${{ secrets.SF_CONSUMER_KEY }}" --jwtkeyfile server.key --username "\${{ secrets.SF_USERNAME }}" --instanceurl "\${{ secrets.SF_LOGIN_URL }}" -a dev-org
+        # Note: -a dev-org creates an alias 'dev-org' for the authenticated org.
+
+      # 4. Run a validation-only deployment first (Best Practice)
+      # This checks for errors without actually saving any components to the org.
+      - name: 'Validate deployment (Check Only)'
+        id: validation
+        run: |
+          echo "Running validation deploy to org..."
+          # The || true part ensures that the workflow continues even if validation fails,
+          # allowing the failure result to be captured and reported.
+          sfdx force:source:deploy --sourcepath force-app --checkonly --targetusername dev-org --testlevel RunLocalTests || true
+
+      # 5. Deploy the code to the org if validation was successful
+      # This step only runs if the previous validation step succeeded.
+      - name: 'Deploy to Org'
+        if: steps.validation.outcome == 'success'
+        run: |
+          echo "Validation successful. Proceeding with actual deployment..."
+          sfdx force:source:deploy --sourcepath force-app --targetusername dev-org --testlevel RunLocalTests
+
+      # 6. Provide a link to the org as output
+      # This generates a login link that can be used to access the org.
+      - name: 'Generate Org Login Link'
+        if: always() # This step runs regardless of whether the deploy passed or failed
+        run: |
+          echo "Deployment process finished."
+          echo "-----------------------------"
+          echo "Workflow Run: https://github.com/\${{ github.repository }}/actions/runs/\${{ github.run_id }}"
+          sfdx force:org:open -r --targetusername dev-org
+
+      # 7. Clean up the private key file
+      # It's important to remove sensitive files after use.
+      - name: 'Clean up sensitive files'
+        if: always() # Always run this step to ensure cleanup
+        run: |
+          rm -f server.key
+          echo "Server key file removed."
+`, // Note the escaped "$" characters for YAML variables
         },
-        {
-          path: ".prettierignore",
-          content: `# Files matching these patterns will be ignored by Prettier.\n# Add patterns for generated files or directories that you don't want Prettier to format.\n\n# Salesforce DX specific ignores\n**/sfdx-project.json\n**/force-app/main/default/**/*.xml\n\n# Node modules\nnode_modules/`,
-        },
-        {
-          path: ".prettierrc",
-          content: `{\n  "trailingComma": "es5",\n  "tabWidth": 2,\n  "semi": true,\n  "singleQuote": true,\n  "printWidth": 120\n}`,
-        },
-        {
-          path: "jest.config.js",
-          content: `module.exports = {\n  testEnvironment: 'node',\n  // Add more Jest configurations as needed for Salesforce projects (e.g., LWC testing)\n};`,
-        },
-        {
-          path: "package.json",
-          content: `{\n  "name": "${
-            repoName || "sfdx-project"
-          }",\n  "private": true,\n  "version": "1.0.0",\n  "description": "Salesforce DX Project",\n  "scripts": {\n    "test": "echo \\"No test specified\\" && exit 0"\n  },\n  "devDependencies": {\n    "@salesforce/sfdx-lwc-jest": "^0.12.0"\n  },\n  "dependencies": {},\n  "keywords": [\n    "salesforce",\n    "sfdx"\n  ],\n  "author": "",\n  "license": "ISC"\n}`,
-        },
-        {
-          path: "sfdx-project.json",
-          content: `{\n  "packageDirectories": [\n    {\n      "path": "force-app",\n      "default": true\n    }\n  ],\n  "namespace": "",\n  "sfdcApiVersion": "58.0",\n  "sourceApiVersion": "58.0"\n}`,
-        },
-        // Empty directories represented by .gitkeep
-        { path: ".husky/.gitkeep", content: "" },
-        { path: ".sf/.gitkeep", content: "" },
-        { path: ".sfdx/.gitkeep", content: "" },
-        { path: ".vscode/.gitkeep", content: "" },
-        { path: "config/.gitkeep", content: "" },
-        { path: "scripts/.gitkeep", content: "" },
-        { path: "force-app/main/default/applications/.gitkeep", content: "" },
-        { path: "force-app/main/default/aura/.gitkeep", content: "" },
-        { path: "force-app/main/default/classes/.gitkeep", content: "" },
-        { path: "force-app/main/default/contentassets/.gitkeep", content: "" },
-        { path: "force-app/main/default/flexipages/.gitkeep", content: "" },
-        { path: "force-app/main/default/layouts/.gitkeep", content: "" },
-        { path: "force-app/main/default/lwc/.gitkeep", content: "" },
-        { path: "force-app/main/default/objects/.gitkeep", content: "" },
-        { path: "force-app/main/default/permissionsets/.gitkeep", content: "" },
-        {
-          path: "force-app/main/default/staticresources/.gitkeep",
-          content: "",
-        },
-        { path: "force-app/main/default/tabs/.gitkeep", content: "" },
-        { path: "force-app/main/default/triggers/.gitkeep", content: "" },
       ];
 
       // 3. Generate SFDX project structure and push it to main
@@ -265,7 +432,7 @@ const createProject = async (req, res) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              message: "Initial commit: Add Salesforce DX project structure",
+              message: "feat: Add GitHub Action workflows", // Updated message
               tree: newTreeSha,
               parents: [latestCommitSha],
             }),
@@ -304,13 +471,11 @@ const createProject = async (req, res) => {
           );
           throw new Error(`Failed to update ${defaultBranch} branch ref`);
         }
-        console.log(
-          "Salesforce DX project structure committed successfully to main."
-        );
+        console.log("GitHub Action workflows committed successfully to main.");
 
         // 4. Implement hierarchical branch creation: main -> uat -> qat -> dev (lowercase)
         let currentBaseBranch = defaultBranch;
-        let currentBaseSha = newCommitSha; // Use the SHA of the commit with SFDX structure
+        let currentBaseSha = newCommitSha; // Use the SHA of the commit with GH actions
 
         const branchOrder = ["uat", "qat", "dev"]; // Lowercase as requested
 
@@ -377,10 +542,7 @@ const createProject = async (req, res) => {
           }
         }
       } catch (error) {
-        console.error(
-          "Error generating SFDX project structure or branches:",
-          error
-        );
+        console.error("Error generating GitHub Action or branches:", error);
         // It's important to decide if this should be a hard failure or allow project creation
         // but with a warning that the GitHub repo might not be fully initialized as expected.
         // For now, it will proceed but log a warning. You might want to return an error.
@@ -595,10 +757,26 @@ const getProjectReportData = async (req, res) => {
         { name: "Jun", "Developer LOC": 2390, "AI Generated LOC": 3800 },
       ],
       aiImpact: [
-        { name: "Feature A", "Time Reduced (Hours)": 15, "Cost Saved ($)": 750 },
-        { name: "Feature B", "Time Reduced (Hours)": 10, "Cost Saved ($)": 500 },
-        { name: "Feature C", "Time Reduced (Hours)": 20, "Cost Saved ($)": 1000 },
-        { name: "Feature D", "Time Reduced (Hours)": 8, "Cost Saved ($) ": 400 },
+        {
+          name: "Feature A",
+          "Time Reduced (Hours)": 15,
+          "Cost Saved ($)": 750,
+        },
+        {
+          name: "Feature B",
+          "Time Reduced (Hours)": 10,
+          "Cost Saved ($)": 500,
+        },
+        {
+          name: "Feature C",
+          "Time Reduced (Hours)": 20,
+          "Cost Saved ($)": 1000,
+        },
+        {
+          name: "Feature D",
+          "Time Reduced (Hours)": 8,
+          "Cost Saved ($) ": 400,
+        },
       ],
       developerVelocity: [
         { name: "Before AI", value: 5.2 },

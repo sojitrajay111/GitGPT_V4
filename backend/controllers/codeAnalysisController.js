@@ -3,7 +3,9 @@ const CodeAnalysisMessage = require("../models/CodeAnalysisMessage");
 const GitHubData = require("../models/GithubData");
 const Project = require("../models/Project");
 const ProjectCollaborator = require("../models/ProjectCollaborator");
+
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
@@ -415,6 +417,44 @@ const sendCodeAnalysisMessage = async (req, res) => {
             }
           }
         }
+      }
+    }
+
+    const isLwcAnalysisRequest =
+      /analyze\s+(all\s+)?lwc/i.test(lowerText) ||
+      /lwc\s+analysis/i.test(lowerText);
+
+    if (isLwcAnalysisRequest) {
+      // Find all LWC component folders and their files
+      const lwcFiles = fetchedCodeFiles.filter(
+        (file) =>
+          file.path.includes("force-app/main/default/lwc/") &&
+          (file.path.endsWith(".js") ||
+            file.path.endsWith(".html") ||
+            file.path.endsWith(".xml"))
+      );
+      if (lwcFiles.length > 0) {
+        isRepoRelated = true;
+        relevantFiles = lwcFiles;
+        console.log(
+          `[CodeAnalysis] Auto-selected all LWC component files for analysis.`
+        );
+      }
+    }
+
+    const fileNameMatch = lowerText.match(
+      /([a-zA-Z0-9_\/\-]+\.js|\.cls|\.trigger|\.page|\.component|\.html|\.xml)/
+    );
+    if (fileNameMatch) {
+      const fileName = fileNameMatch[1];
+      const file = fetchedCodeFiles.find((f) =>
+        f.path.toLowerCase().endsWith(fileName)
+      );
+      if (file) {
+        // Optionally, extract function name from query and search in file.content
+        isRepoRelated = true;
+        relevantFiles = [file];
+        console.log(`[CodeAnalysis] Query references file: ${file.path}`);
       }
     }
 
