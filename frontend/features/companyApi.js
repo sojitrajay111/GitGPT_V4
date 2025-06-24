@@ -3,16 +3,16 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 // Replace with your backend API URL
-const BASE_URL = "http://localhost:3001/api/"; // Assuming your backend runs on port 5000
+const BASE_URL = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`; // Assuming your backend runs on port 5000
 
 export const companyApi = createApi({
   reducerPath: "companyApi", // Unique reducer path for this API slice
-  baseQuery: fetchBaseQuery({ 
+  baseQuery: fetchBaseQuery({
     baseUrl: BASE_URL,
     prepareHeaders: (headers, { getState }) => {
       // Don't set Content-Type for FormData
-      if (headers.get('Content-Type')?.includes('multipart/form-data')) {
-        headers.delete('Content-Type');
+      if (headers.get("Content-Type")?.includes("multipart/form-data")) {
+        headers.delete("Content-Type");
       }
       return headers;
     },
@@ -31,7 +31,7 @@ export const companyApi = createApi({
     // Endpoint to add or update company details
     addOrUpdateCompanyDetails: builder.mutation({
       query: (formData) => ({
-        url: `company/add-or-update/${formData.get('userId')}`,
+        url: `company/add-or-update/${formData.get("userId")}`,
         method: "POST",
         body: formData,
       }),
