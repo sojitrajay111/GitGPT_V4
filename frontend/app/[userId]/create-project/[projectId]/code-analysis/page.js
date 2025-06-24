@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button } from "@mui/material"; // Retaining MUI Button for consistency if other MUI components are still in use
-import { Loader2, ShieldAlert, ArrowLeftCircle, MessageSquare, X } from "lucide-react"; // Common icons
+
+import { MessageSquare, X } from "lucide-react"; // Common icons
 
 // RTK Query Hooks
 import { useGetProjectByIdQuery } from "@/features/projectApiSlice";
@@ -25,10 +25,9 @@ import {
 import LoadingScreen from "@/components/common/LoadingScreen";
 import ErrorScreen from "@/components/common/ErrorScreen";
 import ChatSidebar from "@/components/code-analysis/ChatSidebar";
-import ChatMainArea from "@/components/code-analysis/ChatmainArea";
+import ChatMainArea from "@/components/code-analysis/ChatMainArea";
 import NewBranchModal from "@/components/code-analysis/NewBranchModal";
 import DeleteConfirmationModal from "@/components/code-analysis/DeleteConfirmationModal";
-
 
 const CodeAnalysisPage = () => {
   const params = useParams();
@@ -49,7 +48,8 @@ const CodeAnalysisPage = () => {
   const [isNewBranchModalOpen, setIsNewBranchModalOpen] = useState(false);
   const [newBranchName, setNewBranchName] = useState("");
   const [baseBranch, setBaseBranch] = useState("");
-  const [lastAiResponseForCodePush, setLastAiResponseForCodePush] = useState(null);
+  const [lastAiResponseForCodePush, setLastAiResponseForCodePush] =
+    useState(null);
   const [currentChatSessionId, setCurrentChatSessionId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -131,7 +131,6 @@ const CodeAnalysisPage = () => {
     deleteCodeAnalysisSession,
     { isLoading: isDeletingSession, error: deleteSessionError },
   ] = useDeleteCodeAnalysisSessionMutation();
-
 
   // --- Effects ---
   useEffect(() => {
@@ -224,7 +223,8 @@ const CodeAnalysisPage = () => {
       const { scrollHeight, clientHeight, scrollTop } =
         messagesContainerRef.current;
       const isScrolledToBottom = scrollHeight - scrollTop <= clientHeight + 20;
-      if (isScrolledToBottom || messages.length <= 2) { // Auto-scroll if near bottom or few messages
+      if (isScrolledToBottom || messages.length <= 2) {
+        // Auto-scroll if near bottom or few messages
         messagesContainerRef.current.scrollTo({
           top: scrollHeight,
           behavior: "smooth",
@@ -232,7 +232,6 @@ const CodeAnalysisPage = () => {
       }
     }
   }, [messages]);
-
 
   // --- Handlers ---
   const handleGoBack = useCallback(() => {
@@ -248,8 +247,12 @@ const CodeAnalysisPage = () => {
         }
       } else {
         if (
-          !project || !selectedBranch || !isAuthenticated ||
-          !loggedInUserId || !repoOwner || !repoName
+          !project ||
+          !selectedBranch ||
+          !isAuthenticated ||
+          !loggedInUserId ||
+          !repoOwner ||
+          !repoName
         ) {
           console.error("Cannot start new session: Missing critical data.", {
             projectExists: !!project,
@@ -281,17 +284,31 @@ const CodeAnalysisPage = () => {
       }
     },
     [
-      project, selectedBranch, startCodeAnalysisSession, isAuthenticated,
-      loggedInUserId, projectId, repoOwner, repoName, currentChatSessionId,
+      project,
+      selectedBranch,
+      startCodeAnalysisSession,
+      isAuthenticated,
+      loggedInUserId,
+      projectId,
+      repoOwner,
+      repoName,
+      currentChatSessionId,
     ]
   );
 
   // Effect to automatically select or start a session
   useEffect(() => {
     if (
-      !isLoadingProject && !isLoadingBranches && !isStartingSession &&
-      project && selectedBranch && sessionsData?.sessions &&
-      isAuthenticated && loggedInUserId && repoOwner && repoName
+      !isLoadingProject &&
+      !isLoadingBranches &&
+      !isStartingSession &&
+      project &&
+      selectedBranch &&
+      sessionsData?.sessions &&
+      isAuthenticated &&
+      loggedInUserId &&
+      repoOwner &&
+      repoName
     ) {
       if (!currentChatSessionId) {
         const existingSessionForBranch = sessionsData.sessions.find(
@@ -309,13 +326,24 @@ const CodeAnalysisPage = () => {
       }
     }
   }, [
-    currentChatSessionId, project, selectedBranch, isLoadingProject,
-    isLoadingBranches, isStartingSession, sessionsData, handleSessionChange,
-    projectId, isAuthenticated, loggedInUserId, repoOwner, repoName,
+    currentChatSessionId,
+    project,
+    selectedBranch,
+    isLoadingProject,
+    isLoadingBranches,
+    isStartingSession,
+    sessionsData,
+    handleSessionChange,
+    projectId,
+    isAuthenticated,
+    loggedInUserId,
+    repoOwner,
+    repoName,
   ]);
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || !currentChatSessionId || isSendingMessage) return;
+    if (!inputMessage.trim() || !currentChatSessionId || isSendingMessage)
+      return;
     const userMessageText = inputMessage;
     setInputMessage("");
     const tempUserMessage = {
@@ -345,8 +373,9 @@ const CodeAnalysisPage = () => {
         _id: `error-send-${Date.now()}`,
         sessionId: currentChatSessionId,
         sender: "system",
-        text: `Error sending message: ${err.data?.message || err.error || err.message || "Unknown error"
-          }`,
+        text: `Error sending message: ${
+          err.data?.message || err.error || err.message || "Unknown error"
+        }`,
         isError: true,
         createdAt: new Date().toISOString(),
       };
@@ -359,8 +388,12 @@ const CodeAnalysisPage = () => {
 
   const handleCreateNewBranch = async () => {
     if (
-      !project || !newBranchName.trim() || !baseBranch.trim() ||
-      !isAuthenticated || !repoOwner || !repoName
+      !project ||
+      !newBranchName.trim() ||
+      !baseBranch.trim() ||
+      !isAuthenticated ||
+      !repoOwner ||
+      !repoName
     ) {
       console.error("Missing data for creating branch.");
       return;
@@ -373,7 +406,9 @@ const CodeAnalysisPage = () => {
         baseBranch,
       }).unwrap();
       const createdBranchName =
-        result.branch?.name || result.branch?.ref?.split("/").pop() || newBranchName.trim();
+        result.branch?.name ||
+        result.branch?.ref?.split("/").pop() ||
+        newBranchName.trim();
       setSelectedBranch(createdBranchName);
       setNewBranchName("");
       setIsNewBranchModalOpen(false);
@@ -390,8 +425,9 @@ const CodeAnalysisPage = () => {
       const systemErrorMessage = {
         _id: `error-branch-create-${Date.now()}`,
         sender: "system",
-        text: `Failed to create branch: ${err.data?.message || err.message || "Unknown error"
-          }`,
+        text: `Failed to create branch: ${
+          err.data?.message || err.message || "Unknown error"
+        }`,
         isError: true,
         createdAt: new Date().toISOString(),
       };
@@ -401,8 +437,13 @@ const CodeAnalysisPage = () => {
 
   const handleGenerateAndPushCode = async () => {
     if (
-      !project || !selectedBranch || !lastAiResponseForCodePush ||
-      !currentChatSessionId || !isAuthenticated || !repoOwner || !repoName
+      !project ||
+      !selectedBranch ||
+      !lastAiResponseForCodePush ||
+      !currentChatSessionId ||
+      !isAuthenticated ||
+      !repoOwner ||
+      !repoName
     ) {
       console.error("Missing data for code push.");
       return;
@@ -412,10 +453,15 @@ const CodeAnalysisPage = () => {
       .slice()
       .reverse()
       .find((msg) => msg.sender === "user");
-    const commitTitle = `AI changes for: ${lastUserMessage?.text?.substring(0, 45) || "code analysis"
-      }...`;
-    const commitBody = `AI-generated changes based on analysis.\n\nPrompt: ${lastUserMessage?.text || "User prompt not found."
-      }\n\nFull AI Response (for context):\n${generatedCodeContent.substring(0, 300)}...`;
+    const commitTitle = `AI changes for: ${
+      lastUserMessage?.text?.substring(0, 45) || "code analysis"
+    }...`;
+    const commitBody = `AI-generated changes based on analysis.\n\nPrompt: ${
+      lastUserMessage?.text || "User prompt not found."
+    }\n\nFull AI Response (for context):\n${generatedCodeContent.substring(
+      0,
+      300
+    )}...`;
     const commitMessage = `${commitTitle}\n\n${commitBody}`;
     const aiBranchName = `ai-${selectedBranch.replace(
       /[^a-zA-Z0-9-]/g,
@@ -432,8 +478,9 @@ const CodeAnalysisPage = () => {
       }).unwrap();
       const systemMessage = {
         _id: `system-pr-${Date.now()}`,
-        text: `Successfully pushed to '${result.branchName || aiBranchName
-          }' and created PR.`,
+        text: `Successfully pushed to '${
+          result.branchName || aiBranchName
+        }' and created PR.`,
         sender: "system",
         prUrl: result.prUrl,
         generatedCode: lastAiResponseForCodePush,
@@ -445,8 +492,9 @@ const CodeAnalysisPage = () => {
       console.error("Failed to push code and create PR:", err);
       const errorMessage = {
         _id: `error-pr-push-${Date.now()}`,
-        text: `Failed to push code & create PR: ${err.data?.message || err.message || "Unknown error"
-          }`,
+        text: `Failed to push code & create PR: ${
+          err.data?.message || err.message || "Unknown error"
+        }`,
         sender: "system",
         isError: true,
         createdAt: new Date().toISOString(),
@@ -477,8 +525,9 @@ const CodeAnalysisPage = () => {
         const systemErrorMessage = {
           _id: `error-delete-${Date.now()}`,
           sender: "system",
-          text: `Failed to delete session: ${err.data?.message || err.message || "Unknown error"
-            }`,
+          text: `Failed to delete session: ${
+            err.data?.message || err.message || "Unknown error"
+          }`,
           isError: true,
           createdAt: new Date().toISOString(),
         };
@@ -512,8 +561,9 @@ const CodeAnalysisPage = () => {
       {/* Mobile Sidebar Toggle Button */}
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className={`md:hidden fixed z-30 bottom-4 left-4 p-3 rounded-full shadow-lg bg-gray-700 border border-gray-600 transition-all ${isSidebarOpen ? "transform -translate-x-60" : ""
-          }`}
+        className={`md:hidden fixed z-30 bottom-4 left-4 p-3 rounded-full shadow-lg bg-gray-700 border border-gray-600 transition-all ${
+          isSidebarOpen ? "transform -translate-x-60" : ""
+        }`}
       >
         {isSidebarOpen ? (
           <X size={20} className="text-gray-200" />
@@ -539,7 +589,6 @@ const CodeAnalysisPage = () => {
         isAuthenticated={isAuthenticated}
         handleGoBack={handleGoBack}
       />
-
 
       {/* Main Chat Area */}
       <ChatMainArea
