@@ -278,12 +278,13 @@ jobs:
 on:
   push:
     branches:
-      - 'feature/**' # Trigger on push to any 'feature/' branch (e.g., 'feature/my-new-feature')
+      - 'feature/ai/**' # Triggers on push to branches like 'feature/ai/new-trigger-logic'
 
 jobs:
   # This job handles the entire deployment process
   validate-and-deploy:
     runs-on: ubuntu-latest # Use the latest Ubuntu runner
+    
     steps:
       # 1. Checkout the repository code
       - name: 'Checkout source code'
@@ -291,55 +292,166 @@ jobs:
         with:
           fetch-depth: 0 # Fetches all history for all branches and tags
 
-      # 2. Install Salesforce CLI (sfdx)
+      # 2. Install Salesforce CLI (sf)
       - name: 'Install Salesforce CLI'
         run: |
-          npm install --global sfdx-cli
-          sfdx --version
+          npm install --global @salesforce/cli
+          sf --version
 
-      # 3. Authenticate to the Salesforce Org using JWT
-      # This step uses the secrets you configured in your GitHub repository settings.
+      # 3. Create required project files if missing
+#       - name: 'Setup Project Structure'
+#         run: |
+#           # Create sfdx-project.json if it doesn't exist
+#           if [ ! -f "sfdx-project.json" ]; then
+#             echo "Creating sfdx-project.json..."
+#             echo '{
+#               "packageDirectories": [{"path": "force-app", "default": true}],
+#               "name": "ai-salesforce-project",
+#               "namespace": "",
+#               "sfdcLoginUrl": "https://login.salesforce.com",
+#               "sourceApiVersion": "64.0"
+#             }' > sfdx-project.json
+#           fi
+          
+#           # Create basic meta.xml files for Apex classes
+#           find force-app -name "*.cls" | while read cls_file; do
+#             meta_file="${cls_file}-meta.xml"
+#             if [ ! -f "$meta_file" ]; then
+#               echo "Creating meta.xml for $cls_file"
+#               echo '<?xml version="1.0" encoding="UTF-8"?>
+# <ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
+#     <apiVersion>64.0</apiVersion>
+#     <status>Active</status>
+# </ApexClass>' > "$meta_file"
+#             fi
+#           done
+          
+#           # Create basic meta.xml files for Apex triggers
+#           find force-app -name "*.trigger" | while read trigger_file; do
+#             meta_file="${trigger_file}-meta.xml"
+#             if [ ! -f "$meta_file" ]; then
+#               echo "Creating meta.xml for $trigger_file"
+#               echo '<?xml version="1.0" encoding="UTF-8"?>
+# <ApexTrigger xmlns="http://soap.sforce.com/2006/04/metadata">
+#     <apiVersion>64.0</apiVersion>
+#     <status>Active</status>
+# </ApexTrigger>' > "$meta_file"
+#             fi
+#           done
+
+      # 4. Authenticate to the Salesforce Org using JWT
       - name: 'Authenticate to Salesforce Org'
         run: |
           echo "\${{ secrets.SF_SERVER_KEY }}" > server.key
-          sfdx auth:jwt:grant --clientid "\${{ secrets.SF_CONSUMER_KEY }}" --jwtkeyfile server.key --username "\${{ secrets.SF_USERNAME }}" --instanceurl "\${{ secrets.SF_LOGIN_URL }}" -a dev-org
-        # Note: -a dev-org creates an alias 'dev-org' for the authenticated org.
+          chmod 600 server.key
+          sf org login jwt --client-id "\${{ secrets.SF_CONSUMER_KEY }}" --jwt-key-file server.key --username "\${{ secrets.SF_USERNAME }}" --instance-url "\${{ secrets.SF_LOGIN_URL }}" --alias dev-org
 
-      # 4. Run a validation-only deployment first (Best Practice)
-      # This checks for errors without actually saving any components to the org.
-      - name: 'Validate deployment (Check Only)'
+      # 5. Verify authentication and show project info
+      - name: 'Verify Setup'
+        run: |
+          echo "=== ORG INFO ==="
+          sf org display --target-org dev-org
+          echo ""
+          echo "=== PROJECT STRUCTURE ==="
+          ls -la
+          if [ -d "force-app" ]; then
+            find force-app -type f | head -20
+          fi
+
+      # 6. Run validation deployment
+      - name: 'Validate Deployment'
         id: validation
         run: |
-          echo "Running validation deploy to org..."
-          # The || true part ensures that the workflow continues even if validation fails,
-          # allowing the failure result to be captured and reported.
-          sfdx force:source:deploy --sourcepath force-app --checkonly --targetusername dev-org --testlevel RunLocalTests || true
+          echo "Running validation..."
+          sf project deploy start --source-dir force-app --check-only --target-org dev-org --test-level RunLocalTests --wait 10
+        continue-on-error: true
 
-      # 5. Deploy the code to the org if validation was successful
-      # This step only runs if the previous validation step succeeded.
+      # 7. Deploy if validation passed
       - name: 'Deploy to Org'
         if: steps.validation.outcome == 'success'
+        id: deployment
         run: |
-          echo "Validation successful. Proceeding with actual deployment..."
-          sfdx force:source:deploy --sourcepath force-app --targetusername dev-org --testlevel RunLocalTests
+          echo "Validation passed. Deploying to org..."
+          sf project deploy start --source-dir force-app --target-org dev-org --test-level RunLocalTests --wait 10
+        continue-on-error: true
 
-      # 6. Provide a link to the org as output
-      # This generates a login link that can be used to access the org.
-      - name: 'Generate Org Login Link'
-        if: always() # This step runs regardless of whether the deploy passed or failed
+      # 8. Get org information for output
+      - name: 'Get Org Details'
+        if: always()
+        id: org_info
         run: |
-          echo "Deployment process finished."
-          echo "-----------------------------"
-          echo "Workflow Run: https://github.com/\${{ github.repository }}/actions/runs/\${{ github.run_id }}"
-          sfdx force:org:open -r --targetusername dev-org
+          ORG_DATA=$(sf org display --target-org dev-org --json)
+          INSTANCE_URL=$(echo "$ORG_DATA" | jq -r '.result.instanceUrl // "Not Available"')
+          ORG_ID=$(echo "$ORG_DATA" | jq -r '.result.id // "Not Available"')
+          USERNAME=$(echo "$ORG_DATA" | jq -r '.result.username // "Not Available"')
+          
+          echo "instance_url=$INSTANCE_URL" >> $GITHUB_OUTPUT
+          echo "org_id=$ORG_ID" >> $GITHUB_OUTPUT
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
 
-      # 7. Clean up the private key file
-      # It's important to remove sensitive files after use.
-      - name: 'Clean up sensitive files'
-        if: always() # Always run this step to ensure cleanup
+      # 9. Show deployment results and org access info
+      - name: 'Deployment Summary'
+        if: always()
+        run: |
+          echo "================================================"
+          echo "🚀 SALESFORCE DEPLOYMENT SUMMARY"
+          echo "================================================"
+          echo "Workflow: https://github.com/\${{ github.repository }}/actions/runs/\${{ github.run_id }}"
+          echo "Branch: \${{ github.ref_name }}"
+          echo "Commit: \${{ github.sha }}"
+          echo ""
+          
+          # Determine status
+          if [ "\${{ steps.validation.outcome }}" == "success" ] && [ "\${{ steps.deployment.outcome }}" == "success" ]; then
+            echo "✅ STATUS: DEPLOYMENT SUCCESSFUL"
+          elif [ "\${{ steps.validation.outcome }}" == "success" ]; then
+            echo "⚠️  STATUS: VALIDATION PASSED, DEPLOYMENT FAILED"
+          else
+            echo "❌ STATUS: VALIDATION FAILED"
+            echo ""
+            echo "Common issues to check:"
+            echo "- Syntax errors in Apex code"
+            echo "- Missing test coverage"
+            echo "- Dependencies not deployed"
+            echo "- Invalid field references"
+          fi
+          
+          echo ""
+          echo "🌐 SALESFORCE ORG ACCESS:"
+          echo "Instance URL: \${{ steps.org_info.outputs.instance_url }}"
+          echo "Org ID: \${{ steps.org_info.outputs.org_id }}"
+          echo "Username: \${{ steps.org_info.outputs.username }}"
+          echo ""
+          echo "🔗 QUICK ACCESS LINKS:"
+          echo "• Setup Home: \${{ steps.org_info.outputs.instance_url }}/lightning/setup/SetupOneHome/home"
+          echo "• Apex Classes: \${{ steps.org_info.outputs.instance_url }}/lightning/setup/ApexClasses/home"
+          echo "• Debug Logs: \${{ steps.org_info.outputs.instance_url }}/lightning/setup/ApexDebugLogs/home"
+          echo "• Data Import: \${{ steps.org_info.outputs.instance_url }}/lightning/o/DataImport/home"
+          echo "================================================"
+
+      # 10. Generate login URL
+      - name: 'Generate Login URL'
+        if: steps.validation.outcome == 'success'
+        run: |
+          echo "🔐 Generating temporary login URL..."
+          LOGIN_URL=$(sf org open --target-org dev-org --url-only 2>/dev/null || echo "Unable to generate login URL")
+          echo "Temporary Login URL: $LOGIN_URL"
+          echo ""
+          echo "Note: This URL expires quickly. Use the instance URL above for permanent access."
+
+      # 11. Show deployment errors if validation failed
+      - name: 'Show Deployment Errors'
+        if: steps.validation.outcome != 'success'
+        run: |
+          echo "❌ Getting detailed error information..."
+          sf project deploy report --target-org dev-org --verbose || echo "No detailed error report available"
+
+      # 12. Clean up
+      - name: 'Clean up'
+        if: always()
         run: |
           rm -f server.key
-          echo "Server key file removed."
+          echo "🧹 Cleanup completed"
 `, // Note the escaped "$" characters for YAML variables
         },
       ];
