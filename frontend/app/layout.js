@@ -1,5 +1,5 @@
 // app/layout.js
-import { Geist, Geist_Mono } from "next/font/google";
+
 import "./globals.css";
 import Providers from "@/components/Providers";
 import Head from "next/head";
@@ -21,9 +21,7 @@ export default function RootLayout({ children }) {
         <title>GitGPT</title>
         <link rel="icon" href="/logo.png" type="image/png" />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>
