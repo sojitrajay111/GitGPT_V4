@@ -88,7 +88,7 @@ async function fetchRepoContents(
           item.name.endsWith(".page") || // Visualforce
           item.name.endsWith(".component") || // Visualforce Component
           item.name.startsWith(".") ||
-          item.name === ".gitkeep";
+          item.name === '.gitkeep';
         if (item.type === "file" && isCodeOrTextFile && item.download_url) {
           try {
             const fileContentResponse = await fetch(item.download_url, {
@@ -466,25 +466,56 @@ const sendCodeAnalysisMessage = async (req, res) => {
       }
     }
 
-    const isLwcAnalysisRequest =
-      /analyze\s+(all\s+)?lwc/i.test(lowerText) ||
-      /lwc\s+analysis/i.test(lowerText);
+    // --- DYNAMIC APEX CLASS USAGE LOGIC ---
+    // Try to extract any Apex class name from the user's query
+    let apexClassName = null;
+    // Look for patterns like 'AccountController apex class', 'apex class AccountController', or 'use AccountController'
+    const apexClassPatterns = [
+      /([a-zA-Z_][a-zA-Z0-9_]*)\s+apex\s+class/, // e.g. 'AccountController apex class'
+      /apex\s+class\s+([a-zA-Z_][a-zA-Z0-9_]*)/, // e.g. 'apex class AccountController'
+      /use\s+([a-zA-Z_][a-zA-Z0-9_]*)/, // e.g. 'use AccountController'
+      /([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)/ // e.g. 'AccountController.methodName'
+    ];
+    for (const pattern of apexClassPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        apexClassName = match[1];
+        break;
+      }
+    }
+    // If not found, try to find any class name ending with 'Controller', 'Service', 'Manager', etc.
+    if (!apexClassName) {
+      const genericClassMatch = text.match(/([A-Z][A-Za-z0-9_]+)(?:\s+class)?/);
+      if (genericClassMatch) {
+        apexClassName = genericClassMatch[1];
+      }
+    }
+    if (apexClassName) {
+      // Filter LWC files that reference this Apex class
+      const lwcFilesUsingApex = fetchedCodeFiles.filter(file =>
+        file.path.includes('force-app/main/default/lwc/') &&
+        (file.content.includes(apexClassName) || file.content.includes(`${apexClassName}.`))
+      );
+      if (lwcFilesUsingApex.length > 0) {
+        relevantFiles = lwcFilesUsingApex;
+        isRepoRelated = true;
+        console.log(`[CodeAnalysis] Found LWC files using Apex class ${apexClassName}: ${lwcFilesUsingApex.map(f => f.path).join(', ')}`);
+      }
+    }
+    // --- END DYNAMIC APEX CLASS USAGE LOGIC ---
+
+    const isLwcAnalysisRequest = /analyze\s+(all\s+)?lwc/i.test(lowerText) || /lwc\s+analysis/i.test(lowerText);
 
     if (isLwcAnalysisRequest) {
       // Find all LWC component folders and their files
-      const lwcFiles = fetchedCodeFiles.filter(
-        (file) =>
-          file.path.includes("force-app/main/default/lwc/") &&
-          (file.path.endsWith(".js") ||
-            file.path.endsWith(".html") ||
-            file.path.endsWith(".xml"))
+      const lwcFiles = fetchedCodeFiles.filter(file =>
+        file.path.includes('force-app/main/default/lwc/') &&
+        (file.path.endsWith('.js') || file.path.endsWith('.html') || file.path.endsWith('.xml'))
       );
       if (lwcFiles.length > 0) {
         isRepoRelated = true;
         relevantFiles = lwcFiles;
-        console.log(
-          `[CodeAnalysis] Auto-selected all LWC component files for analysis.`
-        );
+        console.log(`[CodeAnalysis] Auto-selected all LWC component files for analysis.`);
       }
     }
 
@@ -493,14 +524,10 @@ const sendCodeAnalysisMessage = async (req, res) => {
     let file = null;
     if (fileName) {
       // Try exact match first
-      file = fetchedCodeFiles.find(
-        (f) => f.path.toLowerCase() === fileName.toLowerCase()
-      );
+      file = fetchedCodeFiles.find(f => f.path.toLowerCase() === fileName.toLowerCase());
       // Fallback to endsWith if no exact match
       if (!file) {
-        file = fetchedCodeFiles.find((f) =>
-          f.path.toLowerCase().endsWith(fileName.toLowerCase())
-        );
+        file = fetchedCodeFiles.find(f => f.path.toLowerCase().endsWith(fileName.toLowerCase()));
       }
     }
     if (file) {
@@ -511,17 +538,72 @@ const sendCodeAnalysisMessage = async (req, res) => {
 
     let currentBranchCodeContext = "";
 
-    const isFolderStructureRequest =
-      /folder structure|directory tree|list files|repo structure/i.test(
-        lowerText
-      );
+    const isFolderStructureRequest = /folder structure|directory tree|list files|repo structure/i.test(lowerText);
     if (isFolderStructureRequest) {
       isRepoRelated = true;
       relevantFiles = fetchedCodeFiles;
       // Build the directory tree string
-      currentBranchCodeContext =
-        "Repository folder structure:\n" + buildDirectoryTree(fetchedCodeFiles);
+      currentBranchCodeContext = "Repository folder structure:\n" + buildDirectoryTree(fetchedCodeFiles);
     }
+
+    // --- GENERAL CODEBASE-WIDE PATTERN SEARCH LOGIC ---
+    // 1. Detect codebase-wide pattern queries
+    const codebaseWidePatterns = [
+      /any test use/i,
+      /find all/i,
+      /which files/i,
+      /list all/i,
+      /show all/i,
+      /are there any/i,
+      /do any/i,
+      /detect/i,
+      /search for/i,
+      /where is .* used/i,
+      /files that use/i,
+      /files with/i,
+      /classes with/i,
+      /methods with/i,
+      /tests with/i,
+    ];
+    const isCodebaseWideQuery = codebaseWidePatterns.some(pattern => pattern.test(text));
+
+    // 2. Try to extract the keyword/pattern (simple version: look for quoted string or after 'use', 'with', etc.)
+    let searchPattern = null;
+    const quoted = text.match(/["'`]{1}([^"'`]+)["'`]{1}/);
+    if (quoted) {
+      searchPattern = quoted[1];
+    } else {
+      // Try to extract after 'use', 'with', etc.
+      const useMatch = text.match(/use ([a-zA-Z0-9_@=]+)/i);
+      if (useMatch) searchPattern = useMatch[1];
+      else {
+        const withMatch = text.match(/with ([a-zA-Z0-9_@=]+)/i);
+        if (withMatch) searchPattern = withMatch[1];
+        else {
+          // Try to extract after 'for', 'about', etc.
+          const forMatch = text.match(/for ([a-zA-Z0-9_@=]+)/i);
+          if (forMatch) searchPattern = forMatch[1];
+        }
+      }
+    }
+
+    if (isCodebaseWideQuery && searchPattern) {
+      // 3. Search all relevant files for the pattern
+      const matchingFiles = fetchedCodeFiles.filter(file =>
+        file.content && file.content.toLowerCase().includes(searchPattern.toLowerCase())
+      );
+      if (matchingFiles.length > 0) {
+        relevantFiles = matchingFiles;
+        isRepoRelated = true;
+        console.log(`[CodeAnalysis] Found files matching pattern '${searchPattern}': ${matchingFiles.map(f => f.path).join(', ')}`);
+      } else {
+        relevantFiles = [];
+        isRepoRelated = true;
+        currentBranchCodeContext = `No files in this repository match the pattern: ${searchPattern}`;
+        console.log(`[CodeAnalysis] No files found matching pattern '${searchPattern}'.`);
+      }
+    }
+    // --- END GENERAL CODEBASE-WIDE PATTERN SEARCH LOGIC ---
 
     if (!isRepoRelated) {
       console.log(
@@ -717,7 +799,7 @@ Instructions:
     //   !session.title ||
     //   (session.title.startsWith("Analysis:") && previousMessages.length <= 1)
     // ) {
-    if (!session.title || session.title.startsWith("Analysis:")) {
+     if (!session.title || session.title.startsWith("Analysis:")) {
       const conciseTitle =
         text.length > 40 ? text.substring(0, 37) + "..." : text;
       session.title = `Salesforce Chat: ${conciseTitle}`;
@@ -1177,27 +1259,27 @@ const pushCodeAndCreatePR = async (req, res) => {
 
 function buildDirectoryTree(files) {
   const tree = {};
-  files.forEach((file) => {
-    const parts = file.path.split("/");
+  files.forEach(file => {
+    const parts = file.path.split('/');
     let current = tree;
     parts.forEach((part, idx) => {
       if (!current[part]) {
-        current[part] = idx === parts.length - 1 ? null : {};
+        current[part] = (idx === parts.length - 1) ? null : {};
       }
       current = current[part];
     });
   });
 
-  function printTree(node, prefix = "") {
+  function printTree(node, prefix = '') {
     return Object.entries(node)
       .map(([name, child]) => {
         if (child === null) {
           return `${prefix}- ${name}`;
         }
         // Do NOT skip folders that are empty or only contain .gitkeep
-        return `${prefix}- ${name}/\n${printTree(child, prefix + "  ")}`;
+        return `${prefix}- ${name}/\n${printTree(child, prefix + '  ')}`;
       })
-      .join("\n");
+      .join('\n');
   }
 
   return printTree(tree);
