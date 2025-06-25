@@ -9,6 +9,18 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
+/**
+ * Recursively fetches code/text files from a GitHub repository branch using the GitHub API.
+ * Filters for code and text file types, including Salesforce-specific extensions.
+ * @param {string} owner - GitHub repository owner
+ * @param {string} repo - GitHub repository name
+ * @param {string} branch - Branch name
+ * @param {string} [path] - Path within the repository (default: "")
+ * @param {string} githubPAT - GitHub Personal Access Token
+ * @param {string} githubUsername - GitHub username
+ * @param {Array} [fetchedFiles] - Accumulator for fetched files (default: [])
+ * @returns {Promise<Array<{path: string, content: string}>>} Array of file objects with path and content
+ */
 async function fetchRepoContents(
   owner,
   repo,
@@ -75,7 +87,8 @@ async function fetchRepoContents(
           item.name.endsWith(".trigger") || // Salesforce Trigger
           item.name.endsWith(".page") || // Visualforce
           item.name.endsWith(".component") || // Visualforce Component
-          item.name.startsWith(".");
+          item.name.startsWith(".") ||
+          item.name === '.gitkeep';
         if (item.type === "file" && isCodeOrTextFile && item.download_url) {
           try {
             const fileContentResponse = await fetch(item.download_url, {
@@ -141,6 +154,7 @@ async function fetchRepoContents(
         }
       }
     }
+    // console.log('Fetched files:', fetchedFiles.map(f => f.path));
   } catch (error) {
     console.error(
       `Error in fetchRepoContents for ${path} in ${owner}/${repo}:`,
@@ -150,6 +164,13 @@ async function fetchRepoContents(
   return fetchedFiles;
 }
 
+/**
+ * Checks if a user is authorized to perform code analysis on a project.
+ * Authorization is granted if the user is the project owner or an accepted collaborator with the "Code analysis" permission.
+ * @param {string} userId - User ID
+ * @param {string} projectId - Project ID
+ * @returns {Promise<boolean>} True if authorized, false otherwise
+ */
 const isUserAuthorizedForCodeAnalysis = async (userId, projectId) => {
   console.log(
     `[Auth Check] Initiating authorization check for userId: ${userId}, projectId: ${projectId}`
@@ -211,6 +232,13 @@ const isUserAuthorizedForCodeAnalysis = async (userId, projectId) => {
   return false;
 };
 
+/**
+ * Starts a new code analysis session for a user and project.
+ * Requires projectId, GitHub repository name, and branch.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 const startCodeAnalysisSession = async (req, res) => {
   const { projectId, githubRepoName, selectedBranch } = req.body;
   const userId = req.user.id;
@@ -252,6 +280,12 @@ const startCodeAnalysisSession = async (req, res) => {
   }
 };
 
+/**
+ * Retrieves all code analysis sessions for a given project and user.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 const getCodeAnalysisSessions = async (req, res) => {
   const { projectId } = req.params;
   const userId = req.user.id;
@@ -273,6 +307,12 @@ const getCodeAnalysisSessions = async (req, res) => {
   }
 };
 
+/**
+ * Retrieves all messages for a given code analysis session, ensuring user authorization.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 const getCodeAnalysisMessages = async (req, res) => {
   const { sessionId } = req.params;
   const userId = req.user.id;
@@ -300,6 +340,13 @@ const getCodeAnalysisMessages = async (req, res) => {
   }
 };
 
+/**
+ * Handles a user message in a code analysis session, generates an AI response using Google Gemini,
+ * and saves both user and AI messages. Validates query relevance and builds code context from GitHub.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 const sendCodeAnalysisMessage = async (req, res) => {
   const { sessionId } = req.params;
   const { text } = req.body;
@@ -420,42 +467,46 @@ const sendCodeAnalysisMessage = async (req, res) => {
       }
     }
 
-    const isLwcAnalysisRequest =
-      /analyze\s+(all\s+)?lwc/i.test(lowerText) ||
-      /lwc\s+analysis/i.test(lowerText);
+    const isLwcAnalysisRequest = /analyze\s+(all\s+)?lwc/i.test(lowerText) || /lwc\s+analysis/i.test(lowerText);
 
     if (isLwcAnalysisRequest) {
       // Find all LWC component folders and their files
-      const lwcFiles = fetchedCodeFiles.filter(
-        (file) =>
-          file.path.includes("force-app/main/default/lwc/") &&
-          (file.path.endsWith(".js") ||
-            file.path.endsWith(".html") ||
-            file.path.endsWith(".xml"))
+      const lwcFiles = fetchedCodeFiles.filter(file =>
+        file.path.includes('force-app/main/default/lwc/') &&
+        (file.path.endsWith('.js') || file.path.endsWith('.html') || file.path.endsWith('.xml'))
       );
       if (lwcFiles.length > 0) {
         isRepoRelated = true;
         relevantFiles = lwcFiles;
-        console.log(
-          `[CodeAnalysis] Auto-selected all LWC component files for analysis.`
-        );
+        console.log(`[CodeAnalysis] Auto-selected all LWC component files for analysis.`);
       }
     }
 
-    const fileNameMatch = lowerText.match(
-      /([a-zA-Z0-9_\/\-]+\.js|\.cls|\.trigger|\.page|\.component|\.html|\.xml)/
-    );
-    if (fileNameMatch) {
-      const fileName = fileNameMatch[1];
-      const file = fetchedCodeFiles.find((f) =>
-        f.path.toLowerCase().endsWith(fileName)
-      );
-      if (file) {
-        // Optionally, extract function name from query and search in file.content
-        isRepoRelated = true;
-        relevantFiles = [file];
-        console.log(`[CodeAnalysis] Query references file: ${file.path}`);
+    const filePathMatch = lowerText.match(/([a-z0-9_\\/-]+\\.[a-z0-9]+)/i);
+    const fileName = filePathMatch ? filePathMatch[1] : null;
+    let file = null;
+    if (fileName) {
+      // Try exact match first
+      file = fetchedCodeFiles.find(f => f.path.toLowerCase() === fileName.toLowerCase());
+      // Fallback to endsWith if no exact match
+      if (!file) {
+        file = fetchedCodeFiles.find(f => f.path.toLowerCase().endsWith(fileName.toLowerCase()));
       }
+    }
+    if (file) {
+      isRepoRelated = true;
+      relevantFiles = [file];
+      console.log(`[CodeAnalysis] Query references file: ${file.path}`);
+    }
+
+    let currentBranchCodeContext = "";
+
+    const isFolderStructureRequest = /folder structure|directory tree|list files|repo structure/i.test(lowerText);
+    if (isFolderStructureRequest) {
+      isRepoRelated = true;
+      relevantFiles = fetchedCodeFiles;
+      // Build the directory tree string
+      currentBranchCodeContext = "Repository folder structure:\n" + buildDirectoryTree(fetchedCodeFiles);
     }
 
     if (!isRepoRelated) {
@@ -463,7 +514,7 @@ const sendCodeAnalysisMessage = async (req, res) => {
         `[CodeAnalysis] Query not relevant to Salesforce or repository`
       );
       const sorryMessage =
-        "Sorry, I can only assist with Salesforce-related questions or queries about specific files/functions in the repository.";
+        "Sorry, I can only assist with questions about files or code in this repository.";
       await CodeAnalysisMessage.create({
         sessionId,
         sender: "system",
@@ -478,7 +529,6 @@ const sendCodeAnalysisMessage = async (req, res) => {
     console.log(`[CodeAnalysis] Query is relevant, proceeding...`);
 
     // Build code context with priority for relevant files
-    let currentBranchCodeContext = "";
     if (relevantFiles.length > 0) {
       console.log(
         `[CodeAnalysis] Building code context from ${relevantFiles.length} relevant files`
@@ -504,67 +554,67 @@ const sendCodeAnalysisMessage = async (req, res) => {
           .map((file) => `// File: ${file.path}\n${file.content}`)
           .join("\n\n---\n\n");
       }
-      if (relevantFiles.length > 20) {
-        currentBranchCodeContext =
-          `// Code context from ${relevantFiles.length} files. Summarizing key files:\n` +
-          relevantFiles
-            .slice(0, 5)
-            .map((f) => `// - ${f.path}`)
-            .join("\n") +
-          `\n\n// Example from ${
-            relevantFiles[0].path
-          }:\n${relevantFiles[0].content.substring(
-            0,
-            Math.min(200, relevantFiles[0].content.length)
-          )}...`;
-      }
+      // if (relevantFiles.length > 20) {
+      //   currentBranchCodeContext =
+      //     `// Code context from ${relevantFiles.length} files. Summarizing key files:\n` +
+      //     relevantFiles
+      //       .slice(0, 5)
+      //       .map((f) => `// - ${f.path}`)
+      //       .join("\n") +
+      //     `\n\n// Example from ${
+      //       relevantFiles[0].path
+      //     }:\n${relevantFiles[0].content.substring(
+      //       0,
+      //       Math.min(200, relevantFiles[0].content.length)
+      //     )}...`;
+      // }
     } else {
       currentBranchCodeContext = `No relevant files found in branch: ${session.selectedBranch} of repository ${owner}/${repo}.`;
     }
 
-    console.log(`[CodeAnalysis] Fetching previous messages for context...`);
-    const previousMessages = await CodeAnalysisMessage.find({ sessionId })
-      .sort({ createdAt: -1 })
-      .limit(10);
-    previousMessages.reverse();
-    console.log(
-      `[CodeAnalysis] Found ${previousMessages.length} previous messages`
-    );
-    console.log(`[CodeAnalysis] Constructing chat history for Gemini...`);
-    const geminiChatHistory = previousMessages.map((msg) => ({
-      role: msg.sender === "user" ? "user" : "model",
-      parts: [{ text: msg.text }],
-    }));
-    if (geminiChatHistory.length > 0 && geminiChatHistory[0].role === "model") {
-      console.log(`[CodeAnalysis] First message is from model, removing it`);
-      geminiChatHistory.shift();
-    }
-    const validatedHistory = [];
-    for (let i = 0; i < geminiChatHistory.length; i++) {
-      const message = geminiChatHistory[i];
-      if (i === 0 && message.role !== "user") {
-        console.log(
-          `[CodeAnalysis] Skipping first message with role '${message.role}'`
-        );
-        continue;
-      }
-      if (
-        i > 0 &&
-        validatedHistory[validatedHistory.length - 1].role === message.role
-      ) {
-        console.log(
-          `[CodeAnalysis] Skipping consecutive message with role '${message.role}'`
-        );
-        continue;
-      }
-      validatedHistory.push(message);
-    }
-    console.log(
-      `[CodeAnalysis] Final chat history has ${validatedHistory.length} messages`
-    );
+    // console.log(`[CodeAnalysis] Fetching previous messages for context...`);
+    // const previousMessages = await CodeAnalysisMessage.find({ sessionId })
+    //   .sort({ createdAt: -1 })
+    //   .limit(10);
+    // previousMessages.reverse();
+    // console.log(
+    //   `[CodeAnalysis] Found ${previousMessages.length} previous messages`
+    // );
+    // console.log(`[CodeAnalysis] Constructing chat history for Gemini...`);
+    // const geminiChatHistory = previousMessages.map((msg) => ({
+    //   role: msg.sender === "user" ? "user" : "model",
+    //   parts: [{ text: msg.text }],
+    // }));
+    // if (geminiChatHistory.length > 0 && geminiChatHistory[0].role === "model") {
+    //   console.log(`[CodeAnalysis] First message is from model, removing it`);
+    //   geminiChatHistory.shift();
+    // }
+    // const validatedHistory = [];
+    // for (let i = 0; i < geminiChatHistory.length; i++) {
+    //   const message = geminiChatHistory[i];
+    //   if (i === 0 && message.role !== "user") {
+    //     console.log(
+    //       `[CodeAnalysis] Skipping first message with role '${message.role}'`
+    //     );
+    //     continue;
+    //   }
+    //   if (
+    //     i > 0 &&
+    //     validatedHistory[validatedHistory.length - 1].role === message.role
+    //   ) {
+    //     console.log(
+    //       `[CodeAnalysis] Skipping consecutive message with role '${message.role}'`
+    //     );
+    //     continue;
+    //   }
+    //   validatedHistory.push(message);
+    // }
+    // console.log(
+    //   `[CodeAnalysis] Final chat history has ${validatedHistory.length} messages`
+    // );
 
     console.log(`[CodeAnalysis] Constructing system instruction...`);
-    const systemInstruction = `You are an expert AI assistant specialized in Salesforce development (Apex, SOQL, Visualforce, LWC, Salesforce metadata) and code analysis for GitHub repositories. You are analyzing code from the GitHub repository '${session.githubRepoName}', Branch: '${session.selectedBranch}'.
+    const systemInstruction = `You are an expert AI assistant for code analysis and explanation of any file in a GitHub repository. You are analyzing code from the GitHub repository '${session.githubRepoName}', Branch: '${session.selectedBranch}'.
 
 Code Context:
 ${currentBranchCodeContext}
@@ -574,8 +624,8 @@ User request: ${text}
 ---
 
 Instructions:
-1. Respond to Salesforce-related queries, questions about the repository's code, or requests to explain specific files or functions within the repository.
-2. For non-relevant queries, return: "Sorry, I can only assist with Salesforce-related questions or queries about specific files/functions in the repository."
+1. Respond to any queries about files or code in the repository, including but not limited to Salesforce, JavaScript, CSS, HTML, configuration, or documentation files. If the user asks about a specific file, always attempt to explain its content, regardless of file type.
+2. For queries unrelated to the repository or its files, return: "Sorry, I can only assist with questions about files or code in this repository."
 3. If the user asks to explain a function or code element (e.g., "explain", "describe", or mentions a function name):
    - Identify the function or code element in the provided context.
    - Provide a detailed explanation including:
@@ -585,20 +635,19 @@ Instructions:
      - Include the function's code in a Markdown code block with the file path (e.g., \`\`\`apex\n// force-app/main/default/classes/MyClass.cls\npublic void myFunction() {}\n\`\`\`).
    - If the function is not found, list possible matches or suggest the user verify the name/file path.
 4. If the user requests code analysis (e.g., contains "analyze" or "review"):
-   - Identify errors, bugs, or improvements in the provided Salesforce or repository code.
+   - Identify errors, bugs, or improvements in the provided code.
    - Specify file paths and, if possible, line numbers.
    - Provide concrete solutions with complete code snippets in Markdown format, including the file path.
-   - Focus on Salesforce best practices (e.g., bulkification, secure SOQL, LWC performance).
+   - Focus on best practices for the relevant language or framework.
 5. If generating new code:
    - Provide complete code blocks in Markdown with file paths.
-   - Ensure code follows Salesforce conventions.
+   - Ensure code follows conventions for the relevant language or framework.
 6. If the code context is missing or insufficient, state this clearly and suggest how the user can provide more details.
-7. Be concise, structured, and avoid speculative responses.
-Ensure your response directly addresses the user's query within the Salesforce or repository context.`;
+7. Be concise, structured, and avoid speculative responses.`;
 
     console.log(`[CodeAnalysis] Starting Gemini chat...`);
     const chat = model.startChat({
-      history: validatedHistory,
+      // history: validatedHistory,
       generationConfig: {
         maxOutputTokens: 4096,
         temperature: 0.5,
@@ -650,10 +699,11 @@ Ensure your response directly addresses the user's query within the Salesforce o
     console.log(`[CodeAnalysis] AI message saved with ID: ${aiMessage._id}`);
     console.log(`[CodeAnalysis] Updating session metadata...`);
     session.lastActivity = Date.now();
-    if (
-      !session.title ||
-      (session.title.startsWith("Analysis:") && previousMessages.length <= 1)
-    ) {
+    // if (
+    //   !session.title ||
+    //   (session.title.startsWith("Analysis:") && previousMessages.length <= 1)
+    // ) {
+     if (!session.title || session.title.startsWith("Analysis:")) {
       const conciseTitle =
         text.length > 40 ? text.substring(0, 37) + "..." : text;
       session.title = `Salesforce Chat: ${conciseTitle}`;
@@ -701,6 +751,12 @@ Ensure your response directly addresses the user's query within the Salesforce o
   }
 };
 
+/**
+ * Deletes a code analysis session and all associated messages, ensuring user authorization.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 const deleteCodeAnalysisSession = async (req, res) => {
   const { sessionId } = req.params;
   const userId = req.user.id;
@@ -732,6 +788,13 @@ const deleteCodeAnalysisSession = async (req, res) => {
   }
 };
 
+/**
+ * Pushes AI-generated code to a new branch in the GitHub repository and creates a pull request.
+ * Handles branch creation/updating, commit creation, and PR creation via the GitHub API.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 const pushCodeAndCreatePR = async (req, res) => {
   const {
     projectId,
@@ -1097,6 +1160,34 @@ const pushCodeAndCreatePR = async (req, res) => {
     });
   }
 };
+
+function buildDirectoryTree(files) {
+  const tree = {};
+  files.forEach(file => {
+    const parts = file.path.split('/');
+    let current = tree;
+    parts.forEach((part, idx) => {
+      if (!current[part]) {
+        current[part] = (idx === parts.length - 1) ? null : {};
+      }
+      current = current[part];
+    });
+  });
+
+  function printTree(node, prefix = '') {
+    return Object.entries(node)
+      .map(([name, child]) => {
+        if (child === null) {
+          return `${prefix}- ${name}`;
+        }
+        // Do NOT skip folders that are empty or only contain .gitkeep
+        return `${prefix}- ${name}/\n${printTree(child, prefix + '  ')}`;
+      })
+      .join('\n');
+  }
+
+  return printTree(tree);
+}
 
 module.exports = {
   startCodeAnalysisSession,
