@@ -23,7 +23,7 @@ import { useGetThemeQuery } from "@/features/themeApiSlice";
 
 export default function CompanyDetailPage() {
   const { userId } = useParams();
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
