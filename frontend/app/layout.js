@@ -7,6 +7,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+    
         <title>GitGPT</title>
         <link rel="icon" href="/logo.png" type="image/png" />
       </head>
