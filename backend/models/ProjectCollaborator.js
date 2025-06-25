@@ -30,7 +30,7 @@ const projectCollaboratorSchema = new mongoose.Schema(
           // Added: Tracks the collaboration request status
           type: String,
           enum: ["pending", "accepted", "rejected"], // Possible statuses
-          default: "pending", // Default status when a collaborator is added
+          default: "accepted", // Default status when a collaborator is added
           required: true,
         },
         permissions: [

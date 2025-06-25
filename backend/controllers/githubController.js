@@ -14,7 +14,74 @@ const getGitHubAuthDetails = async (userId) => {
     error.status = 400; // Bad Request, as the user needs to be authenticated with GitHub
     throw error;
   }
-  return { pat: githubData.githubPAT, username: githubData.githubUsername };
+  return {
+    pat: githubData.githubPAT,
+    username: githubData.githubUsername,
+    githubId: githubData.githubId,
+  };
+};
+
+// NEW HELPER: Get PAT and repo details for a developer if they are a legitimate collaborator
+const getCollaboratorPatAndRepoDetails = async (
+  developerUserId,
+  owner,
+  repo
+) => {
+  // 1. Get developer's GitHub ID
+  const developerGithubData = await GitHubData.findOne({
+    userId: developerUserId,
+  });
+  if (!developerGithubData) {
+    throw Object.assign(new Error("Developer's GitHub data not found."), {
+      status: 404,
+    });
+  }
+  const developerGithubId = developerGithubData.githubId;
+
+  // 2. Find the project linked to this repo
+  // Construct the regex to match both with and without .git
+  const githubRepoLinkRegex = new RegExp(
+    `^https?://github.com/${owner}/${repo}(.git)?/?$`,
+    "i"
+  );
+  const project = await Project.findOne({
+    githubRepoLink: githubRepoLinkRegex,
+  });
+  if (!project) {
+    throw Object.assign(
+      new Error("Project not found for the given repository."),
+      { status: 404 }
+    );
+  }
+
+  // 3. Check if the developer is a collaborator on this project
+  const projectCollaboratorDoc = await ProjectCollaborator.findOne({
+    project_id: project._id,
+    "collaborators.githubId": developerGithubId,
+  });
+
+  if (!projectCollaboratorDoc) {
+    throw Object.assign(
+      new Error("Developer is not an accepted collaborator for this project."),
+      { status: 403 }
+    );
+  }
+
+  // 4. Get the manager's (project owner's) GitHub PAT
+  const managerUserId = project.userId; // Assuming project.userId is the manager's ID
+  const managerGithubData = await GitHubData.findOne({ userId: managerUserId });
+  if (!managerGithubData || !managerGithubData.githubPAT) {
+    throw Object.assign(
+      new Error("Manager's GitHub PAT not found. Cannot grant access."),
+      { status: 500 }
+    );
+  }
+
+  return {
+    pat: managerGithubData.githubPAT,
+    username: managerGithubData.githubUsername,
+    repoFullName: `${owner}/${repo}`,
+  };
 };
 
 // Authenticate and store GitHub data (existing function - slightly enhanced error handling)
@@ -544,12 +611,10 @@ const deleteGithubRepo = async (req, res) => {
     }
 
     // GitHub returns 204 No Content for successful deletion
-    res
-      .status(204)
-      .json({
-        success: true,
-        message: "GitHub repository deleted successfully.",
-      });
+    res.status(204).json({
+      success: true,
+      message: "GitHub repository deleted successfully.",
+    });
   } catch (error) {
     console.error("Error deleting GitHub repository:", error);
     res.status(error.status || 500).json({
@@ -789,9 +854,44 @@ const listRepoBranches = async (req, res) => {
     `[listRepoBranches] Request to list branches for ${owner}/${repo} by userId: ${userId}`
   );
 
+  let githubPAT;
+  let githubUsername;
+
   try {
-    const { pat: githubPAT, username: githubUsername } =
-      await getGitHubAuthDetails(userId);
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    if (user.role === "manager") {
+      // If the user is a manager, use their own PAT
+      const authDetails = await getGitHubAuthDetails(userId);
+      githubPAT = authDetails.pat;
+      githubUsername = authDetails.username;
+      console.log(`[listRepoBranches] User is a manager. Using manager's PAT.`);
+    } else if (user.role === "developer") {
+      // If the user is a developer, check if they are an accepted collaborator
+      console.log(
+        `[listRepoBranches] User is a developer. Checking collaboration status.`
+      );
+      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(
+        userId,
+        owner,
+        repo
+      );
+      githubPAT = collaboratorDetails.pat; // This is the manager's PAT
+      githubUsername = collaboratorDetails.username; // This is the manager's username
+      console.log(
+        `[listRepoBranches] Developer is an accepted collaborator. Using manager's PAT.`
+      );
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role to access this resource.",
+      });
+    }
 
     // Mask PAT for logging, never log full PAT
     const maskedPAT = githubPAT.substring(0, 5) + "...";
@@ -850,8 +950,34 @@ const createNewBranch = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const { pat: githubPAT, username: githubUsername } =
-      await getGitHubAuthDetails(userId);
+    // Determine which PAT to use based on user role and collaboration status
+    let githubPAT;
+    let githubUsername;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    if (user.role === "manager") {
+      const authDetails = await getGitHubAuthDetails(userId);
+      githubPAT = authDetails.pat;
+      githubUsername = authDetails.username;
+    } else if (user.role === "developer") {
+      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(
+        userId,
+        owner,
+        repo
+      );
+      githubPAT = collaboratorDetails.pat;
+      githubUsername = collaboratorDetails.username;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role to create branches.",
+      });
+    }
 
     // 1. Get the SHA of the base branch
     const getRefResponse = await fetch(
@@ -933,8 +1059,34 @@ const deleteExistingBranch = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const { pat: githubPAT, username: githubUsername } =
-      await getGitHubAuthDetails(userId);
+    // Determine which PAT to use based on user role and collaboration status
+    let githubPAT;
+    let githubUsername;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    if (user.role === "manager") {
+      const authDetails = await getGitHubAuthDetails(userId);
+      githubPAT = authDetails.pat;
+      githubUsername = authDetails.username;
+    } else if (user.role === "developer") {
+      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(
+        userId,
+        owner,
+        repo
+      );
+      githubPAT = collaboratorDetails.pat;
+      githubUsername = collaboratorDetails.username;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role to delete branches.",
+      });
+    }
 
     const response = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branchName}`,
@@ -979,8 +1131,34 @@ const listPullRequests = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const { pat: githubPAT, username: githubUsername } =
-      await getGitHubAuthDetails(userId);
+    // Determine which PAT to use based on user role and collaboration status
+    let githubPAT;
+    let githubUsername;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    if (user.role === "manager") {
+      const authDetails = await getGitHubAuthDetails(userId);
+      githubPAT = authDetails.pat;
+      githubUsername = authDetails.username;
+    } else if (user.role === "developer") {
+      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(
+        userId,
+        owner,
+        repo
+      );
+      githubPAT = collaboratorDetails.pat;
+      githubUsername = collaboratorDetails.username;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role to list pull requests.",
+      });
+    }
 
     const response = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/pulls`,
@@ -1024,8 +1202,34 @@ const createNewPullRequest = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const { pat: githubPAT, username: githubUsername } =
-      await getGitHubAuthDetails(userId);
+    // Determine which PAT to use based on user role and collaboration status
+    let githubPAT;
+    let githubUsername;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    if (user.role === "manager") {
+      const authDetails = await getGitHubAuthDetails(userId);
+      githubPAT = authDetails.pat;
+      githubUsername = authDetails.username;
+    } else if (user.role === "developer") {
+      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(
+        userId,
+        owner,
+        repo
+      );
+      githubPAT = collaboratorDetails.pat;
+      githubUsername = collaboratorDetails.username;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role to create pull requests.",
+      });
+    }
 
     const response = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/pulls`,
@@ -1076,8 +1280,34 @@ const getPullRequest = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const { pat: githubPAT, username: githubUsername } =
-      await getGitHubAuthDetails(userId);
+    // Determine which PAT to use based on user role and collaboration status
+    let githubPAT;
+    let githubUsername;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    if (user.role === "manager") {
+      const authDetails = await getGitHubAuthDetails(userId);
+      githubPAT = authDetails.pat;
+      githubUsername = authDetails.username;
+    } else if (user.role === "developer") {
+      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(
+        userId,
+        owner,
+        repo
+      );
+      githubPAT = collaboratorDetails.pat;
+      githubUsername = collaboratorDetails.username;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role to get pull request.",
+      });
+    }
 
     const response = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/pulls/${pull_number}`,
@@ -1122,8 +1352,34 @@ const updateExistingPullRequest = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const { pat: githubPAT, username: githubUsername } =
-      await getGitHubAuthDetails(userId);
+    // Determine which PAT to use based on user role and collaboration status
+    let githubPAT;
+    let githubUsername;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    if (user.role === "manager") {
+      const authDetails = await getGitHubAuthDetails(userId);
+      githubPAT = authDetails.pat;
+      githubUsername = authDetails.username;
+    } else if (user.role === "developer") {
+      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(
+        userId,
+        owner,
+        repo
+      );
+      githubPAT = collaboratorDetails.pat;
+      githubUsername = collaboratorDetails.username;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role to update pull requests.",
+      });
+    }
 
     const response = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/pulls/${pull_number}`,
@@ -1173,15 +1429,17 @@ const updateExistingPullRequest = async (req, res) => {
 const getGitHubDetails = async (req, res) => {
   try {
     const userId = req.user.id;
-    const githubData = await GitHubData.findOne({ userId }).select("-githubPAT");
-    
+    const githubData = await GitHubData.findOne({ userId }).select(
+      "-githubPAT"
+    );
+
     console.log("DEBUG: Fetched GitHub Data:", githubData); // TEMPORARY LOG: Inspect retrieved data
 
     if (!githubData) {
       return res.status(200).json({
         success: true,
         message: "No GitHub details found for this user.",
-        data: null
+        data: null,
       });
     }
 
@@ -1199,7 +1457,9 @@ const addOrUpdateGitHubDetails = async (req, res) => {
     const { githubName, githubEmail, githubToken } = req.body;
 
     if (!githubName || !githubEmail || !githubToken) {
-      return res.status(400).json({ success: false, message: "All fields are required." });
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required." });
     }
 
     let githubData = await GitHubData.findOne({ userId });
@@ -1210,7 +1470,10 @@ const addOrUpdateGitHubDetails = async (req, res) => {
       githubData.githubEmail = githubEmail;
       githubData.githubPAT = githubToken; // Store the actual token
       await githubData.save();
-      return res.status(200).json({ success: true, message: "GitHub details updated successfully." });
+      return res.status(200).json({
+        success: true,
+        message: "GitHub details updated successfully.",
+      });
     } else {
       // Create new details
       githubData = new GitHubData({
@@ -1220,7 +1483,9 @@ const addOrUpdateGitHubDetails = async (req, res) => {
         githubPAT: githubToken,
       });
       await githubData.save();
-      return res.status(201).json({ success: true, message: "GitHub details added successfully." });
+      return res
+        .status(201)
+        .json({ success: true, message: "GitHub details added successfully." });
     }
   } catch (error) {
     console.error("Error adding/updating GitHub details:", error);
@@ -1235,12 +1500,17 @@ const deleteGitHubDetails = async (req, res) => {
     const result = await GitHubData.findOneAndDelete({ userId });
 
     if (!result) {
-      return res.status(404).json({ success: false, message: "No GitHub details found to delete." });
+      return res.status(404).json({
+        success: false,
+        message: "No GitHub details found to delete.",
+      });
     }
-    
+
     await User.findByIdAndUpdate(userId, { isAuthenticatedToGithub: false });
 
-    res.status(200).json({ success: true, message: "GitHub details deleted successfully." });
+    res
+      .status(200)
+      .json({ success: true, message: "GitHub details deleted successfully." });
   } catch (error) {
     console.error("Error deleting GitHub details:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
