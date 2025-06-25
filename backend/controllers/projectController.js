@@ -698,24 +698,67 @@ jobs:
  */
 const getProjectsByUserId = async (req, res) => {
   try {
-    const userId = req.user.id; // Assuming userId from authentication middleware
+    const userId = req.user.id; // User ID from authentication middleware
 
-    // Find all projects associated with the userId and sort by creation date
-    const projects = await Project.find({ userId }).sort({ createdAt: -1 }); // -1 for descending order
+    // Fetch the user to determine their role
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    let projects = [];
+
+    if (user.role === "manager") {
+      // Manager: Fetch projects created by this user
+      projects = await Project.find({ userId }).sort({ createdAt: -1 });
+    } else if (user.role === "developer") {
+      // Developer: Fetch projects where they are a collaborator
+      // 1. Get the developer's GitHub ID
+      const userGitHubData = await GitHubData.findOne({ userId });
+      if (!userGitHubData) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "GitHub data not found for the developer. Please link your GitHub account.",
+        });
+      }
+      const githubId = userGitHubData.githubId;
+
+      // 2. Find ProjectCollaborator documents where this developer is a collaborator
+      const projectCollaboratorDocs = await ProjectCollaborator.find({
+        "collaborators.githubId": githubId,
+      });
+
+      // Extract unique project IDs from the found collaboration documents
+      const projectIds = projectCollaboratorDocs.map((doc) => doc.project_id);
+
+      // 3. Fetch all projects using the collected project IDs
+      projects = await Project.find({ _id: { $in: projectIds } }).sort({
+        createdAt: -1,
+      });
+    } else {
+      // Handle other roles or unassigned roles if necessary
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: Invalid user role.",
+      });
+    }
 
     res.status(200).json({
       success: true,
       projects,
     });
   } catch (error) {
-    console.error("Error fetching projects:", error);
+    console.error("Error fetching projects by user ID:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error while fetching projects",
+      message: "Internal server error while fetching projects.",
     });
   }
 };
-
 const getProjectById = async (req, res) => {
   try {
     const { projectId } = req.params;

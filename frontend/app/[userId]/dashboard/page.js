@@ -329,10 +329,7 @@ export default function DashboardContent() {
     error: projectError,
   } = useGetProjectsQuery(userId);
 
-  const projects =
-    user_role === "manager"
-      ? projectData?.projects || []
-      : developerProjects || [];
+  const projects = projectData?.projects || [];
 
   // Filter projects based on search term
   const filteredProjects = projects.filter(
@@ -392,40 +389,46 @@ export default function DashboardContent() {
   // Theme logic
   const lightTheme = createTheme({
     palette: {
-      mode: 'light',
+      mode: "light",
       background: {
-        default: '#F5F7FA',
-        paper: '#fff',
-        list: '#F7F8FA',
+        default: "#F5F7FA",
+        paper: "#fff",
+        list: "#F7F8FA",
       },
       text: {
-        primary: '#222',
-        secondary: '#6B7280',
+        primary: "#222",
+        secondary: "#6B7280",
       },
     },
   });
   const darkTheme = createTheme({
     palette: {
-      mode: 'dark',
+      mode: "dark",
       background: {
-        default: '#000', // Main background
-        paper: '#161717', // Cards/dialogs
-        list: '#2f2f2f', // Lists
+        default: "#000", // Main background
+        paper: "#161717", // Cards/dialogs
+        list: "#2f2f2f", // Lists
       },
       text: {
-        primary: '#F3F4F6',
-        secondary: '#B0B3B8',
+        primary: "#F3F4F6",
+        secondary: "#B0B3B8",
       },
     },
   });
   const { data: themeData } = useGetThemeQuery(userId);
-  const themeMode = themeData?.theme === 'dark' ? 'dark' : 'light';
-  const currentTheme = themeMode === 'dark' ? darkTheme : lightTheme;
+  const themeMode = themeData?.theme === "dark" ? "dark" : "light";
+  const currentTheme = themeMode === "dark" ? darkTheme : lightTheme;
 
   if (statusLoading) {
     return (
       <ThemeProvider theme={currentTheme}>
-        <div className="min-h-screen p-6" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
+        <div
+          className="min-h-screen p-6"
+          style={{
+            background: currentTheme.palette.background.default,
+            color: currentTheme.palette.text.primary,
+          }}
+        >
           <div className="max-w-7xl mx-auto">
             <div className="animate-pulse">
               <div className="h-8 bg-gray-300 rounded w-1/3 mb-8"></div>
@@ -440,7 +443,13 @@ export default function DashboardContent() {
   if (statusError) {
     return (
       <ThemeProvider theme={currentTheme}>
-        <div className="min-h-screen p-6" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
+        <div
+          className="min-h-screen p-6"
+          style={{
+            background: currentTheme.palette.background.default,
+            color: currentTheme.palette.text.primary,
+          }}
+        >
           <div className="max-w-7xl mx-auto">
             <Alert severity="error" className="mb-4">
               Failed to load dashboard. Please try refreshing the page.
@@ -456,12 +465,21 @@ export default function DashboardContent() {
 
   return (
     <ThemeProvider theme={currentTheme}>
-      <div className="min-h-screen" style={{ background: currentTheme.palette.background.default, color: currentTheme.palette.text.primary }}>
+      <div
+        className="min-h-screen"
+        style={{
+          background: currentTheme.palette.background.default,
+          color: currentTheme.palette.text.primary,
+        }}
+      >
         <div className="mx-auto p-6 font-inter">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
             <div>
-              <h1 className="text-2xl font-bold mb-2" style={{ color: currentTheme.palette.text.primary }}>
+              <h1
+                className="text-2xl font-bold mb-2"
+                style={{ color: currentTheme.palette.text.primary }}
+              >
                 Dashboard
               </h1>
               <p style={{ color: currentTheme.palette.text.secondary }}>
@@ -477,7 +495,9 @@ export default function DashboardContent() {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Search style={{ color: currentTheme.palette.text.secondary }} />
+                      <Search
+                        style={{ color: currentTheme.palette.text.secondary }}
+                      />
                     </InputAdornment>
                   ),
                   style: {
@@ -486,29 +506,29 @@ export default function DashboardContent() {
                   },
                 }}
                 sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '8px',
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "8px",
                     background: currentTheme.palette.background.paper,
                     color: currentTheme.palette.text.primary,
-                    '& fieldset': {
-                      borderColor: themeMode === 'dark' ? '#222' : '#e5e7eb',
+                    "& fieldset": {
+                      borderColor: themeMode === "dark" ? "#222" : "#e5e7eb",
                     },
-                    '&:hover fieldset': {
-                      borderColor: '#6366F1',
+                    "&:hover fieldset": {
+                      borderColor: "#6366F1",
                     },
-                    '&.Mui-focused fieldset': {
-                      borderColor: themeMode === 'dark' ? '#a1a1aa' : 'black',
-                      borderWidth: '1px',
+                    "&.Mui-focused fieldset": {
+                      borderColor: themeMode === "dark" ? "#a1a1aa" : "black",
+                      borderWidth: "1px",
                     },
                   },
-                  '& .MuiInputBase-input': {
-                    padding: '10px 14px',
+                  "& .MuiInputBase-input": {
+                    padding: "10px 14px",
                     color: currentTheme.palette.text.primary,
-                    '&::placeholder': {
+                    "&::placeholder": {
                       color: currentTheme.palette.text.secondary,
                     },
                   },
-                  width: { xs: '100%', sm: '250px' },
+                  width: { xs: "100%", sm: "250px" },
                   mt: { xs: 3, sm: 0 },
                 }}
               />
@@ -530,13 +550,27 @@ export default function DashboardContent() {
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <div className="w-24 h-24 mx-auto mb-4" style={{ background: currentTheme.palette.background.paper }}>
-                    <Assignment className="w-12 h-12" style={{ color: currentTheme.palette.text.secondary }} />
+                  <div
+                    className="w-24 h-24 mx-auto mb-4"
+                    style={{
+                      background: currentTheme.palette.background.paper,
+                    }}
+                  >
+                    <Assignment
+                      className="w-12 h-12"
+                      style={{ color: currentTheme.palette.text.secondary }}
+                    />
                   </div>
-                  <h3 className="text-lg font-medium mb-2" style={{ color: currentTheme.palette.text.primary }}>
+                  <h3
+                    className="text-lg font-medium mb-2"
+                    style={{ color: currentTheme.palette.text.primary }}
+                  >
                     No projects found
                   </h3>
-                  <p className="mb-6" style={{ color: currentTheme.palette.text.secondary }}>
+                  <p
+                    className="mb-6"
+                    style={{ color: currentTheme.palette.text.secondary }}
+                  >
                     {searchTerm
                       ? `No projects match your search for "${searchTerm}".`
                       : "Get started by creating your first project"}
@@ -546,7 +580,10 @@ export default function DashboardContent() {
                       variant="contained"
                       startIcon={<Add />}
                       onClick={handleCreateProjectClick}
-                      style={{ background: currentTheme.palette.primary.main, color: currentTheme.palette.primary.contrastText }}
+                      style={{
+                        background: currentTheme.palette.primary.main,
+                        color: currentTheme.palette.primary.contrastText,
+                      }}
                     >
                       Create Project
                     </Button>
@@ -555,22 +592,41 @@ export default function DashboardContent() {
               )}
             </>
           ) : (
-            <div style={{ background: currentTheme.palette.background.paper, color: currentTheme.palette.text.primary }} className="rounded-xl p-8 shadow-sm border text-center">
-              <div className="w-20 h-20 mx-auto mb-6" style={{ background: currentTheme.palette.background.list }}>
-                <GitHub className="w-10 h-10" style={{ color: currentTheme.palette.primary.main }} />
+            <div
+              style={{
+                background: currentTheme.palette.background.paper,
+                color: currentTheme.palette.text.primary,
+              }}
+              className="rounded-xl p-8 shadow-sm border text-center"
+            >
+              <div
+                className="w-20 h-20 mx-auto mb-6"
+                style={{ background: currentTheme.palette.background.list }}
+              >
+                <GitHub
+                  className="w-10 h-10"
+                  style={{ color: currentTheme.palette.primary.main }}
+                />
               </div>
               <h2 className="text-2xl font-semibold mb-4">
                 Connect Your GitHub Account
               </h2>
-              <p className="mb-6 max-w-md mx-auto" style={{ color: currentTheme.palette.text.secondary }}>
-                Connect your GitHub account to access all dashboard features, sync your repositories, and track your project progress.
+              <p
+                className="mb-6 max-w-md mx-auto"
+                style={{ color: currentTheme.palette.text.secondary }}
+              >
+                Connect your GitHub account to access all dashboard features,
+                sync your repositories, and track your project progress.
               </p>
               <Button
                 variant="contained"
                 startIcon={<GitHub />}
                 onClick={() => setShowGitHubDialog(true)}
                 size="large"
-                style={{ background: currentTheme.palette.primary.main, color: currentTheme.palette.primary.contrastText }}
+                style={{
+                  background: currentTheme.palette.primary.main,
+                  color: currentTheme.palette.primary.contrastText,
+                }}
               >
                 Connect GitHub
               </Button>

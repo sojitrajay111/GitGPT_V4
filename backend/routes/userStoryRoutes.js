@@ -8,7 +8,8 @@ const {
   deleteUserStory,
   generateAiStoryContent,
   generateSalesforceCodeAndPush,
-  handleGitHubWebhook, // NEW: Export the GitHub webhook handler
+  handleGitHubWebhook,
+  getCollaboratorUserStories, // NEW: Export the GitHub webhook handler
 } = require("../controllers/userStoryController");
 
 // Route to create a new user story
@@ -35,5 +36,11 @@ router.post(
 
 // NEW: Route for GitHub Webhook
 router.post("/github/webhook", handleGitHubWebhook);
+
+router.get(
+  "/collaborator/:userId/:projectId",
+  authenticateUser,
+  getCollaboratorUserStories
+);
 
 module.exports = router;

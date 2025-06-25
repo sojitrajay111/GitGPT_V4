@@ -88,6 +88,21 @@ export const userStoryApiSlice = createApi({
       // We don't invalidate tags here because updates are streamed via SSE and refetch is called manually.
       // If the backend also sends a direct update, invalidation might be needed.
     }),
+
+    getCollaboratorUserStories: builder.query({
+      query: ({ userId, projectId }) =>
+        `/user-stories/collaborator/${userId}/${projectId}`,
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.userStories.map(({ _id }) => ({
+                type: "UserStory",
+                id: _id,
+              })),
+              { type: "UserStory", id: "LIST" },
+            ]
+          : [{ type: "UserStory", id: "LIST" }],
+    }),
   }),
 });
 
@@ -98,4 +113,5 @@ export const {
   useDeleteUserStoryMutation,
   useGenerateAiStoryMutation,
   useGenerateSalesforceCodeMutation, // Export the new hook
+  useGetCollaboratorUserStoriesQuery, //
 } = userStoryApiSlice;

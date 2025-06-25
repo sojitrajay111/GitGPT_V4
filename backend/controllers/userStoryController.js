@@ -289,7 +289,7 @@ const createUserStory = async (req, res) => {
 };
 
 /**
- * @desc Get all user stories for a specific project.
+ * @desc     all user stories for a specific project.
  * @route GET /api/user-stories/:projectId
  * @access Private
  */
@@ -1487,6 +1487,34 @@ const handleGitHubWebhook = async (req, res) => {
   }
 };
 
+const getCollaboratorUserStories = async (req, res) => {
+  const { userId, projectId } = req.params;
+
+  try {
+    // 1. Fetch the GitHub ID for the given userId from GitHubData model
+    const userGitHubData = await GitHubData.findOne({ userId });
+    if (!userGitHubData) {
+      return res.status(404).json({
+        success: false,
+        message: "GitHub data not found for the provided user.",
+      });
+    }
+
+    const githubId = userGitHubData.githubId;
+
+    // 2. Find user stories where the collaborator.githubId matches and projectId matches
+    const userStories = await UserStory.find({
+      projectId: projectId,
+      "collaborators.githubId": githubId, // Query within the collaborators array
+    }).populate("creator_id", "username email"); // Optionally populate creator details
+
+    res.status(200).json({ success: true, userStories });
+  } catch (error) {
+    console.error("Error fetching collaborator user stories:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+};
+
 module.exports = {
   createUserStory,
   getUserStoriesByProjectId,
@@ -1495,4 +1523,5 @@ module.exports = {
   generateAiStoryContent,
   generateSalesforceCodeAndPush,
   handleGitHubWebhook, // Ensure this is exported for webhook routing
+  getCollaboratorUserStories,
 };

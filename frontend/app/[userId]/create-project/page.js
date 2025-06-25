@@ -75,10 +75,7 @@ export default function ProjectsPage() {
     skip: !showDialog || !githubAuthStatusData?.isAuthenticated,
   });
 
-  const projects =
-    user_role === "manager"
-      ? projectsData?.projects || []
-      : developerProjects || [];
+  const projects = projectsData?.projects || [];
 
   const githubAuthStatus = githubAuthStatusData?.isAuthenticated || false;
 

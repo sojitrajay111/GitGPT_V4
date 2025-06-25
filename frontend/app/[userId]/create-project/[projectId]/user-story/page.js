@@ -30,6 +30,7 @@ import {
   useDeleteUserStoryMutation,
   useGenerateAiStoryMutation,
   useGenerateSalesforceCodeMutation,
+  useGetCollaboratorUserStoriesQuery,
 } from "@/features/userStoryApiSlice";
 import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
@@ -139,6 +140,12 @@ const UserStoryPage = () => {
     isLoading: storiesLoading,
     refetch: refetchUserStories,
   } = useGetUserStoriesQuery(projectId, { skip: !projectId });
+
+  const { data: collobratorUserStories } = useGetCollaboratorUserStoriesQuery({
+    userId: userId,
+    projectId: projectId,
+  });
+
   const { data: collaboratorsData, isLoading: collaboratorsLoading } =
     useGetCollaboratorsQuery(projectId, { skip: !projectId });
 
@@ -428,7 +435,7 @@ const UserStoryPage = () => {
 
   const allUserStories =
     userRole === "developer"
-      ? developerUserStories
+      ? collobratorUserStories?.userStories || []
       : userStoriesData?.userStories || [];
 
   const filteredUserStories = useMemo(() => {
