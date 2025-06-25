@@ -125,7 +125,7 @@ const uploadDocument = async (req, res) => {
       const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        'http://localhost:3001/api/google/oauth-callback'
+        'https://gitgpt-v2.onrender.com/api/google/oauth-callback'
       );
       oauth2Client.setCredentials(user.googleDriveTokens);
       googleDriveService.initializeWithOAuth2Client(oauth2Client);
