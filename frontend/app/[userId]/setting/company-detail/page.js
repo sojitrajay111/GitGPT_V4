@@ -21,6 +21,7 @@ import {
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useGetThemeQuery } from "@/features/themeApiSlice";
 
+
 export default function CompanyDetailPage() {
   const { userId } = useParams();
   const [isEditing, setIsEditing] = useState(true);
