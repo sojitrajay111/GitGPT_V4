@@ -213,7 +213,6 @@ const isUserAuthorizedForCodeAnalysis = async (userId, projectId) => {
     const collaborator = projectCollaboratorEntry.collaborators.find(
       (collab) =>
         collab.githubId === requestingUserGithubId &&
-        collab.status === "accepted" &&
         collab.permissions.includes("Code analysis")
     );
     if (collaborator) {
@@ -467,6 +466,44 @@ const sendCodeAnalysisMessage = async (req, res) => {
       }
     }
 
+    // --- DYNAMIC APEX CLASS USAGE LOGIC ---
+    // Try to extract any Apex class name from the user's query
+    let apexClassName = null;
+    // Look for patterns like 'AccountController apex class', 'apex class AccountController', or 'use AccountController'
+    const apexClassPatterns = [
+      /([a-zA-Z_][a-zA-Z0-9_]*)\s+apex\s+class/, // e.g. 'AccountController apex class'
+      /apex\s+class\s+([a-zA-Z_][a-zA-Z0-9_]*)/, // e.g. 'apex class AccountController'
+      /use\s+([a-zA-Z_][a-zA-Z0-9_]*)/, // e.g. 'use AccountController'
+      /([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)/ // e.g. 'AccountController.methodName'
+    ];
+    for (const pattern of apexClassPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        apexClassName = match[1];
+        break;
+      }
+    }
+    // If not found, try to find any class name ending with 'Controller', 'Service', 'Manager', etc.
+    if (!apexClassName) {
+      const genericClassMatch = text.match(/([A-Z][A-Za-z0-9_]+)(?:\s+class)?/);
+      if (genericClassMatch) {
+        apexClassName = genericClassMatch[1];
+      }
+    }
+    if (apexClassName) {
+      // Filter LWC files that reference this Apex class
+      const lwcFilesUsingApex = fetchedCodeFiles.filter(file =>
+        file.path.includes('force-app/main/default/lwc/') &&
+        (file.content.includes(apexClassName) || file.content.includes(`${apexClassName}.`))
+      );
+      if (lwcFilesUsingApex.length > 0) {
+        relevantFiles = lwcFilesUsingApex;
+        isRepoRelated = true;
+        console.log(`[CodeAnalysis] Found LWC files using Apex class ${apexClassName}: ${lwcFilesUsingApex.map(f => f.path).join(', ')}`);
+      }
+    }
+    // --- END DYNAMIC APEX CLASS USAGE LOGIC ---
+
     const isLwcAnalysisRequest = /analyze\s+(all\s+)?lwc/i.test(lowerText) || /lwc\s+analysis/i.test(lowerText);
 
     if (isLwcAnalysisRequest) {
@@ -508,6 +545,65 @@ const sendCodeAnalysisMessage = async (req, res) => {
       // Build the directory tree string
       currentBranchCodeContext = "Repository folder structure:\n" + buildDirectoryTree(fetchedCodeFiles);
     }
+
+    // --- GENERAL CODEBASE-WIDE PATTERN SEARCH LOGIC ---
+    // 1. Detect codebase-wide pattern queries
+    const codebaseWidePatterns = [
+      /any test use/i,
+      /find all/i,
+      /which files/i,
+      /list all/i,
+      /show all/i,
+      /are there any/i,
+      /do any/i,
+      /detect/i,
+      /search for/i,
+      /where is .* used/i,
+      /files that use/i,
+      /files with/i,
+      /classes with/i,
+      /methods with/i,
+      /tests with/i,
+    ];
+    const isCodebaseWideQuery = codebaseWidePatterns.some(pattern => pattern.test(text));
+
+    // 2. Try to extract the keyword/pattern (simple version: look for quoted string or after 'use', 'with', etc.)
+    let searchPattern = null;
+    const quoted = text.match(/["'`]{1}([^"'`]+)["'`]{1}/);
+    if (quoted) {
+      searchPattern = quoted[1];
+    } else {
+      // Try to extract after 'use', 'with', etc.
+      const useMatch = text.match(/use ([a-zA-Z0-9_@=]+)/i);
+      if (useMatch) searchPattern = useMatch[1];
+      else {
+        const withMatch = text.match(/with ([a-zA-Z0-9_@=]+)/i);
+        if (withMatch) searchPattern = withMatch[1];
+        else {
+          // Try to extract after 'for', 'about', etc.
+          const forMatch = text.match(/for ([a-zA-Z0-9_@=]+)/i);
+          if (forMatch) searchPattern = forMatch[1];
+        }
+      }
+    }
+
+    if (isCodebaseWideQuery && searchPattern) {
+      // 3. Search all relevant files for the pattern
+      const matchingFiles = fetchedCodeFiles.filter(file =>
+        file.content && file.content.toLowerCase().includes(searchPattern.toLowerCase())
+      );
+      if (matchingFiles.length > 0) {
+        relevantFiles = matchingFiles;
+        isRepoRelated = true;
+        console.log(`[CodeAnalysis] Found files matching pattern '${searchPattern}': ${matchingFiles.map(f => f.path).join(', ')}`);
+      } else {
+        relevantFiles = [];
+        isRepoRelated = true;
+        currentBranchCodeContext = `No files in this repository match the pattern: ${searchPattern}`;
+        console.log(`[CodeAnalysis] No files found matching pattern '${searchPattern}'.`);
+      }
+    }
+    // --- END GENERAL CODEBASE-WIDE PATTERN SEARCH LOGIC ---
 
     if (!isRepoRelated) {
       console.log(
