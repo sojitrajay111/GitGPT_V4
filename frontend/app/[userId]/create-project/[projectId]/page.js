@@ -867,7 +867,9 @@ const ProjectDetailPage = () => {
           permissions: permissionsToEdit,
         }).unwrap();
       } catch (err) {
-        console.error("Failed to update permissions:", err);
+        const backendMessage = err?.data?.message || err?.message || "Failed to update permissions. Please try again.";
+        alert(backendMessage);
+        console.error("Failed to update permissions:", backendMessage, err);
       }
     }
   };
