@@ -546,65 +546,6 @@ const sendCodeAnalysisMessage = async (req, res) => {
       currentBranchCodeContext = "Repository folder structure:\n" + buildDirectoryTree(fetchedCodeFiles);
     }
 
-    // --- GENERAL CODEBASE-WIDE PATTERN SEARCH LOGIC ---
-    // 1. Detect codebase-wide pattern queries
-    const codebaseWidePatterns = [
-      /any test use/i,
-      /find all/i,
-      /which files/i,
-      /list all/i,
-      /show all/i,
-      /are there any/i,
-      /do any/i,
-      /detect/i,
-      /search for/i,
-      /where is .* used/i,
-      /files that use/i,
-      /files with/i,
-      /classes with/i,
-      /methods with/i,
-      /tests with/i,
-    ];
-    const isCodebaseWideQuery = codebaseWidePatterns.some(pattern => pattern.test(text));
-
-    // 2. Try to extract the keyword/pattern (simple version: look for quoted string or after 'use', 'with', etc.)
-    let searchPattern = null;
-    const quoted = text.match(/["'`]{1}([^"'`]+)["'`]{1}/);
-    if (quoted) {
-      searchPattern = quoted[1];
-    } else {
-      // Try to extract after 'use', 'with', etc.
-      const useMatch = text.match(/use ([a-zA-Z0-9_@=]+)/i);
-      if (useMatch) searchPattern = useMatch[1];
-      else {
-        const withMatch = text.match(/with ([a-zA-Z0-9_@=]+)/i);
-        if (withMatch) searchPattern = withMatch[1];
-        else {
-          // Try to extract after 'for', 'about', etc.
-          const forMatch = text.match(/for ([a-zA-Z0-9_@=]+)/i);
-          if (forMatch) searchPattern = forMatch[1];
-        }
-      }
-    }
-
-    if (isCodebaseWideQuery && searchPattern) {
-      // 3. Search all relevant files for the pattern
-      const matchingFiles = fetchedCodeFiles.filter(file =>
-        file.content && file.content.toLowerCase().includes(searchPattern.toLowerCase())
-      );
-      if (matchingFiles.length > 0) {
-        relevantFiles = matchingFiles;
-        isRepoRelated = true;
-        console.log(`[CodeAnalysis] Found files matching pattern '${searchPattern}': ${matchingFiles.map(f => f.path).join(', ')}`);
-      } else {
-        relevantFiles = [];
-        isRepoRelated = true;
-        currentBranchCodeContext = `No files in this repository match the pattern: ${searchPattern}`;
-        console.log(`[CodeAnalysis] No files found matching pattern '${searchPattern}'.`);
-      }
-    }
-    // --- END GENERAL CODEBASE-WIDE PATTERN SEARCH LOGIC ---
-
     if (!isRepoRelated) {
       console.log(
         `[CodeAnalysis] Query not relevant to Salesforce or repository`
