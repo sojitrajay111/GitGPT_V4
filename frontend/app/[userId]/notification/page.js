@@ -23,7 +23,7 @@ import MarkEmailReadIcon from "@mui/icons-material/MarkEmailRead";
 import MarkEmailUnreadIcon from "@mui/icons-material/MarkEmailUnread";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useParams, useRouter } from "next/navigation";
-import { formatDistanceToNow } from "date-fns"; // For time formatting
+import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns"; // For time formatting
 import { useSelector } from 'react-redux';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -61,6 +61,28 @@ const darkTheme = createTheme({
   },
 });
 // End Placeholder
+
+// Utility to group notifications by date
+function groupNotificationsByDate(notifications) {
+  const groups = {};
+  notifications.forEach((notif) => {
+    const date = new Date(notif.createdAt);
+    const dateKey = date.toDateString(); // e.g., 'Thu May 30 2024'
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(notif);
+  });
+  // Convert to array of { date, notifications } sorted by date desc
+  return Object.entries(groups)
+    .map(([date, notifs]) => ({ date, notifications: notifs }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+function getDateLabel(dateString) {
+  const date = new Date(dateString);
+  if (isToday(date)) return 'Today';
+  if (isYesterday(date)) return 'Yesterday';
+  return format(date, 'MMMM d, yyyy');
+}
 
 const NotificationPage = () => {
   const params = useParams();
@@ -184,6 +206,12 @@ const NotificationPage = () => {
     );
   }
 
+  // Group unread and read notifications by date
+  const unreadNotifications = filteredNotifications?.filter(n => !n.isRead) || [];
+  const readNotifications = filteredNotifications?.filter(n => n.isRead) || [];
+  const groupedUnread = groupNotificationsByDate(unreadNotifications);
+  const groupedRead = groupNotificationsByDate(readNotifications);
+
   return (
     <ThemeProvider theme={activeTheme}>
       <Box
@@ -240,147 +268,168 @@ const NotificationPage = () => {
           </Fade>
         ) : (
           <Box sx={{ maxWidth: '800px', mx: 'auto' }}>
-            {filteredNotifications?.filter(n => !n.isRead).length > 0 && (
+            {groupedUnread.length > 0 && (
               <Box mb={4}>
                 <Typography variant="h5" sx={{ color: activeTheme.palette.text.primary, mb: 2 }}>
-                  Unread ({filteredNotifications.filter(n => !n.isRead).length})
+                  Unread ({unreadNotifications.length})
                 </Typography>
-                <Card sx={{ bgcolor: activeTheme.palette.background.paper }}>
-                  <List>
-                    {filteredNotifications.filter(n => !n.isRead).map((notification) => (
-                      <ListItem
-                        key={notification._id}
-                        divider
-                        sx={{
-                          bgcolor: activeTheme.palette.mode === 'light' ? '#fffbe6' : '#2a2a1a',
-                          borderLeft: `4px solid ${activeTheme.palette.warning.main}`,
-                          borderRadius: '8px',
-                          mb: 1,
-                          p: 2,
-                          alignItems: 'flex-start',
-                        }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Typography
-                              variant="body1"
-                              sx={{ fontWeight: 'medium', color: activeTheme.palette.text.primary }}
-                            >
-                              {notification.message}
-                            </Typography>
-                          }
-                          secondary={
-                            <Box mt={0.5}>
-                              {notification.link && (
-                                <MuiLink
-                                  href={notification.link}
-                                  sx={{
-                                    color: activeTheme.palette.primary.main,
-                                    textDecoration: 'none',
-                                    '&:hover': { textDecoration: 'underline' }
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    router.push(notification.link);
-                                    handleMarkAsRead(notification._id); // Mark as read when clicked
-                                  }}
-                                >
-                                  View Details
-                                </MuiLink>
-                              )}
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                                {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                              </Typography>
-                              <Chip
-                                label={notification.projectName}
-                                size="small"
-                                color="primary"
-                                sx={{ mt: 1, bgcolor: activeTheme.palette.primary.dark, color: activeTheme.palette.primary.contrastText }}
-                              />
-                            </Box>
-                          }
-                        />
-                        <ListItemSecondaryAction>
-                          <IconButton
-                            edge="end"
-                            aria-label="mark as read"
-                            onClick={() => handleMarkAsRead(notification._id)}
-                            disabled={markAsReadLoading}
-                            sx={{ color: activeTheme.palette.success.main }}
+                {groupedUnread.map(group => (
+                  <Box key={group.date} mb={2}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: activeTheme.palette.text.secondary, fontWeight: 700 }}>
+                      {getDateLabel(group.date)}
+                    </Typography>
+                    <Card sx={{ bgcolor: activeTheme.palette.background.paper }}>
+                      <List>
+                        {group.notifications.map((notification) => (
+                          <ListItem
+                            key={notification._id}
+                            divider
+                            sx={{
+                              bgcolor: activeTheme.palette.mode === 'light' && !notification.isRead ? '#fffbe6' : notification.isRead ? undefined : '#2a2a1a',
+                              borderLeft: !notification.isRead ? `4px solid ${activeTheme.palette.warning.main}` : undefined,
+                              borderRadius: '8px',
+                              mb: 1,
+                              p: 2,
+                              alignItems: 'flex-start',
+                              opacity: notification.isRead ? 0.7 : 1,
+                            }}
                           >
-                            {markAsReadLoading ? <CircularProgress size={20} /> : <MarkEmailReadIcon />}
-                          </IconButton>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Card>
+                            <ListItemText
+                              primary={
+                                <Typography
+                                  variant="body1"
+                                  sx={{ fontWeight: notification.isRead ? 'normal' : 'medium', color: notification.isRead ? activeTheme.palette.text.secondary : activeTheme.palette.text.primary }}
+                                >
+                                  {notification.message}
+                                </Typography>
+                              }
+                              secondary={
+                                <Box mt={0.5}>
+                                  {notification.link && (
+                                    <MuiLink
+                                      href={notification.link}
+                                      sx={{
+                                        color: activeTheme.palette.primary.main,
+                                        textDecoration: 'none',
+                                        '&:hover': { textDecoration: 'underline' }
+                                      }}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        router.push(notification.link);
+                                        if (!notification.isRead) handleMarkAsRead(notification._id);
+                                      }}
+                                    >
+                                      View Details
+                                    </MuiLink>
+                                  )}
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                    {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                                  </Typography>
+                                  <Chip
+                                    label={notification.projectName}
+                                    size="small"
+                                    color={notification.isRead ? "default" : "primary"}
+                                    sx={{ mt: 1, bgcolor: !notification.isRead ? activeTheme.palette.primary.dark : undefined, color: !notification.isRead ? activeTheme.palette.primary.contrastText : undefined }}
+                                  />
+                                </Box>
+                              }
+                            />
+                            <ListItemSecondaryAction>
+                              {notification.isRead ? (
+                                <IconButton edge="end" aria-label="read" disabled>
+                                  <MarkEmailUnreadIcon sx={{ color: activeTheme.palette.text.secondary }} />
+                                </IconButton>
+                              ) : (
+                                <IconButton
+                                  edge="end"
+                                  aria-label="mark as read"
+                                  onClick={() => handleMarkAsRead(notification._id)}
+                                  disabled={markAsReadLoading}
+                                  sx={{ color: activeTheme.palette.success.main }}
+                                >
+                                  {markAsReadLoading ? <CircularProgress size={20} /> : <MarkEmailReadIcon />}
+                                </IconButton>
+                              )}
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Card>
+                  </Box>
+                ))}
               </Box>
             )}
 
-            {filteredNotifications?.filter(n => n.isRead).length > 0 && (
+            {groupedRead.length > 0 && (
               <Box>
                 <Typography variant="h5" sx={{ color: activeTheme.palette.text.primary, mb: 2 }}>
-                  Read ({filteredNotifications.filter(n => n.isRead).length})
+                  Read ({readNotifications.length})
                 </Typography>
-                <Card sx={{ bgcolor: activeTheme.palette.background.paper }}>
-                  <List>
-                    {filteredNotifications.filter(n => n.isRead).map((notification) => (
-                      <ListItem
-                        key={notification._id}
-                        divider
-                        sx={{
-                          opacity: 0.7,
-                          p: 2,
-                          mb: 1,
-                          alignItems: 'flex-start',
-                        }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Typography variant="body1" sx={{ color: activeTheme.palette.text.secondary }}>
-                              {notification.message}
-                            </Typography>
-                          }
-                          secondary={
-                            <Box mt={0.5}>
-                              {notification.link && (
-                                <MuiLink
-                                  href={notification.link}
-                                  sx={{
-                                    color: activeTheme.palette.primary.main,
-                                    textDecoration: 'none',
-                                    '&:hover': { textDecoration: 'underline' }
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    router.push(notification.link);
-                                  }}
-                                >
-                                  View Details
-                                </MuiLink>
-                              )}
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                                {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                              </Typography>
-                              <Chip
-                                label={notification.projectName}
-                                size="small"
-                                color="default"
-                                sx={{ mt: 1 }}
-                              />
-                            </Box>
-                          }
-                        />
-                        <ListItemSecondaryAction>
-                          <IconButton edge="end" aria-label="read" disabled>
-                            <MarkEmailUnreadIcon sx={{ color: activeTheme.palette.text.secondary }} />
-                          </IconButton>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Card>
+                {groupedRead.map(group => (
+                  <Box key={group.date} mb={2}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: activeTheme.palette.text.secondary, fontWeight: 700 }}>
+                      {getDateLabel(group.date)}
+                    </Typography>
+                    <Card sx={{ bgcolor: activeTheme.palette.background.paper }}>
+                      <List>
+                        {group.notifications.map((notification) => (
+                          <ListItem
+                            key={notification._id}
+                            divider
+                            sx={{
+                              opacity: 0.7,
+                              p: 2,
+                              mb: 1,
+                              alignItems: 'flex-start',
+                            }}
+                          >
+                            <ListItemText
+                              primary={
+                                <Typography variant="body1" sx={{ color: activeTheme.palette.text.secondary }}>
+                                  {notification.message}
+                                </Typography>
+                              }
+                              secondary={
+                                <Box mt={0.5}>
+                                  {notification.link && (
+                                    <MuiLink
+                                      href={notification.link}
+                                      sx={{
+                                        color: activeTheme.palette.primary.main,
+                                        textDecoration: 'none',
+                                        '&:hover': { textDecoration: 'underline' }
+                                      }}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        router.push(notification.link);
+                                      }}
+                                    >
+                                      View Details
+                                    </MuiLink>
+                                  )}
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                    {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                                  </Typography>
+                                  <Chip
+                                    label={notification.projectName}
+                                    size="small"
+                                    color="default"
+                                    sx={{ mt: 1 }}
+                                  />
+                                </Box>
+                              }
+                            />
+                            <ListItemSecondaryAction>
+                              <IconButton edge="end" aria-label="read" disabled>
+                                <MarkEmailUnreadIcon sx={{ color: activeTheme.palette.text.secondary }} />
+                              </IconButton>
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Card>
+                  </Box>
+                ))}
               </Box>
             )}
           </Box>

@@ -246,6 +246,13 @@ export const githubApiSlice = createApi({
         id: userId
       }],
     }),
+    mapGithubIdsToUserIds: builder.mutation({
+      query: (githubIds) => ({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/github/map-github-ids-to-user-ids`,
+        method: "POST",
+        body: { githubIds },
+      }),
+    }),
   }),
 });
 
@@ -271,4 +278,5 @@ export const {
   useGetGitHubDetailsQuery, // New: Export the new query hook
   useAddOrUpdateGitHubDetailsMutation, // New: Export the new mutation hook
   useDeleteGitHubDetailsMutation, // New: Export the new mutation hook
+  useMapGithubIdsToUserIdsMutation,
 } = githubApiSlice;

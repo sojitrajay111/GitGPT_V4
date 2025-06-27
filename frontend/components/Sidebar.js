@@ -22,6 +22,7 @@ import {
   useGetThemeQuery,
   useUpdateThemeMutation,
 } from "@/features/themeApiSlice"; // Import new theme hooks
+import { useGetNotificationsQuery } from "@/features/notificationApiSlice";
 
 const Sidebar = ({
   userId,
@@ -90,11 +91,24 @@ const handleToggleTheme = async () => {
     router.refresh();
   };
 
+  // Fetch notifications for badge
+  const { data: notifications, isLoading: notificationsLoading, refetch: refetchNotifications } = useGetNotificationsQuery(userId, { skip: !userId });
+  const unreadCount = notifications ? notifications.filter(n => !n.isRead).length : 0;
+
+  // Polling for notifications every 10 seconds
+  useEffect(() => {
+    if (!userId) return;
+    const interval = setInterval(() => {
+      refetchNotifications();
+    }, 10000); // 10 seconds
+    return () => clearInterval(interval);
+  }, [userId, refetchNotifications]);
+
   const mainNavItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "create-project", label: "Projects", icon: FolderOpen },
     { id: "report", label: "Reports", icon: BarChart },
-     { id: "notification", label: "Notification", icon: Bell },
+    { id: "notification", label: "Notification", icon: Bell, badge: unreadCount },
   ];
 
   const accountNavItems = [
@@ -247,7 +261,7 @@ const handleToggleTheme = async () => {
                 Main
               </h3>
               <ul className="space-y-1">
-                {mainNavItems.map(({ id, label, icon: Icon }) => (
+                {mainNavItems.map(({ id, label, icon: Icon, badge }) => (
                   <li key={id}>
                     <button
                       onClick={() => handleNavigate(id)}
@@ -262,6 +276,11 @@ const handleToggleTheme = async () => {
                     >
                       <Icon className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
                       {!collapsed && label}
+                      {badge > 0 && !collapsed && (
+                        <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                          {badge}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}

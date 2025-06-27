@@ -43,6 +43,13 @@ export const notificationApi = createApi({
       invalidatesTags: (result, error, notificationId) => [{ type: 'Notifications', id: notificationId }],
     }),
     // You might add other mutations later, e.g., deleteNotification, createNotification (if triggered by frontend)
+    sendUserStoryAssignmentNotification: builder.mutation({
+      query: ({ collaboratorIds, userStoryTitle, projectId, projectName }) => ({
+        url: `/user-story-assignment`,
+        method: 'POST',
+        body: { collaboratorIds, userStoryTitle, projectId, projectName },
+      }),
+    }),
   }),
 });
 
@@ -50,6 +57,7 @@ export const notificationApi = createApi({
 export const {
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
+  useSendUserStoryAssignmentNotificationMutation,
 } = notificationApi;
 
 // Export the reducer for your store setup
