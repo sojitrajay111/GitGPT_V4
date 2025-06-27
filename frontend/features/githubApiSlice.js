@@ -21,6 +21,7 @@ export const githubApiSlice = createApi({
     "ProjectCollaborators",
     "GitHubRepo", // General tag for repo specific data
     "GitHubBranches",
+    "GitHubUsers",
     "GitHubPullRequests",
     "UserAndGitHubData",
     "Project", // Added for invalidating projects upon repo deletion if needed
@@ -66,13 +67,13 @@ export const githubApiSlice = createApi({
       ],
     }),
     addCollaborator: builder.mutation({
-      query: ({ projectId, githubUsername, permissions }) => ({
-        url: "/collaborators",
+      query: (body) => ({
+        url: "/collaborators/add",
         method: "POST",
-        body: { projectId, githubUsername, permissions },
+        body,
       }),
-      invalidatesTags: (result, error, { projectId }) => [
-        { type: "ProjectCollaborators", id: projectId },
+      invalidatesTags: (result, error, { project_id }) => [
+        { type: "ProjectCollaborators", id: project_id },
       ],
     }),
     getCollaborators: builder.query({

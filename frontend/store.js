@@ -8,9 +8,9 @@ import { codeAnalysisApiSlice } from "./features/codeAnalysisApiSlice";
 import { documentApi } from "./features/documentApiSlice";
 import { developerApiSlice } from "./features/developerApiSlice";
 import { themeApi } from "./features/themeApiSlice";
-
+import { apiSlice } from "./features/apiSlice";
 import { configurationApiSlice } from "./features/configurationApiSlice";
-
+import { notificationApi } from "./features/notificationApiSlice";
 import { userManagementApi } from "./features/usermanagementSlice";
 import { companyApi } from "./features/companyApi";
 import serviceReducer from "./features/serviceSlice"; // ✅ Import serviceReducer
@@ -19,6 +19,7 @@ import { persistReducer, persistStore } from "redux-persist";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { userProfileApiSlice } from "./features/userProfileApiSlice";
 import { projectMetricsApiSlice } from "./features/projectMetricsApiSlice";
+import { collaboratorApi } from "./features/collaboratorApiSlice";
 
 // Configuration for persisting only the 'service' slice
 const servicePersistConfig = {
@@ -44,11 +45,12 @@ export const store = configureStore({
     [themeApi.reducerPath]: themeApi.reducer,
     [documentApi.reducerPath]: documentApi.reducer,
     [developerApiSlice.reducerPath]: developerApiSlice.reducer,
-
+    [notificationApi.reducerPath]: notificationApi.reducer,
+    [apiSlice.reducerPath]: apiSlice.reducer,
     [configurationApiSlice.reducerPath]: configurationApiSlice.reducer,
     [companyApi.reducerPath]: companyApi.reducer,
     [projectMetricsApiSlice.reducerPath]: projectMetricsApiSlice.reducer,
-
+    [collaboratorApi.reducerPath]: collaboratorApi.reducer,
     service: persistedServiceReducer,
 
     auth: authReducer,
@@ -69,11 +71,13 @@ export const store = configureStore({
       userManagementApi.middleware,
       documentApi.middleware,
       developerApiSlice.middleware,
-
+      notificationApi.middleware,
+      apiSlice.middleware,
       configurationApiSlice.middleware,
       companyApi.middleware,
       userProfileApiSlice.middleware,
-      projectMetricsApiSlice.middleware
+      projectMetricsApiSlice.middleware,
+      collaboratorApi.middleware
     ),
 });
 

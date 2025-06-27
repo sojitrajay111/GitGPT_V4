@@ -14,6 +14,7 @@ import {
   Menu,
   Sun,
   Moon,
+    Bell,
 } from "lucide-react";
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
 // import Cookies from "js-cookie"; // Remove Cookies import
@@ -93,12 +94,20 @@ const handleToggleTheme = async () => {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "create-project", label: "Projects", icon: FolderOpen },
     { id: "report", label: "Reports", icon: BarChart },
+     { id: "notification", label: "Notification", icon: Bell },
   ];
 
   const accountNavItems = [
     { id: "setting", label: "Settings", icon: Settings },
     { id: "logout", label: "Logout", icon: LogOut, action: handleLogout },
   ];
+
+  useEffect(() => {
+  const currentPath = window.location.pathname;
+  const active = currentPath.split("/")[2]; // after /userId/
+  setActiveTab(active);
+}, []);
+
 
   // Dynamic class for theme
   const sidebarBg = theme === "dark" ? "bg-black" : "bg-white";

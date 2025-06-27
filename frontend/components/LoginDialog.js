@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"; // Your custom Input component
 import { Label } from "@/components/ui/label"; // Your custom Label component
 import { useRouter } from "next/navigation";
 import { useLoginMutation } from "@/features/authApiSlice"; // RTK Query login mutation
+import { useDispatch } from "react-redux";
+import { setUserInfo } from "@/features/authSlice";
 
 // MUI components retained for Snackbar and CircularProgress, as they handle complex behavior
 import { Snackbar, Alert, CircularProgress } from "@mui/material";
@@ -35,6 +37,7 @@ export default function LoginDialog({
   const [showPassword, setShowPassword] = useState(false);
 
   const router = useRouter();
+  const dispatch = useDispatch();
 
   const onSubmit = async (data) => {
     try {
@@ -44,6 +47,8 @@ export default function LoginDialog({
       }).unwrap();
 
       localStorage.setItem("token", response.token);
+      localStorage.setItem("userInfo", JSON.stringify(response.user));
+      dispatch(setUserInfo(response.user));
       Cookies.set("token", response.token, {
         expires: 2,
         secure: process.env.NODE_ENV === "production",
@@ -56,7 +61,8 @@ export default function LoginDialog({
       });
 
       setTimeout(() => {
-        onSuccess(response?.user?.id); // Pass userId to the parent for redirection
+        let loggedInUserId = response.user?._id || response.user?.id;
+        onSuccess(loggedInUserId);
       }, 1500);
     } catch (error) {
       setSnackbar({
