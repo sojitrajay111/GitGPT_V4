@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -21,6 +21,7 @@ import {
   useGetThemeQuery,
   useUpdateThemeMutation,
 } from "@/features/themeApiSlice"; // Import new theme hooks
+import { useGetCompanyDetailsQuery } from "@/features/companyApi";
 
 const Sidebar = ({
   userId,
@@ -32,7 +33,9 @@ const Sidebar = ({
   setActiveTab,
 }) => {
   const router = useRouter();
-  const { data: userData } = useGetUserAndGithubDataQuery(userId); // Renamed for clarity
+  const { data: userData } = useGetUserAndGithubDataQuery(userId);
+  const managerId = userData?.user?.role === "manager" ? userId : userData?.user?.managerId;
+  const { data: companyData } = useGetCompanyDetailsQuery(managerId, { skip: !managerId });
   // Use theme from RTK Query
   const {
     data: themeData,
@@ -141,26 +144,25 @@ const handleToggleTheme = async () => {
           <X className="w-6 h-6" />
         </button>
 
-        {/* Logo & Collapse toggle */}
+        {/* Logo & Collapse toggle with company info only */}
         <div
-          className={`p-5 flex items-center justify-between border-b ${borderColor} ${
-            collapsed ? "justify-center" : ""
-          }`}
+          className={`p-5 flex items-center justify-between border-b ${borderColor} ${collapsed ? "justify-center" : ""}`}
         >
           <div className="flex items-center">
-            <img
-              src="/logo.png"
-              alt="GitGPT Logo"
-              className={`transition-all duration-300 ease-in-out ${
-                collapsed ? "w-10 h-10" : "w-10 h-10 mr-3"
-              }`}
-            />
-            {!collapsed && (
-              <h1
-                className={`text-xl font-bold ${logoTextColor} tracking-wide`}
-              >
-                GitGPT
-              </h1>
+            {companyData && (
+              <>
+                <img
+                  src={companyData.companyLogoUrl || "/default-logo.png"}
+                  alt="Company Logo"
+                  className={`transition-all duration-300 ease-in-out rounded object-cover border ${collapsed ? "w-10 h-10" : "w-10 h-10 mr-3"}`}
+                  style={{ background: "#fff" }}
+                />
+                {!collapsed && (
+                  <span className={`text-xl font-bold ${logoTextColor} tracking-wide`}>
+                    {companyData.companyName}
+                  </span>
+                )}
+              </>
             )}
           </div>
 
@@ -286,26 +288,26 @@ const handleToggleTheme = async () => {
               </ul>
             </div>
           </nav>
+        </div>
 
-          {/* Theme Toggle Button */}
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={handleToggleTheme}
-              className={`flex items-center w-full p-3 text-sm rounded-lg transition-colors duration-200
-                ${hoverBg} ${buttonTextColor}
-                ${collapsed ? "justify-center" : ""}`}
-              title="Toggle Theme"
-            >
-              {theme === "dark" ? (
-                <Sun className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
-              ) : (
-                <Moon className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
-              )}
-              {!collapsed && (
-                <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
-              )}
-            </button>
-          </div>
+        {/* Theme Toggle Button */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={handleToggleTheme}
+            className={`flex items-center w-full p-3 text-sm rounded-lg transition-colors duration-200
+              ${hoverBg} ${buttonTextColor}
+              ${collapsed ? "justify-center" : ""}`}
+            title="Toggle Theme"
+          >
+            {theme === "dark" ? (
+              <Sun className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
+            ) : (
+              <Moon className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
+            )}
+            {!collapsed && (
+              <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+            )}
+          </button>
         </div>
       </div>
     </>

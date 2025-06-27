@@ -3,11 +3,7 @@ const CodeAnalysisMessage = require("../models/CodeAnalysisMessage");
 const GitHubData = require("../models/GithubData");
 const Project = require("../models/Project");
 const ProjectCollaborator = require("../models/ProjectCollaborator");
-
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const Configuration = require("../models/Configuration");
 
 /**
  * Recursively fetches code/text files from a GitHub repository branch using the GitHub API.
@@ -272,9 +268,11 @@ const startCodeAnalysisSession = async (req, res) => {
     });
   } catch (error) {
     console.error("Error starting code analysis session:", error);
+    const message = error?.message || "Internal server error";
     res.status(500).json({
       success: false,
-      message: "Internal server error while starting session.",
+      message,
+      error: error,
     });
   }
 };
@@ -299,9 +297,10 @@ const getCodeAnalysisSessions = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching code analysis sessions:", error);
+    const message = error?.message || "Internal server error";
     res.status(500).json({
       success: false,
-      message: "Internal server error while fetching sessions.",
+      message,
     });
   }
 };
@@ -332,9 +331,10 @@ const getCodeAnalysisMessages = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching code analysis messages:", error);
+    const message = error?.message || "Internal server error";
     res.status(500).json({
       success: false,
-      message: "Internal server error while fetching messages.",
+      message,
     });
   }
 };
@@ -668,47 +668,6 @@ const sendCodeAnalysisMessage = async (req, res) => {
       currentBranchCodeContext = `No relevant files found in branch: ${session.selectedBranch} of repository ${owner}/${repo}.`;
     }
 
-    // console.log(`[CodeAnalysis] Fetching previous messages for context...`);
-    // const previousMessages = await CodeAnalysisMessage.find({ sessionId })
-    //   .sort({ createdAt: -1 })
-    //   .limit(10);
-    // previousMessages.reverse();
-    // console.log(
-    //   `[CodeAnalysis] Found ${previousMessages.length} previous messages`
-    // );
-    // console.log(`[CodeAnalysis] Constructing chat history for Gemini...`);
-    // const geminiChatHistory = previousMessages.map((msg) => ({
-    //   role: msg.sender === "user" ? "user" : "model",
-    //   parts: [{ text: msg.text }],
-    // }));
-    // if (geminiChatHistory.length > 0 && geminiChatHistory[0].role === "model") {
-    //   console.log(`[CodeAnalysis] First message is from model, removing it`);
-    //   geminiChatHistory.shift();
-    // }
-    // const validatedHistory = [];
-    // for (let i = 0; i < geminiChatHistory.length; i++) {
-    //   const message = geminiChatHistory[i];
-    //   if (i === 0 && message.role !== "user") {
-    //     console.log(
-    //       `[CodeAnalysis] Skipping first message with role '${message.role}'`
-    //     );
-    //     continue;
-    //   }
-    //   if (
-    //     i > 0 &&
-    //     validatedHistory[validatedHistory.length - 1].role === message.role
-    //   ) {
-    //     console.log(
-    //       `[CodeAnalysis] Skipping consecutive message with role '${message.role}'`
-    //     );
-    //     continue;
-    //   }
-    //   validatedHistory.push(message);
-    // }
-    // console.log(
-    //   `[CodeAnalysis] Final chat history has ${validatedHistory.length} messages`
-    // );
-
     console.log(`[CodeAnalysis] Constructing system instruction...`);
     const systemInstruction = `You are an expert AI assistant for code analysis and explanation of any file in a GitHub repository. You are analyzing code from the GitHub repository '${session.githubRepoName}', Branch: '${session.selectedBranch}'.
 
@@ -742,34 +701,43 @@ Instructions:
 7. Be concise, structured, and avoid speculative responses.`;
 
     console.log(`[CodeAnalysis] Starting Gemini chat...`);
-    const chat = model.startChat({
-      // history: validatedHistory,
+    const geminiConfig = await Configuration.findOne({ userId, configTitle: "Gemini", isActive: true });
+    const apiKey = geminiConfig?.configValue.find(v => v.key.toLowerCase() === "apikey")?.value;
+    if (!apiKey) {
+      throw new Error("Gemini integration not configured. Please add your Gemini API key in settings.");
+    }
+    console.log('Looking for Gemini config for user:', userId);
+    console.log('Gemini config found:', geminiConfig);
+    console.log('Gemini API key:', apiKey);
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const payload = {
+      contents: [{ parts: [{ text: systemInstruction }] }],
       generationConfig: {
         maxOutputTokens: 4096,
         temperature: 0.5,
       },
       safetySettings: [
-        {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE",
-        },
-        {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE",
-        },
-        {
-          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE",
-        },
-        {
-          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE",
-        },
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
       ],
+    };
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
-    console.log(`[CodeAnalysis] Sending message to Gemini...`);
-    const result = await chat.sendMessage(systemInstruction);
-    const aiTextResponse = result.response.text();
+    if (!response.ok) {
+      // handle error
+    }
+    const result = await response.json();
+    const aiTextResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!aiTextResponse) {
+      // handle error, log result for debugging
+      console.error("Unexpected Gemini API response:", result);
+      throw new Error("Failed to parse Gemini API response.");
+    }
     console.log(
       `[CodeAnalysis] Received response from Gemini (${aiTextResponse.length} characters)`
     );
@@ -814,35 +782,17 @@ Instructions:
     });
   } catch (error) {
     console.error("Error sending code analysis message:", error);
-    let errorMessageToSave = "Error processing your request.";
-    if (error.message.includes("SAFETY")) {
-      errorMessageToSave =
-        "The response was blocked due to safety settings. Please rephrase your request.";
-    } else if (error.message.includes("quota")) {
-      errorMessageToSave = "API quota exceeded. Please try again later.";
-    } else if (
-      error.message.includes("network") ||
-      error.message.includes("fetch")
-    ) {
-      errorMessageToSave =
-        "Network error occurred. Please check your connection.";
-    } else if (
-      error.message.includes("authentication") ||
-      error.message.includes("unauthorized")
-    ) {
-      errorMessageToSave =
-        "Authentication error. Please check your GitHub credentials.";
-    }
+    const message = error?.message || "Internal server error";
     await CodeAnalysisMessage.create({
       sessionId,
       sender: "system",
-      text: errorMessageToSave,
+      text: message,
       isError: true,
     });
     res.status(500).json({
       success: false,
-      message: errorMessageToSave,
-      error: error.message,
+      message,
+      error: error,
     });
   }
 };
@@ -877,9 +827,10 @@ const deleteCodeAnalysisSession = async (req, res) => {
     });
   } catch (error) {
     console.error("Error deleting code analysis session:", error);
+    const message = error?.message || "Internal server error";
     res.status(500).json({
       success: false,
-      message: "Internal server error while deleting session.",
+      message,
     });
   }
 };
@@ -1250,9 +1201,10 @@ const pushCodeAndCreatePR = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in pushCodeAndCreatePR:", error);
+    const message = error?.message || "Internal server error";
     res.status(500).json({
       success: false,
-      message: "Internal server error during push and PR creation.",
+      message,
     });
   }
 };

@@ -8,8 +8,6 @@ require("dotenv").config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Create a transporter for sending emails
-console.log("DEBUG: EMAIL_USER from .env:", process.env.EMAIL_USER); // TEMPORARY LOG
-console.log("DEBUG: EMAIL_PASSWORD from .env:", process.env.EMAIL_PASSWORD); // TEMPORARY LOG - REMOVE AFTER DEBUGGING
 const transporter = nodemailer.createTransport({
   service: "Gmail", // or your email service
   auth: {

@@ -7,6 +7,7 @@ const CodeContribution = require("../models/CodeContribution"); // NEW: Import C
 const { parseDiffForLoc } = require("./metricsController"); // NEW: Import diff parser
 const path = require("path");
 require("dotenv").config();
+const Configuration = require("../models/Configuration"); // Import the Configuration model
 
 // Dynamic imports for Octokit as it might be an ES Module
 let Octokit;
@@ -451,12 +452,15 @@ ${testingScenarios}
 Enhanced User Story Output (provide only the enhanced content, ready to be stored):`;
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    console.log("Looking for Gemini config for user:", req.user.id);
+    const geminiConfig = await Configuration.findOne({ userId: req.user.id, configTitle: "Gemini", isActive: true });
+    console.log("Gemini config found:", geminiConfig);
+    const apiKeyObj = geminiConfig?.configValue.find(
+      v => v.key.toLowerCase() === "apikey" || v.key.toLowerCase() === "gemini_api_key" || v.key.toLowerCase() === "api_key"
+    );
+    const apiKey = apiKeyObj?.value;
     if (!apiKey) {
-      console.error("GEMINI_API_KEY is not set in environment variables.");
-      return res
-        .status(500)
-        .json({ success: false, message: "AI service configuration error." });
+      throw new Error("Gemini integration not configured. Please add your Gemini API key in settings.");
     }
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -910,13 +914,13 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     // --- END AI PROMPT MODIFICATIONS ---
 
     // 4. Call AI to generate Salesforce code
-    const apiKey = process.env.GEMINI_API_KEY;
+    const geminiConfig = await Configuration.findOne({ userId: req.user.id, configTitle: "Gemini", isActive: true });
+    const apiKeyObj = geminiConfig?.configValue.find(
+      v => v.key.toLowerCase() === "apikey" || v.key.toLowerCase() === "gemini_api_key" || v.key.toLowerCase() === "api_key"
+    );
+    const apiKey = apiKeyObj?.value;
     if (!apiKey) {
-      sendSafeStatusUpdate(
-        "AI service configuration error: GEMINI_API_KEY is not set.",
-        "error"
-      );
-      return res.end();
+      throw new Error("Gemini integration not configured. Please add your Gemini API key in settings.");
     }
 
     const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;

@@ -365,23 +365,22 @@ const CodeAnalysisPage = () => {
       if (result.aiMessage?.text) {
         setLastAiResponseForCodePush(result.aiMessage.text);
       }
-    } catch (err) {
-      // Assuming playErrorSound is defined and imported
-      // playErrorSound();
-      console.error("Failed to send message:", err);
-      const systemErrorMessage = {
-        _id: `error-send-${Date.now()}`,
-        sessionId: currentChatSessionId,
-        sender: "system",
-        text: `Error sending message: ${
-          err.data?.message || err.error || err.message || "Unknown error"
-        }`,
-        isError: true,
-        createdAt: new Date().toISOString(),
-      };
+    } catch (error) {
+      console.error("Error sending code analysis message:", error);
+      const message =
+        error?.message ||
+        (typeof error === "string" ? error : null) ||
+        "Internal server error";
       setMessages((prev) => [
-        ...prev.filter((m) => m._id !== tempUserMessage._id),
-        systemErrorMessage,
+        ...prev,
+        {
+          _id: `error-${Date.now()}`,
+          sessionId: currentChatSessionId,
+          sender: "system",
+          text: message,
+          isError: true,
+          createdAt: new Date().toISOString(),
+        },
       ]);
     }
   };
@@ -488,18 +487,23 @@ const CodeAnalysisPage = () => {
       };
       setMessages((prev) => [...prev, systemMessage]);
       setLastAiResponseForCodePush(null);
-    } catch (err) {
-      console.error("Failed to push code and create PR:", err);
-      const errorMessage = {
-        _id: `error-pr-push-${Date.now()}`,
-        text: `Failed to push code & create PR: ${
-          err.data?.message || err.message || "Unknown error"
-        }`,
-        sender: "system",
-        isError: true,
-        createdAt: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+    } catch (error) {
+      console.error("Error sending code analysis message:", error);
+      const message =
+        error?.message ||
+        (typeof error === "string" ? error : null) ||
+        "Internal server error";
+      setMessages((prev) => [
+        ...prev,
+        {
+          _id: `error-${Date.now()}`,
+          sessionId: currentChatSessionId,
+          sender: "system",
+          text: message,
+          isError: true,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     }
   };
 
