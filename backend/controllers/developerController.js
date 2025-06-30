@@ -3,6 +3,8 @@ const ProjectCollaborator = require("../models/ProjectCollaborator"); // Adjust 
 const Project = require("../models/Project"); // Adjust path as necessary
 const UserStory = require("../models/UserStory");
 const mongoose = require("mongoose");
+const User = require("../models/User");
+const Configuration = require("../models/Configuration");
 
 /**
  * @desc Get all projects a developer is collaborating on
@@ -125,8 +127,66 @@ const getDeveloperUserStories = async (req, res) => {
   }
 };
 
+/**
+ * @desc Get manager's Gemini configuration for a developer
+ * @route GET /api/developer/manager-config/:developerId
+ * @access Private
+ */
+const getManagersGeminiConfig = async (req, res) => {
+  try {
+    const { developerId } = req.params;
+    const developer = await User.findById(developerId);
+    if (!developer || developer.role !== "developer" || !developer.managerId) {
+      return res.status(404).json({ message: "Developer or manager not found." });
+    }
+    const geminiConfig = await Configuration.findOne({
+      userId: developer.managerId,
+      configTitle: { $regex: /^gemini$/i },
+      isActive: true,
+    });
+    if (!geminiConfig) {
+      return res.status(404).json({ message: "Manager's Gemini config not found." });
+    }
+
+    // Only return safe fields (do NOT include configValue)
+    res.status(200).json({
+      config: {
+        _id: geminiConfig._id,
+        userId: geminiConfig.userId,
+        configTitle: geminiConfig.configTitle,
+        isActive: geminiConfig.isActive,
+        createdAt: geminiConfig.createdAt,
+        updatedAt: geminiConfig.updatedAt,
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching manager's Gemini config:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Utility script to remove all developer configs
+// Usage: node backend/controllers/developerController.js --remove-developer-configs
+if (require.main === module && process.argv.includes('--remove-developer-configs')) {
+  const mongoose = require('mongoose');
+  const User = require('../models/User');
+  const Configuration = require('../models/Configuration');
+  const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/yourdb';
+
+  (async () => {
+    await mongoose.connect(MONGO_URI);
+    const developers = await User.find({ role: 'developer' });
+    const developerIds = developers.map(u => u._id);
+    const result = await Configuration.deleteMany({ userId: { $in: developerIds } });
+    console.log(`Deleted ${result.deletedCount} developer configurations.`);
+    await mongoose.disconnect();
+    process.exit(0);
+  })();
+}
+
 module.exports = {
   getDeveloperProjects,
   getCollaboratorPermissions,
   getDeveloperUserStories,
+  getManagersGeminiConfig,
 };

@@ -4,6 +4,7 @@ const GitHubData = require("../models/GithubData");
 const Project = require("../models/Project");
 const ProjectCollaborator = require("../models/ProjectCollaborator");
 const Configuration = require("../models/Configuration");
+const User = require("../models/User");
 
 /**
  * Recursively fetches code/text files from a GitHub repository branch using the GitHub API.
@@ -701,7 +702,13 @@ Instructions:
 7. Be concise, structured, and avoid speculative responses.`;
 
     console.log(`[CodeAnalysis] Starting Gemini chat...`);
-    const geminiConfig = await Configuration.findOne({ userId, configTitle: "Gemini", isActive: true });
+    const user = await User.findById(userId);
+    const configOwnerId = user.role === "developer" ? user.managerId : user._id;
+    const geminiConfig = await Configuration.findOne({
+      userId: configOwnerId,
+      configTitle: { $regex: /^gemini$/i },
+      isActive: true,
+    });
     const apiKey = geminiConfig?.configValue.find(v => v.key.toLowerCase() === "apikey")?.value;
     if (!apiKey) {
       throw new Error("Gemini integration not configured. Please add your Gemini API key in settings.");

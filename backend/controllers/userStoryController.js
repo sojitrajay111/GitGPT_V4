@@ -8,6 +8,7 @@ const { parseDiffForLoc } = require("./metricsController"); // NEW: Import diff 
 const path = require("path");
 require("dotenv").config();
 const Configuration = require("../models/Configuration"); // Import the Configuration model
+const User = require("../models/User");
 
 // Dynamic imports for Octokit as it might be an ES Module
 let Octokit;
@@ -453,7 +454,13 @@ Enhanced User Story Output (provide only the enhanced content, ready to be store
 
   try {
     console.log("Looking for Gemini config for user:", req.user.id);
-    const geminiConfig = await Configuration.findOne({ userId: req.user.id, configTitle: "Gemini", isActive: true });
+    const user = await User.findById(req.user.id);
+    const configOwnerId = user.role === "developer" ? user.managerId : user._id;
+    const geminiConfig = await Configuration.findOne({
+      userId: configOwnerId,
+      configTitle: { $regex: /^gemini$/i },
+      isActive: true,
+    });
     console.log("Gemini config found:", geminiConfig);
     const apiKeyObj = geminiConfig?.configValue.find(
       v => v.key.toLowerCase() === "apikey" || v.key.toLowerCase() === "gemini_api_key" || v.key.toLowerCase() === "api_key"
@@ -914,7 +921,13 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     // --- END AI PROMPT MODIFICATIONS ---
 
     // 4. Call AI to generate Salesforce code
-    const geminiConfig = await Configuration.findOne({ userId: req.user.id, configTitle: "Gemini", isActive: true });
+    const user = await User.findById(req.user.id);
+    const configOwnerId = user.role === "developer" ? user.managerId : user._id;
+    const geminiConfig = await Configuration.findOne({
+      userId: configOwnerId,
+      configTitle: { $regex: /^gemini$/i },
+      isActive: true,
+    });
     const apiKeyObj = geminiConfig?.configValue.find(
       v => v.key.toLowerCase() === "apikey" || v.key.toLowerCase() === "gemini_api_key" || v.key.toLowerCase() === "api_key"
     );
