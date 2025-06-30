@@ -4,6 +4,7 @@ const Project = require("../models/Project"); // Ensure Project model is importe
 const ProjectCollaborator = require("../models/ProjectCollaborator"); // Ensure this is imported
 const GitHubData = require("../models/GithubData"); // Import the GitHubData model
 const CodeContribution = require("../models/CodeContribution"); // NEW: Import CodeContribution model
+const Configuration = require("../models/Configuration");
 const User = require("../models/User");
 const { parseDiffForLoc } = require("./metricsController"); // NEW: Import diff parser
 const path = require("path");
@@ -514,12 +515,26 @@ ${testingScenarios}
 Enhanced User Story Output (provide only the enhanced content, ready to be stored):`;
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    console.log("Looking for Gemini config for user:", req.user.id);
+    const user = await User.findById(req.user.id);
+    const configOwnerId = user.role === "developer" ? user.managerId : user._id;
+    const geminiConfig = await Configuration.findOne({
+      userId: configOwnerId,
+      configTitle: { $regex: /^gemini$/i },
+      isActive: true,
+    });
+    console.log("Gemini config found:", geminiConfig);
+    const apiKeyObj = geminiConfig?.configValue.find(
+      (v) =>
+        v.key.toLowerCase() === "apikey" ||
+        v.key.toLowerCase() === "gemini_api_key" ||
+        v.key.toLowerCase() === "api_key"
+    );
+    const apiKey = apiKeyObj?.value;
     if (!apiKey) {
-      console.error("GEMINI_API_KEY is not set in environment variables.");
-      return res
-        .status(500)
-        .json({ success: false, message: "AI service configuration error." });
+      throw new Error(
+        "Gemini integration not configured. Please add your Gemini API key in settings."
+      );
     }
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -1006,13 +1021,25 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     // --- END AI PROMPT MODIFICATIONS ---
 
     // 4. Call AI to generate Salesforce code
-    const apiKey = process.env.GEMINI_API_KEY;
+    const user_Data = await User.findById(req.user.id);
+    const configOwnerId =
+      user_Data.role === "developer" ? user_Data.managerId : user_Data._id;
+    const geminiConfig = await Configuration.findOne({
+      userId: configOwnerId,
+      configTitle: { $regex: /^gemini$/i },
+      isActive: true,
+    });
+    const apiKeyObj = geminiConfig?.configValue.find(
+      (v) =>
+        v.key.toLowerCase() === "apikey" ||
+        v.key.toLowerCase() === "gemini_api_key" ||
+        v.key.toLowerCase() === "api_key"
+    );
+    const apiKey = apiKeyObj?.value;
     if (!apiKey) {
-      sendSafeStatusUpdate(
-        "AI service configuration error: GEMINI_API_KEY is not set.",
-        "error"
+      throw new Error(
+        "Gemini integration not configured. Please add your Gemini API key in settings."
       );
-      return res.end();
     }
 
     const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
