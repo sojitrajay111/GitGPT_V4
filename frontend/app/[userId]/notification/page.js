@@ -360,6 +360,7 @@ const NotificationPage = () => {
                                   />
                                 </Box>
                               }
+                              secondaryTypographyProps={{ component: 'span' }}
                             />
                             <ListItemSecondaryAction>
                               {notification.isRead ? (
@@ -454,6 +455,7 @@ const NotificationPage = () => {
                                   />
                                 </Box>
                               }
+                              secondaryTypographyProps={{ component: 'span' }}
                             />
                             <ListItemSecondaryAction>
                               <IconButton edge="end" aria-label="read" disabled>
