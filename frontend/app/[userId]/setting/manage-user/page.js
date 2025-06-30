@@ -21,6 +21,7 @@ import {
   useUpdateUserMutation,
 } from "@/features/usermanagementSlice";
 import { useGetThemeQuery } from "@/features/themeApiSlice";
+import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
 import AddUserDialog from "@/components/user_management_components/AddUserDialog";
 import EditUserDialog from "@/components/user_management_components/EditUserDialog";
 import DeleteConfirmDialog from "@/components/user_management_components/DeleteConfirmDialog";
@@ -53,12 +54,17 @@ export default function UserManagementSettings() {
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm")); // Up to small screens
   const isTablet = useMediaQuery(muiTheme.breakpoints.between("sm", "md")); // Between small and medium screens
 
+  // Fetch user data to determine role and managerId
+  const { data: userData } = useGetUserAndGithubDataQuery(userId);
+  const targetUserId = userData?.user?.role === "manager" ? userId : userData?.user?.managerId;
+
+  // Fetch users data based on the determined targetUserId
   const {
     data: usersData,
     isLoading: isLoadingUsers,
     isError: isErrorUsers,
     error: usersError,
-  } = useGetUsersQuery(userId);
+  } = useGetUsersQuery(targetUserId);
 
   const {
     data: themeData,
@@ -102,10 +108,10 @@ export default function UserManagementSettings() {
   useEffect(() => {
     if (usersData) {
       console.log("RTK Query usersData received:", usersData);
-      console.log("isLoadingUsers:", isLoadingUsers);
-      console.log("isErrorUsers:", isErrorUsers);
+      console.log("Current user role:", userData?.user?.role);
+      console.log("Target user ID:", targetUserId);
     }
-  }, [usersData, isLoadingUsers, isErrorUsers]);
+  }, [usersData, userData, targetUserId]);
 
   const [
     addUser,
@@ -433,19 +439,32 @@ export default function UserManagementSettings() {
       >
         <Box sx={{ maxWidth: 1200, margin: "0 auto", width: "100%" }}>
           <Box sx={{ ...cardStyle, pt: 3, pb: 3 }}>
-            <SearchAndAddSection
-              openAddUserDialog={openAddUserDialog}
-              setOpenAddUserDialog={setOpenAddUserDialog}
-              setUsernameVerifiedAsNew={setUsernameVerifiedAsNew}
-              setUsernameVerificationMessage={setUsernameVerificationMessage}
-              setFormMessage={setFormMessage}
-              reset={reset}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              isMobile={isMobile}
-              theme={theme}
-              buttonSx={buttonSx}
-            />
+            {/* Show different titles based on role */}
+            <Typography variant="h4" sx={{ px: 3, mb: 2 }}>
+              {userData?.user?.role === "manager" ? "Manage Your Developers" : "Developer Team Members"}
+            </Typography>
+            <Typography variant="body1" sx={{ px: 3, mb: 3, color: "text.secondary" }}>
+              {userData?.user?.role === "manager" 
+                ? "Add and manage developers in your team" 
+                : "View all developers in your manager's team"}
+            </Typography>
+
+            {/* Only show add user functionality for managers */}
+            {userData?.user?.role === "manager" && (
+              <SearchAndAddSection
+                openAddUserDialog={openAddUserDialog}
+                setOpenAddUserDialog={setOpenAddUserDialog}
+                setUsernameVerifiedAsNew={setUsernameVerifiedAsNew}
+                setUsernameVerificationMessage={setUsernameVerificationMessage}
+                setFormMessage={setFormMessage}
+                reset={reset}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                isMobile={isMobile}
+                theme={theme}
+                buttonSx={buttonSx}
+              />
+            )}
 
             {formMessage && (
               <Alert
@@ -491,58 +510,63 @@ export default function UserManagementSettings() {
               isDeletingUser={isDeletingUser}
               isMobile={isMobile}
               theme={theme}
+              isManager={userData?.user?.role === "manager"}
             />
 
-            {/* Add User Dialog */}
-            <AddUserDialog
-              open={openAddUserDialog}
-              onClose={() => setOpenAddUserDialog(false)}
-              handleSubmit={handleSubmit}
-              handleAddUser={handleAddUser}
-              register={register}
-              errors={errors}
-              usernameValue={usernameValue}
-              usernameVerifiedAsNew={usernameVerifiedAsNew}
-              usernameVerificationMessage={usernameVerificationMessage}
-              handleVerifyUsername={handleVerifyUsername}
-              isCheckingExistence={isCheckingExistence}
-              isAddingUser={isAddingUser}
-              isValid={isValid}
-              isMobile={isMobile}
-              inputSx={inputSx}
-              newBoxShadow={newBoxShadow}
-              theme={theme}
-              selectedJobRole={selectedJobRole}
-              setSelectedJobRole={setSelectedJobRole}
-              customJobRole={customJobRole}
-              setCustomJobRole={setCustomJobRole}
-            />
-            {/* Edit User Dialog */}
-            <EditUserDialog
-              open={openEditUserDialog}
-              onClose={() => setOpenEditUserDialog(false)}
-              currentUserToEdit={currentUserToEdit}
-              editJobRole={editJobRole}
-              setEditJobRole={setEditJobRole}
-              editCustomJobRole={editCustomJobRole}
-              setEditCustomJobRole={setEditCustomJobRole}
-              editUserStatus={editUserStatus}
-              setEditUserStatus={setEditUserStatus}
-              handleUpdateUserSubmit={handleUpdateUserSubmit}
-              isUpdatingUser={isUpdatingUser}
-              inputSx={inputSx}
-              newBoxShadow={newBoxShadow}
-              theme={theme}
-            />
-            {/* Delete Confirmation Dialog */}
-            <DeleteConfirmDialog
-              open={openConfirmDeleteDialog}
-              onClose={() => setOpenConfirmDeleteDialog(false)}
-              executeDelete={executeDelete}
-              isDeletingUser={isDeletingUser}
-              theme={theme}
-              newBoxShadow={newBoxShadow}
-            />
+            {/* Keep the existing dialogs but only show them for managers */}
+            {userData?.user?.role === "manager" && (
+              <>
+                <AddUserDialog
+                  open={openAddUserDialog}
+                  onClose={() => setOpenAddUserDialog(false)}
+                  handleSubmit={handleSubmit}
+                  handleAddUser={handleAddUser}
+                  register={register}
+                  errors={errors}
+                  usernameValue={usernameValue}
+                  usernameVerifiedAsNew={usernameVerifiedAsNew}
+                  usernameVerificationMessage={usernameVerificationMessage}
+                  handleVerifyUsername={handleVerifyUsername}
+                  isCheckingExistence={isCheckingExistence}
+                  isAddingUser={isAddingUser}
+                  isValid={isValid}
+                  isMobile={isMobile}
+                  inputSx={inputSx}
+                  newBoxShadow={newBoxShadow}
+                  theme={theme}
+                  selectedJobRole={selectedJobRole}
+                  setSelectedJobRole={setSelectedJobRole}
+                  customJobRole={customJobRole}
+                  setCustomJobRole={setCustomJobRole}
+                />
+
+                <EditUserDialog
+                  open={openEditUserDialog}
+                  onClose={() => setOpenEditUserDialog(false)}
+                  currentUserToEdit={currentUserToEdit}
+                  editJobRole={editJobRole}
+                  setEditJobRole={setEditJobRole}
+                  editCustomJobRole={editCustomJobRole}
+                  setEditCustomJobRole={setEditCustomJobRole}
+                  editUserStatus={editUserStatus}
+                  setEditUserStatus={setEditUserStatus}
+                  handleUpdateUserSubmit={handleUpdateUserSubmit}
+                  isUpdatingUser={isUpdatingUser}
+                  inputSx={inputSx}
+                  newBoxShadow={newBoxShadow}
+                  theme={theme}
+                />
+
+                <DeleteConfirmDialog
+                  open={openConfirmDeleteDialog}
+                  onClose={() => setOpenConfirmDeleteDialog(false)}
+                  executeDelete={executeDelete}
+                  isDeletingUser={isDeletingUser}
+                  theme={theme}
+                  newBoxShadow={newBoxShadow}
+                />
+              </>
+            )}
           </Box>
         </Box>
       </Box>
