@@ -63,4 +63,22 @@ exports.markNotificationAsRead = async (req, res) => {
     console.error('Error marking notification as read:', error);
     res.status(500).json({ message: 'Failed to mark notification as read', error: error.message });
   }
+};
+
+exports.deleteNotification = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const notification = await Notification.findById(notificationId);
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found.' });
+    }
+    if (req.user.id !== notification.receiverId.toString()) {
+      return res.status(403).json({ message: 'Not authorized to delete this notification.' });
+    }
+    await Notification.findByIdAndDelete(notificationId);
+    res.status(200).json({ message: 'Notification deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    res.status(500).json({ message: 'Failed to delete notification', error: error.message });
+  }
 }; 

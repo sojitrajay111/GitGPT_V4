@@ -3,7 +3,6 @@ const Notification = require('../models/Notificationmodel'); // Ensure this path
 const User = require('../models/User'); // Assuming User model for sender/receiver ID lookup
 const Project = require('../models/Project'); // Assuming you have a Project model to get projectName
 const GithubData = require('../models/GithubData'); // Import GithubData model
-// const { getIO } = require('../socket'); // For Socket.IO real-time notifications
 
 exports.addCollaborator = async (req, res) => {
   const { created_user_id, project_id, collaborator } = req.body; // created_user_id is the manager's ID (sender)
@@ -18,7 +17,7 @@ exports.addCollaborator = async (req, res) => {
     // 2. Find the developer (receiver) by GitHub ID in GithubData
     const githubData = await GithubData.findOne({ githubId: String(collaborator.githubId) });
     if (!githubData) {
-      return res.status(404).json({ message: 'Collaborator (GitHub user) not found in the system. They must sign up first.' });
+      return res.status(404).json({ message: 'Collaborator (GitHub developer account) not found in the system. They must sign up first.' });
     }
     const developer = await User.findById(githubData.userId);
     if (!developer) {

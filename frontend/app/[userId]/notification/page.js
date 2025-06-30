@@ -18,9 +18,15 @@ import {
   Chip,
   Fade,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from "@mui/material";
 import MarkEmailReadIcon from "@mui/icons-material/MarkEmailRead";
 import MarkEmailUnreadIcon from "@mui/icons-material/MarkEmailUnread";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useParams, useRouter } from "next/navigation";
 import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns"; // For time formatting
@@ -32,6 +38,7 @@ import { useGetThemeQuery } from "@/features/themeApiSlice"; // Assuming theme s
 import {
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
+  useDeleteNotificationMutation,
 } from "@/features/notificationApiSlice"; // Import the new notification API hooks
 
 // Placeholder for theme definitions if not imported externally
@@ -157,6 +164,26 @@ const NotificationPage = () => {
     markNotificationAsRead,
     { isLoading: markAsReadLoading, isError: markAsReadIsError, error: markAsReadError },
   ] = useMarkNotificationAsReadMutation();
+
+  // Delete notification mutation
+  const [deleteNotification, { isLoading: deleteLoading }] = useDeleteNotificationMutation();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState(null);
+
+  const handleOpenDeleteDialog = (notification) => {
+    setNotificationToDelete(notification);
+    setDeleteDialogOpen(true);
+  };
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setNotificationToDelete(null);
+  };
+  const handleConfirmDelete = async () => {
+    if (notificationToDelete) {
+      await deleteNotification(notificationToDelete._id);
+      handleCloseDeleteDialog();
+    }
+  };
 
   const handleMarkAsRead = useCallback(async (notificationId) => {
     try {
@@ -350,6 +377,15 @@ const NotificationPage = () => {
                                   {markAsReadLoading ? <CircularProgress size={20} /> : <MarkEmailReadIcon />}
                                 </IconButton>
                               )}
+                              <IconButton
+                                edge="end"
+                                aria-label="delete notification"
+                                onClick={() => handleOpenDeleteDialog(notification)}
+                                disabled={deleteLoading}
+                                sx={{ color: activeTheme.palette.error.main, ml: 1 }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
                             </ListItemSecondaryAction>
                           </ListItem>
                         ))}
@@ -423,6 +459,15 @@ const NotificationPage = () => {
                               <IconButton edge="end" aria-label="read" disabled>
                                 <MarkEmailUnreadIcon sx={{ color: activeTheme.palette.text.secondary }} />
                               </IconButton>
+                              <IconButton
+                                edge="end"
+                                aria-label="delete notification"
+                                onClick={() => handleOpenDeleteDialog(notification)}
+                                disabled={deleteLoading}
+                                sx={{ color: activeTheme.palette.error.main, ml: 1 }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
                             </ListItemSecondaryAction>
                           </ListItem>
                         ))}
@@ -434,6 +479,29 @@ const NotificationPage = () => {
             )}
           </Box>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={handleCloseDeleteDialog}
+          aria-labelledby="delete-notification-dialog-title"
+          aria-describedby="delete-notification-dialog-description"
+        >
+          <DialogTitle id="delete-notification-dialog-title">Delete Notification?</DialogTitle>
+          <DialogContent>
+            <DialogContentText id="delete-notification-dialog-description">
+              Are you sure you want to delete this notification? This action cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDeleteDialog} color="primary">
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmDelete} color="error" disabled={deleteLoading} autoFocus>
+              {deleteLoading ? <CircularProgress size={20} /> : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </ThemeProvider>
   );

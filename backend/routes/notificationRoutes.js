@@ -19,4 +19,9 @@ router.put('/:notificationId/read', authMiddleware, notificationController.markN
 // @access Private (manager only)
 router.post('/user-story-assignment', authMiddleware, notificationController.sendUserStoryAssignmentNotifications);
 
+// @route DELETE /api/notifications/:notificationId
+// @desc Delete a notification by ID (only receiver can delete)
+// @access Private
+router.delete('/:notificationId', authMiddleware, notificationController.deleteNotification);
+
 module.exports = router;

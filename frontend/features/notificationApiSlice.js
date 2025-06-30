@@ -50,6 +50,16 @@ export const notificationApi = createApi({
         body: { collaboratorIds, userStoryTitle, projectId, projectName },
       }),
     }),
+    deleteNotification: builder.mutation({
+      query: (notificationId) => ({
+        url: `/${notificationId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, notificationId) => [
+        { type: 'Notifications', id: notificationId },
+        'Notifications',
+      ],
+    }),
   }),
 });
 
@@ -58,6 +68,7 @@ export const {
   useGetNotificationsQuery,
   useMarkNotificationAsReadMutation,
   useSendUserStoryAssignmentNotificationMutation,
+  useDeleteNotificationMutation,
 } = notificationApi;
 
 // Export the reducer for your store setup
