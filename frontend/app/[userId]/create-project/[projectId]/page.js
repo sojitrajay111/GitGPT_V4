@@ -14,6 +14,7 @@ import DarkModeIcon from "@mui/icons-material/DarkMode";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useParams, useRouter } from "next/navigation";
 import { alpha } from "@mui/system";
+import { useSelector } from 'react-redux';
 
 // Import API Hooks
 import {
@@ -23,7 +24,6 @@ import {
   useDeleteProjectMutation,
 } from "@/features/projectApiSlice";
 import {
-  useAddCollaboratorMutation,
   useSearchGithubUsersQuery,
   useDeleteCollaboratorMutation,
   useUpdateCollaboratorPermissionsMutation,
@@ -36,6 +36,8 @@ import {
   useGetThemeQuery,
   useUpdateThemeMutation,
 } from "@/features/themeApiSlice";
+import { useGetNotificationsQuery } from "@/features/notificationApiSlice";
+import { useAddCollaboratorMutation as useAddCollaboratorMutationCollab } from "@/features/collaboratorApiSlice";
 
 import { skipToken } from "@reduxjs/toolkit/query";
 
@@ -609,7 +611,7 @@ const ProjectDetailPage = () => {
       error: addCollaboratorError,
       reset: resetAddCollaboratorMutation,
     },
-  ] = useAddCollaboratorMutation();
+  ] = useAddCollaboratorMutationCollab();
   const [
     deleteCollaborator,
     {
@@ -660,6 +662,36 @@ const ProjectDetailPage = () => {
       reset: resetDeleteGithubRepoMutation,
     },
   ] = useDeleteGithubRepoMutation();
+
+  // Get logged-in userId from Redux (authSlice)
+  const userInfo = useSelector(state => state.auth.userInfo);
+  let loggedInUserId = userInfo?._id || userInfo?.id;
+  // Fallback: try to get userId from localStorage if Redux is empty (optional, for robustness)
+  if (!loggedInUserId && typeof window !== 'undefined') {
+    try {
+      const storedUser = localStorage.getItem('userInfo');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        loggedInUserId = parsed._id || parsed.id;
+      }
+    } catch (e) {}
+  }
+  // Notification API call for debugging
+  const {
+    data: notifications,
+    error: notificationsError,
+    isLoading: notificationsLoading,
+  } = useGetNotificationsQuery(loggedInUserId, { skip: !loggedInUserId });
+
+  if (!loggedInUserId) {
+    return (
+      <Box p={4} className="min-h-screen" sx={{ bgcolor: activeTheme.palette.background.default }}>
+        <Alert severity="warning" className="rounded-xl">
+          Unable to determine logged-in user. Please log in again.
+        </Alert>
+      </Box>
+    );
+  }
 
   // Effects for mutation success handling
   useEffect(() => {
@@ -792,13 +824,33 @@ const ProjectDetailPage = () => {
   );
 
   const handleAddCollaborator = async () => {
-    if (selectedUser && projectId) {
+    if (selectedUser && projectId && userData?.user?._id) {
       try {
+        console.log("Sending to addCollaborator:", {
+          created_user_id: userData.user._id,
+          project_id: projectId,
+          collaborator: {
+            username: selectedUser.login,
+            githubId: selectedUser.id,
+            avatarUrl: selectedUser.avatar_url,
+            permissions: selectedPermissions,
+          },
+        });
         await addCollaborator({
-          projectId,
-          githubUsername: selectedUser.login,
-          permissions: selectedPermissions,
+          created_user_id: userData.user._id,
+          project_id: projectId,
+          collaborator: {
+            username: selectedUser.login,
+            githubId: selectedUser.id,
+            avatarUrl: selectedUser.avatar_url,
+            permissions: selectedPermissions,
+          },
         }).unwrap();
+        // Debug: Log notifications after adding collaborator
+        console.log("Notifications after adding collaborator:", notifications);
+        if (notificationsError) {
+          console.error("Notification fetch error:", notificationsError);
+        }
       } catch (err) {
         console.error("Failed to add collaborator:", err);
       }

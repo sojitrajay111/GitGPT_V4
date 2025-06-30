@@ -32,13 +32,14 @@ import {
   useGenerateSalesforceCodeMutation,
   useGetCollaboratorUserStoriesQuery,
 } from "@/features/userStoryApiSlice";
-import { useGetCollaboratorsQuery } from "@/features/projectApiSlice";
-import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
+import { useGetCollaboratorsQuery, useGetProjectByIdQuery } from "@/features/projectApiSlice";
+import { useGetUserAndGithubDataQuery, useMapGithubIdsToUserIdsMutation } from "@/features/githubApiSlice";
 import {
   useGetCollaboratorPermissionsQuery,
   useGetDeveloperUserStoriesQuery,
 } from "@/features/developerApiSlice";
 import { useGetThemeQuery } from "@/features/themeApiSlice";
+import { useSendUserStoryAssignmentNotificationMutation } from "@/features/notificationApiSlice";
 
 // Define styled components that were previously in page.js, if they are only used here.
 // If they are generic enough, they can be moved to a shared styles file or to AppTheme.
@@ -158,6 +159,10 @@ const UserStoryPage = () => {
   const [generateAiStory, { isLoading: isGenerating }] =
     useGenerateAiStoryMutation();
   const [triggerSalesforceCodeGeneration] = useGenerateSalesforceCodeMutation();
+  const [sendUserStoryAssignmentNotification] = useSendUserStoryAssignmentNotificationMutation();
+  const [mapGithubIdsToUserIds] = useMapGithubIdsToUserIdsMutation();
+
+  const { data: projectData } = useGetProjectByIdQuery(projectId, { skip: !projectId });
 
   const canManageStories =
     userRole === "manager" ||
@@ -413,6 +418,16 @@ const UserStoryPage = () => {
       resetForm();
       refetchUserStories();
       setActivePanel("list");
+
+      if (selectedCollaboratorGithubIds.length > 0) {
+        const { userIds } = await mapGithubIdsToUserIds(selectedCollaboratorGithubIds).unwrap();
+        await sendUserStoryAssignmentNotification({
+          collaboratorIds: userIds,
+          userStoryTitle: userStoryTitle,
+          projectId: projectId,
+          projectName: projectData?.project?.projectName || "Project",
+        });
+      }
     } catch (err) {
       showSnackbar(err.data?.message || "An error occurred.", "error");
     }

@@ -298,47 +298,7 @@ jobs:
           npm install --global @salesforce/cli
           sf --version
 
-      # 3. Create required project files if missing
-#       - name: 'Setup Project Structure'
-#         run: |
-#           # Create sfdx-project.json if it doesn't exist
-#           if [ ! -f "sfdx-project.json" ]; then
-#             echo "Creating sfdx-project.json..."
-#             echo '{
-#               "packageDirectories": [{"path": "force-app", "default": true}],
-#               "name": "ai-salesforce-project",
-#               "namespace": "",
-#               "sfdcLoginUrl": "https://login.salesforce.com",
-#               "sourceApiVersion": "64.0"
-#             }' > sfdx-project.json
-#           fi
-          
-#           # Create basic meta.xml files for Apex classes
-#           find force-app -name "*.cls" | while read cls_file; do
-#             meta_file="${cls_file}-meta.xml"
-#             if [ ! -f "$meta_file" ]; then
-#               echo "Creating meta.xml for $cls_file"
-#               echo '<?xml version="1.0" encoding="UTF-8"?>
-# <ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
-#     <apiVersion>64.0</apiVersion>
-#     <status>Active</status>
-# </ApexClass>' > "$meta_file"
-#             fi
-#           done
-          
-#           # Create basic meta.xml files for Apex triggers
-#           find force-app -name "*.trigger" | while read trigger_file; do
-#             meta_file="${trigger_file}-meta.xml"
-#             if [ ! -f "$meta_file" ]; then
-#               echo "Creating meta.xml for $trigger_file"
-#               echo '<?xml version="1.0" encoding="UTF-8"?>
-# <ApexTrigger xmlns="http://soap.sforce.com/2006/04/metadata">
-#     <apiVersion>64.0</apiVersion>
-#     <status>Active</status>
-# </ApexTrigger>' > "$meta_file"
-#             fi
-#           done
-
+     
       # 4. Authenticate to the Salesforce Org using JWT
       - name: 'Authenticate to Salesforce Org'
         run: |
