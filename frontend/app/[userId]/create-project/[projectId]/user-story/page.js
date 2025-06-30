@@ -253,10 +253,12 @@ const UserStoryPage = () => {
       setStoryStatus("IN REVIEW");
       showSnackbar("AI content generated successfully!");
     } catch (err) {
-      showSnackbar(
-        err.data?.message || "Failed to generate AI content.",
-        "error"
-      );
+      const msg = err.data?.message || err.message || "Failed to generate AI content.";
+      if (msg.includes("Gemini integration not configured") || msg.includes("AI service configuration error")) {
+        showSnackbar("Please add your Gemini or OpenAI API key in settings to use AI features.", "error");
+      } else {
+        showSnackbar(msg, "error");
+      }
     }
   };
 
@@ -373,15 +375,14 @@ const UserStoryPage = () => {
         buffer = buffer.substring(lastIndex);
       }
     } catch (err) {
-      console.error("Fetch error during Salesforce code generation:", err);
-      setGenerationError(
-        err.message || "Network error during code generation."
-      );
+      const msg = err.data?.message || err.message || "Network error during code generation.";
+      if (msg.includes("Gemini integration not configured") || msg.includes("AI service configuration error")) {
+        showSnackbar("Please add your Gemini or OpenAI API key in settings to use AI features.", "error");
+      } else {
+        showSnackbar(msg, "error");
+      }
+      setGenerationError(msg);
       setCurrentGenerationStatus("Failed to connect or stream.");
-      showSnackbar(
-        err.message || "Network error during code generation.",
-        "error"
-      );
     } finally {
       setTimeout(() => {
         setIsGeneratingCodeProcess(false);

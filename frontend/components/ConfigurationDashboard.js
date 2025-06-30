@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
 
 // Import Shadcn/ui's Table components
 import {
@@ -65,6 +66,10 @@ const ConfigurationDashboard = () => {
   const [editingConfig, setEditingConfig] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [managerGeminiConfig, setManagerGeminiConfig] = useState(null);
+  const [managerConfigError, setManagerConfigError] = useState("");
+  const [managerConfigs, setManagerConfigs] = useState([]);
+  const [userRole, setUserRole] = useState("");
 
   // Get auth token
   const getAuthToken = () => {
@@ -82,23 +87,51 @@ const ConfigurationDashboard = () => {
     };
   };
 
+  // Fetch user data (role, managerId)
+  const { data: userData } = useGetUserAndGithubDataQuery(userId);
+  const configOwnerId = userData?.user?.role === "manager" ? userId : userData?.user?.managerId;
+
   // Fetch configurations on component mount
   useEffect(() => {
     console.log("Current userId:", userId);
-    if (userId) {
-      fetchConfigurations();
+    if (configOwnerId) {
+      fetchConfigurations(configOwnerId);
+      fetchUserAndManagerConfigs();
     }
+  }, [configOwnerId]);
+
+  useEffect(() => {
+    // Only fetch if user is a developer (you may need to check user role from context/auth)
+    async function fetchManagerConfig() {
+      try {
+        // Replace with actual logic to get user role and developerId
+        const role = localStorage.getItem("role"); // or from auth context
+        if (role !== "developer") return;
+
+        const developerId = userId; // userId from params
+        const res = await fetch(`/api/developer/manager-config/${developerId}`);
+        const data = await res.json();
+        if (res.ok) {
+          setManagerGeminiConfig(data.config);
+        } else {
+          setManagerConfigError(data.message || "Could not fetch manager config");
+        }
+      } catch (err) {
+        setManagerConfigError("Network error");
+      }
+    }
+    fetchManagerConfig();
   }, [userId]);
 
-  const fetchConfigurations = async () => {
+  const fetchConfigurations = async (ownerId) => {
     try {
       setLoading(true);
-      if (!userId) {
+      if (!ownerId) {
         throw new Error("User ID not found");
       }
 
       const response = await axios.get(
-        `http://localhost:3001/api/configurations/${userId}`,
+        `http://localhost:3001/api/configurations/${ownerId}`,
         getAuthHeaders()
       );
 
@@ -126,14 +159,36 @@ const ConfigurationDashboard = () => {
     }
   };
 
+  const fetchUserAndManagerConfigs = async () => {
+    try {
+      // Fetch the developer's user object to get managerId and role
+      const userRes = await axios.get(`http://localhost:3001/api/users/${userId}`, getAuthHeaders());
+      if (userRes.data && userRes.data.success) {
+        const user = userRes.data.data;
+        setUserRole(user.role);
+        if (user.role === "developer" && user.managerId) {
+          // Fetch manager's configurations
+          const configRes = await axios.get(`http://localhost:3001/api/configurations/${user.managerId}`, getAuthHeaders());
+          if (configRes.data.success) {
+            setManagerConfigs(configRes.data.data);
+          } else {
+            setManagerConfigError(configRes.data.message || "Failed to fetch manager configs");
+          }
+        }
+      }
+    } catch (err) {
+      setManagerConfigError("Network error");
+    }
+  };
+
   const handleSaveConfiguration = async (configData) => {
     try {
-      if (!userId) {
+      if (!configOwnerId) {
         throw new Error("User ID not found");
       }
 
       const response = await axios.post(
-        `http://localhost:3001/api/configurations/${userId}`,
+        `http://localhost:3001/api/configurations/${configOwnerId}`,
         {
           configTitle: configData.title,
           configValue: configData.items.map((item) => ({
@@ -152,7 +207,7 @@ const ConfigurationDashboard = () => {
           } successfully.`,
         });
         handleCloseWizard();
-        fetchConfigurations(); // Refresh the list
+        fetchConfigurations(configOwnerId); // Refresh the list
       } else {
         throw new Error(
           response.data.message || "Failed to save configuration"
@@ -189,7 +244,7 @@ const ConfigurationDashboard = () => {
 
   const handleDeleteConfiguration = async (id) => {
     try {
-      if (!userId) {
+      if (!configOwnerId) {
         throw new Error("User ID not found");
       }
 
@@ -199,7 +254,7 @@ const ConfigurationDashboard = () => {
       }
 
       const response = await axios.delete(
-        `http://localhost:3001/api/configurations/${userId}/${configToDelete.configTitle}`,
+        `http://localhost:3001/api/configurations/${configOwnerId}/${configToDelete.configTitle}`,
         getAuthHeaders()
       );
 
@@ -207,7 +262,7 @@ const ConfigurationDashboard = () => {
         toast.success("Configuration Deleted", {
           description: "The configuration has been removed successfully.",
         });
-        fetchConfigurations(); // Refresh the list
+        fetchConfigurations(configOwnerId); // Refresh the list
       } else {
         throw new Error(
           response.data.message || "Failed to delete configuration"
@@ -231,7 +286,7 @@ const ConfigurationDashboard = () => {
 
   const handleToggleStatus = async (id) => {
     try {
-      if (!userId) {
+      if (!configOwnerId) {
         throw new Error("User ID not found");
       }
 
@@ -241,7 +296,7 @@ const ConfigurationDashboard = () => {
       }
 
       const response = await axios.patch(
-        `http://localhost:3001/api/configurations/${userId}/${configToToggle.configTitle}/toggle`,
+        `http://localhost:3001/api/configurations/${configOwnerId}/${configToToggle.configTitle}/toggle`,
         {},
         getAuthHeaders()
       );
@@ -252,7 +307,7 @@ const ConfigurationDashboard = () => {
             response.data.data.isActive ? "Active" : "Inactive"
           }.`,
         });
-        fetchConfigurations(); // Refresh the list
+        fetchConfigurations(configOwnerId); // Refresh the list
       } else {
         throw new Error(
           response.data.message || "Failed to toggle configuration status"
@@ -438,13 +493,15 @@ const ConfigurationDashboard = () => {
               Manage API settings and configurations for your tools
             </p>
           </div>
-          <Button
-            onClick={handleOpenWizard}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add Configuration
-          </Button>
+          {userRole !== "developer" && (
+            <Button
+              onClick={handleOpenWizard}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Configuration
+            </Button>
+          )}
         </div>
 
         {/* Summary Cards */}
@@ -485,11 +542,7 @@ const ConfigurationDashboard = () => {
                 Last Updated
               </CardTitle>
               <Badge variant="outline">
-                {new Date().toLocaleDateString("en-IN", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {lastUpdatedDate}
               </Badge>
             </CardHeader>
             <CardContent>
