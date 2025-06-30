@@ -209,7 +209,9 @@ const isUserAuthorizedForCodeAnalysis = async (userId, projectId) => {
     );
     const collaborator = projectCollaboratorEntry.collaborators.find(
       (collab) =>
-        collab.githubId === requestingUserGithubId &&
+        collab.githubId &&
+        collab.githubId.toLowerCase() === requestingUserGithubId.toLowerCase() &&
+        Array.isArray(collab.permissions) &&
         collab.permissions.includes("Code analysis")
     );
     if (collaborator) {
@@ -217,7 +219,15 @@ const isUserAuthorizedForCodeAnalysis = async (userId, projectId) => {
       return true;
     } else {
       console.log(
-        `[Auth Check] User ${userId} is NOT an authorized collaborator.`
+        `[Auth Check] User ${userId} is NOT an authorized collaborator. Details:`,
+        {
+          requestingUserGithubId,
+          collaborators: projectCollaboratorEntry.collaborators.map(c => ({
+            githubId: c.githubId,
+            status: c.status,
+            permissions: c.permissions
+          }))
+        }
       );
     }
   } else {
@@ -379,7 +389,15 @@ const sendCodeAnalysisMessage = async (req, res) => {
       `[CodeAnalysis] User message saved with ID: ${userMessage._id}`
     );
     console.log(`[CodeAnalysis] Fetching GitHub data for user: ${userId}`);
-    const githubData = await GitHubData.findOne({ userId });
+    const user = await User.findById(userId);
+    let githubData = await GitHubData.findOne({ userId });
+    if (user.role === 'developer' && user.managerId) {
+      // Use manager's token for code analysis
+      const managerGithubData = await GitHubData.findOne({ userId: user.managerId });
+      if (managerGithubData && managerGithubData.githubPAT) {
+        githubData = managerGithubData;
+      }
+    }
     if (!githubData || !githubData.githubPAT) {
       console.log(`[CodeAnalysis] GitHub PAT not found for user: ${userId}`);
       return res.status(400).json({
@@ -702,7 +720,6 @@ Instructions:
 7. Be concise, structured, and avoid speculative responses.`;
 
     console.log(`[CodeAnalysis] Starting Gemini chat...`);
-    const user = await User.findById(userId);
     const configOwnerId = user.role === "developer" ? user.managerId : user._id;
     const geminiConfig = await Configuration.findOne({
       userId: configOwnerId,
