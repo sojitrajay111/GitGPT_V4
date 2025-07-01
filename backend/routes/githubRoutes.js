@@ -26,6 +26,7 @@ const {
   getGitHubDetails, // New: Import getGitHubDetails
   addOrUpdateGitHubDetails, // New: Import addOrUpdateGitHubDetails
   deleteGitHubDetails, // New: Import deleteGitHubDetails
+  getRepoBranchesServer,
 } = require("../controllers/githubController");
 
 // Middleware to authenticate user (ensure this path is correct)
@@ -109,5 +110,8 @@ router.post("/webhook", handleGitHubWebhook);
 // --- Legacy Routes (if still needed) ---
 router.get("/auth-status", authenticateUser, checkGitHubAuthStatus);
 router.get("/data", authenticateUser, getGitHubData);
+
+// Add route to fetch branches from backend
+router.get("/branches", getRepoBranchesServer);
 
 module.exports = router;

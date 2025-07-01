@@ -1,6 +1,6 @@
 // components/ProjectMetrics.js
 import React from "react";
-import { Box, Typography, Card, Grid } from "@mui/material";
+import { Box, Typography, Card, Grid, FormControl, InputLabel, Select, MenuItem, useMediaQuery, useTheme, Paper } from "@mui/material";
 import {
   ResponsiveContainer,
   BarChart,
@@ -14,6 +14,9 @@ import {
   Cell,
 } from "recharts";
 import { styled } from "@mui/system";
+import SyncContributionsButton from "./SyncContributionsButton";
+import { useGithubBranches } from "../../lib/useGithubBranches";
+import BranchSyncBar from "./BranchSyncBar";
 
 // Styled component for chart cards, adapted for dynamic theme
 const ChartCard = styled(Card)(({ theme }) => ({
@@ -32,10 +35,21 @@ const ChartCard = styled(Card)(({ theme }) => ({
  * @param {object} props.activeTheme - The currently active Material-UI theme.
  * @param {object} props.projectMetricsData - Data object containing all project metrics for charts.
  * @param {Array<string>} props.CHART_COLORS - Array of colors to be used in charts.
+ * @param {object} props.project - The project object.
  */
-const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS }) => {
+const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project }) => {
+  // Branch selection logic
+  const { branches, loading: branchesLoading } = useGithubBranches(project?.githubRepoLink);
+  const [selectedBranch, setSelectedBranch] = React.useState("");
+  React.useEffect(() => {
+    if (branches.length > 0) {
+      setSelectedBranch(branches[0].name);
+    }
+  }, [branches]);
+
   return (
     <>
+      <BranchSyncBar project={project} />
       <Typography
         variant="h5"
         component="h2"

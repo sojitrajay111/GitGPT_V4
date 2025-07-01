@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const githubApiSlice = createApi({
   reducerPath: "githubApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/github`, // Adjust based on your API structure
+    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/github`,
 
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("token"); // Or however you store your auth token
@@ -245,6 +245,13 @@ export const githubApiSlice = createApi({
         id: userId
       }],
     }),
+    // Add syncContributions mutation
+    syncContributions: builder.mutation({
+      query: (projectId) => ({
+        url: `/projects/${projectId}/sync-contributions`,
+        method: "POST",
+      }),
+    }),
   }),
 });
 
@@ -270,4 +277,5 @@ export const {
   useGetGitHubDetailsQuery, // New: Export the new query hook
   useAddOrUpdateGitHubDetailsMutation, // New: Export the new mutation hook
   useDeleteGitHubDetailsMutation, // New: Export the new mutation hook
+  useSyncContributionsMutation,
 } = githubApiSlice;

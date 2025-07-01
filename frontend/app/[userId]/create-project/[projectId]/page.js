@@ -1077,6 +1077,7 @@ const ProjectDetailPage = () => {
             prStatusData,
           }}
           CHART_COLORS={CHART_COLORS}
+          project={project}
         />
 
         {/* Collaborators Table Section */}
