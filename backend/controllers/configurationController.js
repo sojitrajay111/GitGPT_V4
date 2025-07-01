@@ -135,3 +135,40 @@ exports.toggleConfigurationStatus = async (req, res) => {
     });
   }
 };
+
+// Helper to fetch and validate Jira config for a user
+async function getUserJiraConfig(userId) {
+  const jiraConfig = await Configuration.findOne({ userId, configTitle: "Jira", isActive: true });
+  if (!jiraConfig) throw new Error("Jira integration not configured.");
+  const apiUrl = jiraConfig.configValue.find(v => v.key === "apiUrl")?.value;
+  const email = jiraConfig.configValue.find(v => v.key === "email")?.value;
+  const apiToken = jiraConfig.configValue.find(v => v.key === "apiToken")?.value;
+  const projectKey = jiraConfig.configValue.find(v => v.key === "projectKey")?.value;
+  if (!apiUrl || !email || !apiToken || !projectKey) throw new Error("Incomplete Jira configuration.");
+  return { apiUrl, email, apiToken, projectKey };
+}
+
+// Example: Fetch Jira issues using user configuration
+const fetchJiraIssues = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { apiUrl, email, apiToken, projectKey } = await getUserJiraConfig(userId);
+    const auth = Buffer.from(`${email}:${apiToken}`).toString('base64');
+    const response = await fetch(`${apiUrl}/rest/api/3/search?jql=project=${projectKey}`, {
+      headers: {
+        "Authorization": `Basic ${auth}`,
+        "Accept": "application/json"
+      }
+    });
+    if (!response.ok) {
+      const errorData = await response.text();
+      return res.status(response.status).json({ success: false, message: `Jira API error: ${errorData}` });
+    }
+    const data = await response.json();
+    return res.json({ success: true, issues: data.issues });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports.fetchJiraIssues = fetchJiraIssues;

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -14,6 +14,7 @@ import {
   Menu,
   Sun,
   Moon,
+    Bell,
 } from "lucide-react";
 import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
 // import Cookies from "js-cookie"; // Remove Cookies import
@@ -21,6 +22,11 @@ import {
   useGetThemeQuery,
   useUpdateThemeMutation,
 } from "@/features/themeApiSlice"; // Import new theme hooks
+
+import { useGetCompanyDetailsQuery } from "@/features/companyApi";
+
+import { useGetNotificationsQuery } from "@/features/notificationApiSlice";
+
 
 const Sidebar = ({
   userId,
@@ -32,7 +38,9 @@ const Sidebar = ({
   setActiveTab,
 }) => {
   const router = useRouter();
-  const { data: userData } = useGetUserAndGithubDataQuery(userId); // Renamed for clarity
+  const { data: userData } = useGetUserAndGithubDataQuery(userId);
+  const managerId = userData?.user?.role === "manager" ? userId : userData?.user?.managerId;
+  const { data: companyData } = useGetCompanyDetailsQuery(managerId, { skip: !managerId });
   // Use theme from RTK Query
   const {
     data: themeData,
@@ -89,16 +97,37 @@ const handleToggleTheme = async () => {
     router.refresh();
   };
 
+  // Fetch notifications for badge
+  const { data: notifications, isLoading: notificationsLoading, refetch: refetchNotifications } = useGetNotificationsQuery(userId, { skip: !userId });
+  const unreadCount = notifications ? notifications.filter(n => !n.isRead).length : 0;
+
+  // Polling for notifications every 10 seconds
+  useEffect(() => {
+    if (!userId) return;
+    const interval = setInterval(() => {
+      refetchNotifications();
+    }, 10000); // 10 seconds
+    return () => clearInterval(interval);
+  }, [userId, refetchNotifications]);
+
   const mainNavItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "create-project", label: "Projects", icon: FolderOpen },
     { id: "report", label: "Reports", icon: BarChart },
+    { id: "notification", label: "Notification", icon: Bell, badge: unreadCount },
   ];
 
   const accountNavItems = [
     { id: "setting", label: "Settings", icon: Settings },
     { id: "logout", label: "Logout", icon: LogOut, action: handleLogout },
   ];
+
+  useEffect(() => {
+  const currentPath = window.location.pathname;
+  const active = currentPath.split("/")[2]; // after /userId/
+  setActiveTab(active);
+}, []);
+
 
   // Dynamic class for theme
   const sidebarBg = theme === "dark" ? "bg-black" : "bg-white";
@@ -141,26 +170,25 @@ const handleToggleTheme = async () => {
           <X className="w-6 h-6" />
         </button>
 
-        {/* Logo & Collapse toggle */}
+        {/* Logo & Collapse toggle with company info only */}
         <div
-          className={`p-5 flex items-center justify-between border-b ${borderColor} ${
-            collapsed ? "justify-center" : ""
-          }`}
+          className={`p-5 flex items-center justify-between border-b ${borderColor} ${collapsed ? "justify-center" : ""}`}
         >
           <div className="flex items-center">
-            <img
-              src="/logo.png"
-              alt="GitGPT Logo"
-              className={`transition-all duration-300 ease-in-out ${
-                collapsed ? "w-10 h-10" : "w-10 h-10 mr-3"
-              }`}
-            />
-            {!collapsed && (
-              <h1
-                className={`text-xl font-bold ${logoTextColor} tracking-wide`}
-              >
-                GitGPT
-              </h1>
+            {companyData && (
+              <>
+                <img
+                  src={companyData.companyLogoUrl || "/default-logo.png"}
+                  alt="Company Logo"
+                  className={`transition-all duration-300 ease-in-out rounded object-cover border ${collapsed ? "w-10 h-10" : "w-10 h-10 mr-3"}`}
+                  style={{ background: "#fff" }}
+                />
+                {!collapsed && (
+                  <span className={`text-xl font-bold ${logoTextColor} tracking-wide`}>
+                    {companyData.companyName}
+                  </span>
+                )}
+              </>
             )}
           </div>
 
@@ -238,7 +266,7 @@ const handleToggleTheme = async () => {
                 Main
               </h3>
               <ul className="space-y-1">
-                {mainNavItems.map(({ id, label, icon: Icon }) => (
+                {mainNavItems.map(({ id, label, icon: Icon, badge }) => (
                   <li key={id}>
                     <button
                       onClick={() => handleNavigate(id)}
@@ -253,6 +281,11 @@ const handleToggleTheme = async () => {
                     >
                       <Icon className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
                       {!collapsed && label}
+                      {badge > 0 && !collapsed && (
+                        <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                          {badge}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
@@ -286,26 +319,26 @@ const handleToggleTheme = async () => {
               </ul>
             </div>
           </nav>
+        </div>
 
-          {/* Theme Toggle Button */}
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={handleToggleTheme}
-              className={`flex items-center w-full p-3 text-sm rounded-lg transition-colors duration-200
-                ${hoverBg} ${buttonTextColor}
-                ${collapsed ? "justify-center" : ""}`}
-              title="Toggle Theme"
-            >
-              {theme === "dark" ? (
-                <Sun className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
-              ) : (
-                <Moon className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
-              )}
-              {!collapsed && (
-                <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
-              )}
-            </button>
-          </div>
+        {/* Theme Toggle Button */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={handleToggleTheme}
+            className={`flex items-center w-full p-3 text-sm rounded-lg transition-colors duration-200
+              ${hoverBg} ${buttonTextColor}
+              ${collapsed ? "justify-center" : ""}`}
+            title="Toggle Theme"
+          >
+            {theme === "dark" ? (
+              <Sun className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
+            ) : (
+              <Moon className={`w-5 h-5 ${!collapsed ? "mr-3" : ""}`} />
+            )}
+            {!collapsed && (
+              <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+            )}
+          </button>
         </div>
       </div>
     </>

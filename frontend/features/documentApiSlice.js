@@ -19,6 +19,7 @@ export const documentApi = createApi({
   endpoints: (builder) => ({
     // Initialize Google Drive connection
     initGoogleDrive: builder.mutation({
+
       query: (credentials) => ({
         url: "/init-google-drive",
         method: "POST",

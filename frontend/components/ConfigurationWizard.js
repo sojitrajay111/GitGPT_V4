@@ -66,8 +66,17 @@ const ConfigurationWizard = ({
   };
 
   const handleConfigItemChange = (index, field, value) => {
+    let newValue = value;
+    // Auto-correct the key for Gemini/OpenAI integrations
+    if (field === 'key') {
+      const service = title.trim().toLowerCase();
+      if ((service.includes('gemini') || service.includes('openai')) && value.toLowerCase() !== 'apikey') {
+        newValue = 'apiKey';
+        toast.info("For Gemini/OpenAI, the key has been auto-corrected to 'apiKey'.");
+      }
+    }
     const newItems = configItems.map((item, i) =>
-      i === index ? { ...item, [field]: value } : item
+      i === index ? { ...item, [field]: newValue } : item
     );
     setConfigItems(newItems);
   };
@@ -166,10 +175,13 @@ const ConfigurationWizard = ({
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Key</Label>
                         <Input
-                          placeholder="e.g., api_key, base_url, timeout"
+                          placeholder="e.g., apiKey (required for Gemini/OpenAI)"
                           value={item.key}
                           onChange={(e) => handleConfigItemChange(index, 'key', e.target.value)}
                         />
+                        {(title.trim().toLowerCase().includes('gemini') || title.trim().toLowerCase().includes('openai')) && (
+                          <span className="text-xs text-muted-foreground">For Gemini/OpenAI, the key must be <b>apiKey</b></span>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Value</Label>

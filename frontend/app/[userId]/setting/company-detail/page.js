@@ -20,6 +20,7 @@ import {
 } from "@/features/companyApi";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useGetThemeQuery } from "@/features/themeApiSlice";
+import { useGetUserAndGithubDataQuery } from "@/features/githubApiSlice";
 
 
 export default function CompanyDetailPage() {
@@ -29,13 +30,19 @@ export default function CompanyDetailPage() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Fetch user data to determine role and managerId
+  const { data: userData, isLoading: isUserLoading, isError: isUserError } = useGetUserAndGithubDataQuery(userId);
+  // Determine which userId to use for company details: manager's if developer, own if manager
+  const managerId = userData?.user?.role === "manager" ? userId : userData?.user?.managerId;
+
+  // Fetch company details using the correct userId (manager's if developer)
   const {
     data: companyData,
     isLoading,
     isError,
     error,
     refetch,
-  } = useGetCompanyDetailsQuery(userId);
+  } = useGetCompanyDetailsQuery(managerId, { skip: !managerId });
 
   const [
     addOrUpdateCompanyDetails,
@@ -88,6 +95,17 @@ export default function CompanyDetailPage() {
   const themeMode = themeData?.theme === 'dark' ? 'dark' : 'light';
   const currentTheme = themeMode === 'dark' ? darkTheme : lightTheme;
 
+  // Only allow editing if the user is a manager
+  const isManager = userData?.user?.role === "manager";
+  // Set initial editing state based on role
+  useEffect(() => {
+    if (isManager) {
+      setIsEditing(true);
+    } else {
+      setIsEditing(false);
+    }
+  }, [isManager]);
+
   useEffect(() => {
     if (companyData) {
       setValue("companyName", companyData.companyName || "");
@@ -132,7 +150,7 @@ export default function CompanyDetailPage() {
   const handleAddOrUpdateCompanyDetails = async (data) => {
     try {
       const formData = new FormData();
-      formData.append("userId", userId);
+      formData.append("userId", managerId);
       formData.append("companyName", data.companyName);
       formData.append("companyDescription", data.companyDescription);
       formData.append("companyUrl", data.companyUrl);
@@ -190,7 +208,8 @@ export default function CompanyDetailPage() {
                 Company Detail
               </h2>
             </Box>
-            {isEditing || !companyData ? (
+            {/* Only managers can edit; others see read-only view */}
+            {isManager && (isEditing || !companyData) ? (
               <form onSubmit={handleSubmit(handleAddOrUpdateCompanyDetails)} className="p-6">
                 <Box display="flex" flexDirection="column" gap={3}>
                   <Typography
@@ -372,15 +391,18 @@ export default function CompanyDetailPage() {
                       </Typography>
                     </Box>
                   )}
-                  <Button
-                    variant="outlined"
-                    startIcon={<Pencil size={16} />}
-                    onClick={() => setIsEditing(true)}
-                    className="border rounded"
-                    sx={{ borderColor: currentTheme.palette.primary?.main || '#1976D2', color: currentTheme.palette.primary?.main || '#1976D2', '&:hover': { bgcolor: currentTheme.palette.background.paper } }}
-                  >
-                    Edit Company Details
-                  </Button>
+                  {/* Show Edit button only for managers */}
+                  {isManager && (
+                    <Button
+                      variant="outlined"
+                      startIcon={<Pencil size={16} />}
+                      onClick={() => setIsEditing(true)}
+                      className="border rounded"
+                      sx={{ borderColor: currentTheme.palette.primary?.main || '#1976D2', color: currentTheme.palette.primary?.main || '#1976D2', '&:hover': { bgcolor: currentTheme.palette.background.paper } }}
+                    >
+                      Edit Company Details
+                    </Button>
+                  )}
                 </Box>
               </Box>
             )}

@@ -176,7 +176,25 @@ export default function ProjectsPage() {
 
       await createProjectMutation(projectPayload).unwrap();
     } catch (err) {
-      console.error("Failed to create project:", err);
+      let userMessage = "Failed to create project. Please try again.";
+      if (err?.data?.message) {
+        userMessage = err.data.message;
+        // Check for GitHub repo name conflict
+        if (
+          err.data.message.includes("name already exists on this account") ||
+          (Array.isArray(err.data.details) &&
+            err.data.details.some(
+              (d) =>
+                d.field === "name" &&
+                d.message &&
+                d.message.includes("already exists")
+            ))
+        ) {
+          userMessage =
+            "A GitHub repository with this name already exists. Please choose a different name.";
+        }
+      }
+      alert(userMessage);
     }
   };
 

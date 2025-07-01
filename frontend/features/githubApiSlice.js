@@ -21,6 +21,7 @@ export const githubApiSlice = createApi({
     "ProjectCollaborators",
     "GitHubRepo", // General tag for repo specific data
     "GitHubBranches",
+    "GitHubUsers",
     "GitHubPullRequests",
     "UserAndGitHubData",
     "Project", // Added for invalidating projects upon repo deletion if needed
@@ -66,13 +67,13 @@ export const githubApiSlice = createApi({
       ],
     }),
     addCollaborator: builder.mutation({
-      query: ({ projectId, githubUsername, permissions }) => ({
-        url: "/collaborators",
+      query: (body) => ({
+        url: "/collaborators/add",
         method: "POST",
-        body: { projectId, githubUsername, permissions },
+        body,
       }),
-      invalidatesTags: (result, error, { projectId }) => [
-        { type: "ProjectCollaborators", id: projectId },
+      invalidatesTags: (result, error, { project_id }) => [
+        { type: "ProjectCollaborators", id: project_id },
       ],
     }),
     getCollaborators: builder.query({
@@ -245,6 +246,13 @@ export const githubApiSlice = createApi({
         id: userId
       }],
     }),
+    mapGithubIdsToUserIds: builder.mutation({
+      query: (githubIds) => ({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/github/map-github-ids-to-user-ids`,
+        method: "POST",
+        body: { githubIds },
+      }),
+    }),
   }),
 });
 
@@ -270,4 +278,5 @@ export const {
   useGetGitHubDetailsQuery, // New: Export the new query hook
   useAddOrUpdateGitHubDetailsMutation, // New: Export the new mutation hook
   useDeleteGitHubDetailsMutation, // New: Export the new mutation hook
+  useMapGithubIdsToUserIdsMutation,
 } = githubApiSlice;

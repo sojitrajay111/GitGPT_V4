@@ -3,6 +3,7 @@ const {
   getDeveloperProjects,
   getCollaboratorPermissions,
   getDeveloperUserStories,
+  getManagersGeminiConfig,
 } = require("../controllers/developerController"); // Adjust path as necessary
 
 const router = express.Router();
@@ -18,5 +19,6 @@ router.get(
   getCollaboratorPermissions
 );
 router.get("/userstories/:githubId", getDeveloperUserStories);
+router.get("/manager-config/:developerId", getManagersGeminiConfig);
 
 module.exports = router;

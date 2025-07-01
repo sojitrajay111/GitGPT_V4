@@ -1,7 +1,19 @@
 import { createSlice } from "@reduxjs/toolkit";
 
+const getInitialUserInfo = () => {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("userInfo");
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {}
+    }
+  }
+  return null;
+};
+
 const initialState = {
-  userInfo: null, // Or set default structure like { username: "", email: "", isAuthenticatedToGithub: false }
+  userInfo: getInitialUserInfo(),
 };
 
 const authSlice = createSlice({

@@ -315,6 +315,9 @@ export default function DashboardContent() {
   const [githubData, setGithubData] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [searchTerm, setSearchTerm] = useState(""); // State for search term
+  const [jiraIssues, setJiraIssues] = useState([]);
+  const [jiraLoading, setJiraLoading] = useState(false);
+  const [jiraError, setJiraError] = useState("");
 
   const params = useParams();
   const userId = params.userId;
@@ -385,6 +388,27 @@ export default function DashboardContent() {
       console.error("Failed to disconnect GitHub:", error);
     }
   };
+
+  useEffect(() => {
+    async function fetchJiraIssues() {
+      setJiraLoading(true);
+      setJiraError("");
+      try {
+        const res = await fetch("/api/jira/issues", { credentials: "include" });
+        const data = await res.json();
+        if (data.success) {
+          setJiraIssues(data.issues);
+        } else {
+          setJiraError(data.message || "Failed to fetch Jira issues.");
+        }
+      } catch (err) {
+        setJiraError("Network error fetching Jira issues.");
+      } finally {
+        setJiraLoading(false);
+      }
+    }
+    fetchJiraIssues();
+  }, []);
 
   // Theme logic
   const lightTheme = createTheme({
