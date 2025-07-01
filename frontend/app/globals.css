@@ -136,3 +136,7 @@
   caret-color: #fff !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+.react-flow__attribution {
+  display: none !important;
+}

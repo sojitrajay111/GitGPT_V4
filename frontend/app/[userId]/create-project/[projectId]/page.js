@@ -8,6 +8,7 @@ import {
   Box,
   Switch,
   IconButton,
+  Typography,
 } from "@mui/material";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
@@ -52,6 +53,7 @@ import EditCollaboratorPermissionsDialog from "@/components/project-details/Edit
 import EditProjectDialog from "@/components/project-details/EditProjectDialog";
 import DeleteProjectConfirmationDialog from "@/components/project-details/DeleteProjectConfirmationDialog";
 import DeleteRepoConfirmationDialog from "@/components/project-details/DeleteRepoConfirmationDialog";
+import ProjectFlowTree from '@/components/project-details/ProjectFlowTree';
 
 // Define both Light and Dark themes (kept here for full context, could be external)
 const lightTheme = createTheme({

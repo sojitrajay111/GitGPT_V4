@@ -4,7 +4,9 @@ import { Box, Typography, Button, Grid } from "@mui/material";
 import DescriptionIcon from "@mui/icons-material/Description";
 import CodeIcon from "@mui/icons-material/Code";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import DeviceHubIcon from '@mui/icons-material/DeviceHub';
 import { styled, alpha } from "@mui/system";
+import { useRouter } from 'next/navigation';
 
 // Styled component for action buttons, adapted for dynamic theme
 const ActionButton = styled(Button)(({ theme }) => ({
@@ -87,6 +89,11 @@ const ProjectModules = ({
   user_role,
   developerPermissions,
 }) => {
+  const router = useRouter();
+  const params = typeof window !== 'undefined' ? window.location.pathname.split('/') : [];
+  const userId = params[1] || '';
+  const projectId = params[3] || '';
+
   return (
     <>
       <Typography
@@ -207,6 +214,29 @@ const ProjectModules = ({
               sx={{ color: activeTheme.palette.text.secondary }}
             >
               Streamline code integration
+            </Typography>
+          </ActionButton>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <ActionButton
+            onClick={() => router.push(`/${userId}/create-project/${projectId}/project-flow-tree`)}
+            startIcon={
+              <DeviceHubIcon sx={{ color: activeTheme.palette.warning.main }} />
+            }
+          >
+            <Typography
+              variant="subtitle1"
+              className="font-semibold"
+              sx={{ color: activeTheme.palette.text.primary }}
+            >
+              Project Flow Tree
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{ color: activeTheme.palette.text.secondary }}
+            >
+              Visualize project workflow
             </Typography>
           </ActionButton>
         </Grid>

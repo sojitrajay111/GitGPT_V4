@@ -366,11 +366,23 @@ const CodeAnalysisPage = () => {
         setLastAiResponseForCodePush(result.aiMessage.text);
       }
     } catch (error) {
+      // Log the full error object for debugging
       console.error("Error sending code analysis message:", error);
-      const message =
-        error?.message ||
-        (typeof error === "string" ? error : null) ||
-        "Internal server error";
+
+      // Try to extract a meaningful error message
+      let message = "Internal server error";
+      if (error?.data?.message) {
+        message = error.data.message;
+      } else if (error?.error) {
+        message = error.error;
+      } else if (error?.status) {
+        message = `Error status: ${error.status}`;
+      } else if (typeof error === "string") {
+        message = error;
+      } else if (error?.message) {
+        message = error.message;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
