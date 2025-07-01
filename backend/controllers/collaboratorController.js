@@ -69,6 +69,35 @@ exports.addCollaborator = async (req, res) => {
       projectName: project.projectName,
     });
 
+    // 5. Send GitHub invitation
+    try {
+      const repoFullName = project.githubRepoLink
+        .replace('https://github.com/', '')
+        .replace(/\.git$/, '');
+      const managerGithubData = await GithubData.findOne({ userId: created_user_id });
+      if (managerGithubData && managerGithubData.githubPAT) {
+        const response = await fetch(
+          `https://api.github.com/repos/${repoFullName}/collaborators/${collaborator.username}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `token ${managerGithubData.githubPAT}`,
+              'User-Agent': managerGithubData.githubUsername || 'GitGPT-App',
+              'Content-Type': 'application/json',
+            },
+            // body: JSON.stringify({ permission: 'push' }), // Optional: set permission
+          }
+        );
+        if (![201, 204].includes(response.status)) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Failed to invite collaborator on GitHub:', errorData);
+          // Optionally, handle this error (e.g., notify the manager)
+        }
+      }
+    } catch (err) {
+      console.error('Error sending GitHub invitation:', err);
+    }
+
     // Send real-time notification via Socket.IO if available
     // const io = getIO?.();
     // if (io) {
