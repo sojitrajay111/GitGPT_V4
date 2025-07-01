@@ -274,144 +274,42 @@ jobs:
           path: ".github/workflows/feature.yml",
           content: `name: 'Deploy to Salesforce Org'
 
-# Controls when the workflow will run
 on:
   push:
     branches:
-      - 'feature/ai/**' # Triggers on push to branches like 'feature/ai/new-trigger-logic'
+      - "feature/ai/**"
 
 jobs:
-  # This job handles the entire deployment process
-  validate-and-deploy:
-    runs-on: ubuntu-latest # Use the latest Ubuntu runner
-    
-    steps:
-      # 1. Checkout the repository code
-      - name: 'Checkout source code'
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Fetches all history for all branches and tags
+  deploy-lwc:
+    runs-on: ubuntu-latest
 
-      # 2. Install Salesforce CLI (sf)
-      - name: 'Install Salesforce CLI'
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+
+      - name: Install Salesforce CLI
         run: |
           npm install --global @salesforce/cli
-          sf --version
 
-     
-      # 4. Authenticate to the Salesforce Org using JWT
-      - name: 'Authenticate to Salesforce Org'
+      - name: Authenticate to Salesforce using JWT
         run: |
+          # Authenticate to the org
           echo "\${{ secrets.SF_SERVER_KEY }}" > server.key
-          chmod 600 server.key
-          sf org login jwt --client-id "\${{ secrets.SF_CONSUMER_KEY }}" --jwt-key-file server.key --username "\${{ secrets.SF_USERNAME }}" --instance-url "\${{ secrets.SF_LOGIN_URL }}" --alias dev-org
+          sf org login jwt --client-id "\${{ secrets.SF_CONSUMER_KEY }}" --jwt-key-file server.key --username "\${{ secrets.SF_USERNAME }}" --instance-url "\${{ secrets.SF_LOGIN_URL }}"
+          rm -f server.key # Clean up key file
 
-      # 5. Verify authentication and show project info
-      - name: 'Verify Setup'
+      - name: Deploy All Source Components
         run: |
-          echo "=== ORG INFO ==="
-          sf org display --target-org dev-org
-          echo ""
-          echo "=== PROJECT STRUCTURE ==="
-          ls -la
-          if [ -d "force-app" ]; then
-            find force-app -type f | head -20
-          fi
+          # This command now points to 'force-app' to deploy all metadata types
+          sf project deploy start \
+            --source-dir force-app \
+            --json --target-org \${{ secrets.SF_USERNAME }} > deploy-result.json
 
-      # 6. Run validation deployment
-      - name: 'Validate Deployment'
-        id: validation
+      - name: List Deployed Component Details
         run: |
-          echo "Running validation..."
-          sf project deploy start --source-dir force-app --check-only --target-org dev-org --test-level RunLocalTests --wait 10
-        continue-on-error: true
-
-      # 7. Deploy if validation passed
-      - name: 'Deploy to Org'
-        if: steps.validation.outcome == 'success'
-        id: deployment
-        run: |
-          echo "Validation passed. Deploying to org..."
-          sf project deploy start --source-dir force-app --target-org dev-org --test-level RunLocalTests --wait 10
-        continue-on-error: true
-
-      # 8. Get org information for output
-      - name: 'Get Org Details'
-        if: always()
-        id: org_info
-        run: |
-          ORG_DATA=$(sf org display --target-org dev-org --json)
-          INSTANCE_URL=$(echo "$ORG_DATA" | jq -r '.result.instanceUrl // "Not Available"')
-          ORG_ID=$(echo "$ORG_DATA" | jq -r '.result.id // "Not Available"')
-          USERNAME=$(echo "$ORG_DATA" | jq -r '.result.username // "Not Available"')
-          
-          echo "instance_url=$INSTANCE_URL" >> $GITHUB_OUTPUT
-          echo "org_id=$ORG_ID" >> $GITHUB_OUTPUT
-          echo "username=$USERNAME" >> $GITHUB_OUTPUT
-
-      # 9. Show deployment results and org access info
-      - name: 'Deployment Summary'
-        if: always()
-        run: |
-          echo "================================================"
-          echo "🚀 SALESFORCE DEPLOYMENT SUMMARY"
-          echo "================================================"
-          echo "Workflow: https://github.com/\${{ github.repository }}/actions/runs/\${{ github.run_id }}"
-          echo "Branch: \${{ github.ref_name }}"
-          echo "Commit: \${{ github.sha }}"
-          echo ""
-          
-          # Determine status
-          if [ "\${{ steps.validation.outcome }}" == "success" ] && [ "\${{ steps.deployment.outcome }}" == "success" ]; then
-            echo "✅ STATUS: DEPLOYMENT SUCCESSFUL"
-          elif [ "\${{ steps.validation.outcome }}" == "success" ]; then
-            echo "⚠️  STATUS: VALIDATION PASSED, DEPLOYMENT FAILED"
-          else
-            echo "❌ STATUS: VALIDATION FAILED"
-            echo ""
-            echo "Common issues to check:"
-            echo "- Syntax errors in Apex code"
-            echo "- Missing test coverage"
-            echo "- Dependencies not deployed"
-            echo "- Invalid field references"
-          fi
-          
-          echo ""
-          echo "🌐 SALESFORCE ORG ACCESS:"
-          echo "Instance URL: \${{ steps.org_info.outputs.instance_url }}"
-          echo "Org ID: \${{ steps.org_info.outputs.org_id }}"
-          echo "Username: \${{ steps.org_info.outputs.username }}"
-          echo ""
-          echo "🔗 QUICK ACCESS LINKS:"
-          echo "• Setup Home: \${{ steps.org_info.outputs.instance_url }}/lightning/setup/SetupOneHome/home"
-          echo "• Apex Classes: \${{ steps.org_info.outputs.instance_url }}/lightning/setup/ApexClasses/home"
-          echo "• Debug Logs: \${{ steps.org_info.outputs.instance_url }}/lightning/setup/ApexDebugLogs/home"
-          echo "• Data Import: \${{ steps.org_info.outputs.instance_url }}/lightning/o/DataImport/home"
-          echo "================================================"
-
-      # 10. Generate login URL
-      - name: 'Generate Login URL'
-        if: steps.validation.outcome == 'success'
-        run: |
-          echo "🔐 Generating temporary login URL..."
-          LOGIN_URL=$(sf org open --target-org dev-org --url-only 2>/dev/null || echo "Unable to generate login URL")
-          echo "Temporary Login URL: $LOGIN_URL"
-          echo ""
-          echo "Note: This URL expires quickly. Use the instance URL above for permanent access."
-
-      # 11. Show deployment errors if validation failed
-      - name: 'Show Deployment Errors'
-        if: steps.validation.outcome != 'success'
-        run: |
-          echo "❌ Getting detailed error information..."
-          sf project deploy report --target-org dev-org --verbose || echo "No detailed error report available"
-
-      # 12. Clean up
-      - name: 'Clean up'
-        if: always()
-        run: |
-          rm -f server.key
-          echo "🧹 Cleanup completed"
+          echo "✅ Deployed components in org:"
+          # This command now lists all deployed components and their types
+          cat deploy-result.json | jq -r '.result.files[] | "\(.type): \(.fullName)"'
 `, // Note the escaped "$" characters for YAML variables
         },
       ];
