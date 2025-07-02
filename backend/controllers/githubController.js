@@ -4,6 +4,7 @@ const User = require("../models/User"); // Required for updating user auth statu
 const Project = require("../models/Project"); // Required for collaborator logic
 const ProjectCollaborator = require("../models/ProjectCollaborator");
 const crypto = require("crypto");
+const { Octokit } = require("@octokit/rest");
 
 // Helper function to get authenticated user's GitHub PAT and username
 const getGitHubAuthDetails = async (userId) => {
@@ -1517,6 +1518,185 @@ const deleteGitHubDetails = async (req, res) => {
   }
 };
 
+// Manual sync endpoint for GitHub contributions
+const syncContributions = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { branchName } = req.body; // Accept branch name from frontend
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    // Try both string and ObjectId for userId
+    let githubData = await GitHubData.findOne({ userId: project.userId.toString() });
+    if (!githubData) {
+      githubData = await GitHubData.findOne({ userId: project.userId });
+    }
+
+    if (!githubData || !githubData.githubPAT) {
+      return res.status(401).json({ message: "No GitHub token found for project owner. Authorization denied." });
+    }
+
+    // Extract repo info from project.githubRepoLink (assume format: https://github.com/org/repo)
+    const repoUrlParts = project.githubRepoLink.split("/");
+    const owner = repoUrlParts[repoUrlParts.length - 2];
+    const repo = repoUrlParts[repoUrlParts.length - 1];
+
+    const octokit = new Octokit({ auth: githubData.githubPAT });
+
+    // Use branchName if provided, otherwise use default branch
+    let branchToSync = branchName;
+    if (!branchToSync) {
+      // Fetch default branch from repo info
+      const { data: repoInfo } = await octokit.repos.get({ owner, repo });
+      branchToSync = repoInfo.default_branch;
+    }
+    console.log("Syncing branch:", branchToSync);
+
+    const { data: commits } = await octokit.repos.listCommits({
+      owner,
+      repo,
+      sha: branchToSync, // Only fetch commits from the specified branch
+      per_page: 20, // Increase if needed
+    });
+    console.log("Fetched commits:", commits.map(c => ({ sha: c.sha, author: c.author?.login, message: c.commit.message })));
+
+    for (const commit of commits) {
+      console.log("Processing commit:", commit.sha, commit.html_url, commit.author?.login, commit.commit.author.name);
+      // Fetch commit details to get stats
+      let linesAdded = 0;
+      try {
+        const { data: commitDetails } = await octokit.repos.getCommit({
+          owner,
+          repo,
+          ref: commit.sha,
+        });
+        if (commitDetails.stats) linesAdded = commitDetails.stats.additions;
+      } catch (err) {
+        console.error("Failed to fetch commit stats for", commit.sha, err.message);
+      }
+      const CodeContribution = require("../models/CodeContribution");
+      const exists = await CodeContribution.findOne({ prUrl: commit.html_url });
+      if (exists) {
+        console.log("Skipping existing commit:", commit.sha);
+        continue;
+      }
+      console.log("Creating CodeContribution for commit:", commit.sha, "Lines added:", linesAdded);
+      await CodeContribution.create({
+        projectId: project._id,
+        contributorType: "Developer",
+        githubUsername: commit.author?.login || commit.commit.author.name,
+        linesOfCode: linesAdded,
+        prUrl: commit.html_url,
+        contributionDate: new Date(commit.commit.author.date),
+      });
+    }
+    res.json({ success: true, message: "Contributions synced!" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const getLastCommitDetails = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { branchName } = req.query; // Pass branchName as a query param
+
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    let githubData = await GitHubData.findOne({ userId: project.userId.toString() });
+    if (!githubData) {
+      githubData = await GitHubData.findOne({ userId: project.userId });
+    }
+    if (!githubData || !githubData.githubPAT) {
+      return res.status(401).json({ message: "No GitHub token found for project owner. Authorization denied." });
+    }
+
+    const repoUrlParts = project.githubRepoLink.split("/");
+    const owner = repoUrlParts[repoUrlParts.length - 2];
+    const repo = repoUrlParts[repoUrlParts.length - 1];
+
+    const octokit = new Octokit({ auth: githubData.githubPAT });
+
+    // Get the latest commit for the branch
+    const { data: commits } = await octokit.repos.listCommits({
+      owner,
+      repo,
+      sha: branchName, // If not provided, gets default branch
+      per_page: 50,
+    });
+
+    if (!commits.length) {
+      return res.status(404).json({ message: "No commits found." });
+    }
+
+    const commit = commits[0];
+
+    // Get commit details for stats
+    let linesAdded = 0;
+    let linesDeleted = 0;
+    try {
+      const { data: commitDetails } = await octokit.repos.getCommit({
+        owner,
+        repo,
+        ref: commit.sha,
+      });
+      if (commitDetails.stats) {
+        linesAdded = commitDetails.stats.additions;
+        linesDeleted = commitDetails.stats.deletions;
+      }
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to fetch commit stats." });
+    }
+
+    // Return commit details
+    res.json({
+      sha: commit.sha,
+      author: commit.author?.login || commit.commit.author.name,
+      message: commit.commit.message,
+      date: commit.commit.author.date,
+      url: commit.html_url,
+      linesAdded,
+      linesDeleted,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Fetch branches from a GitHub repo (supports private repos via server token)
+const getRepoBranchesServer = async (req, res) => {
+  try {
+    const { owner, repo } = req.query;
+    if (!owner || !repo) {
+      return res.status(400).json({ message: "Missing owner or repo parameter." });
+    }
+    const userId = req.user.id;
+    let githubPAT;
+    let githubUsername;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+    if (user.role === "manager") {
+      const authDetails = await getGitHubAuthDetails(userId);
+      githubPAT = authDetails.pat;
+      githubUsername = authDetails.username;
+    } else if (user.role === "developer") {
+      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(userId, owner, repo);
+      githubPAT = collaboratorDetails.pat;
+      githubUsername = collaboratorDetails.username;
+    } else {
+      return res.status(403).json({ message: "Unauthorized role to access this resource." });
+    }
+    const octokit = new Octokit({ auth: githubPAT });
+    const { data } = await octokit.repos.listBranches({ owner, repo });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   authenticateGitHub,
   getGitHubStatus,
@@ -1541,4 +1721,9 @@ module.exports = {
   getGitHubDetails,
   addOrUpdateGitHubDetails,
   deleteGitHubDetails,
+
+  syncContributions,
+  getLastCommitDetails,
+  getRepoBranchesServer,
 };
+

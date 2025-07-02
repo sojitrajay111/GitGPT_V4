@@ -10,9 +10,10 @@ const {
 } = require("../controllers/projectController"); // Import project controller functions
 const {
   getCollaboratorsByProjectId,
+  syncContributions,
 } = require("../controllers/githubController");
 const authMiddleware = require("../middleware/authMiddleware"); // Assuming you have an authentication middleware
-
+const { getLastCommitDetails } = require("../controllers/githubController");
 // --- Project Routes ---
 
 /**
@@ -66,5 +67,17 @@ router.get(
   authMiddleware,
   getCollaboratorsByProjectId
 ); // New: Get collaborators for a project
+
+// --- Sync GitHub Contributions ---
+router.post(
+  "/:projectId/sync-contributions",
+  authMiddleware,
+  syncContributions
+);
+router.get(
+  "/:projectId/last-commit-details",
+  authMiddleware,
+  getLastCommitDetails
+);
 
 module.exports = router; // Export the router

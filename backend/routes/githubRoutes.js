@@ -26,6 +26,7 @@ const {
   getGitHubDetails, // New: Import getGitHubDetails
   addOrUpdateGitHubDetails, // New: Import addOrUpdateGitHubDetails
   deleteGitHubDetails, // New: Import deleteGitHubDetails
+  getRepoBranchesServer,
 } = require("../controllers/githubController");
 
 // Middleware to authenticate user (ensure this path is correct)
@@ -110,6 +111,9 @@ router.post("/webhook", handleGitHubWebhook);
 router.get("/auth-status", authenticateUser, checkGitHubAuthStatus);
 router.get("/data", authenticateUser, getGitHubData);
 
+// Add route to fetch branches from backend
+router.get("/branches", getRepoBranchesServer);
+
 // @route POST /api/github/map-github-ids-to-user-ids
 // @desc Map an array of githubIds to userIds
 // @access Private
@@ -127,5 +131,6 @@ router.post('/map-github-ids-to-user-ids', authenticateUser, async (req, res) =>
     res.status(500).json({ message: 'Failed to map githubIds to userIds', error: error.message });
   }
 });
+
 
 module.exports = router;
