@@ -1258,8 +1258,11 @@ const generateSalesforceCodeAndPush = async (req, res) => {
 
       // Calculate lines of code added by AI
       if (isFileModified) {
-        const diffResult = parseDiffForLoc(previousContent, fileContent);
-        linesOfCodeAddedByAI += diffResult.added; // Use actual added lines from diff
+        // Count non-empty lines in the new file that are not present in the old file
+        const prevLines = previousContent.split('\n').map(l => l.trim()).filter(Boolean);
+        const newLines = fileContent.split('\n').map(l => l.trim()).filter(Boolean);
+        const addedLines = newLines.filter(line => !prevLines.includes(line));
+        linesOfCodeAddedByAI += addedLines.length;
       }
     }
 

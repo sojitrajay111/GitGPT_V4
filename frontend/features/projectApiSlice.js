@@ -102,6 +102,20 @@ export const projectApiSlice = createApi({
         id: projectId
       }],
     }),
+    syncProject: builder.mutation({
+      query: (projectId) => ({
+        url: `/projects/${projectId}/sync-contributions`,
+        method: "POST",
+      }),
+      invalidatesTags: ["Project"],
+    }),
+    syncContributions: builder.mutation({
+      query: ({ projectId, branchName }) => ({
+        url: `/projects/${projectId}/sync-contributions`,
+        method: "POST",
+        body: { branchName },
+      }),
+    }),
   }),
 });
 
@@ -117,4 +131,6 @@ export const {
   useUpdateProjectMutation,
   useDeleteProjectMutation,
   useGetProjectReportDataQuery,
+  useSyncProjectMutation,
+  useSyncContributionsMutation,
 } = projectApiSlice;

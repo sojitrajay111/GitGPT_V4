@@ -1,10 +1,12 @@
 // components/ProjectHeader.js
 import React from "react";
-import { Box, Typography, Chip, IconButton, Link } from "@mui/material";
+import { Box, Typography, Chip, IconButton, Link, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import { styled, alpha } from "@mui/system";
+import SyncContributionsButton from "./SyncContributionsButton";
+import { useGithubBranches } from "../../lib/useGithubBranches";
 
 // Styled component for the header, adapted for dynamic theme
 const LightHeader = styled(Box)(({ theme }) => ({
@@ -46,6 +48,18 @@ const ProjectHeader = ({
   handleOpenDeleteProjectDialog,
   currentThemeMode,
 }) => {
+  console.log("Project branch for sync:", project.githubBranch);
+  console.log("Repo link for branch fetch:", project.githubRepoLink);
+
+  const [selectedBranch, setSelectedBranch] = React.useState("");
+  const { branches, loading: branchesLoading } = useGithubBranches(project?.githubRepoLink);
+
+  React.useEffect(() => {
+    if (branches.length > 0) {
+      setSelectedBranch(branches[0].name); // Default to first branch
+    }
+  }, [branches]);
+
   return (
     <LightHeader className="p-6 md:p-8 mb-8">
       {/* Background glowing circles for futuristic touch in dark mode */}
@@ -69,6 +83,7 @@ const ProjectHeader = ({
           size="medium"
           color="success"
           className="font-semibold text-sm px-2 py-1"
+          sx={{ marginRight: 2 }}
         />
         {user_role === "manager" && (
           <Box className="ml-auto flex gap-2">

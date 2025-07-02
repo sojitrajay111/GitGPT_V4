@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const githubApiSlice = createApi({
   reducerPath: "githubApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/github`, // Adjust based on your API structure
+    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/github`,
 
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("token"); // Or however you store your auth token
@@ -218,10 +218,12 @@ export const githubApiSlice = createApi({
     // New: Query to get user's GitHub integration details
     getGitHubDetails: builder.query({
       query: (userId) => `/details/${userId}`,
-      providesTags: (result, error, userId) => [{
-        type: "GitHubDetails",
-        id: userId
-      }],
+      providesTags: (result, error, userId) => [
+        {
+          type: "GitHubDetails",
+          id: userId,
+        },
+      ],
     }),
     // New: Mutation to add or update user's GitHub integration details
     addOrUpdateGitHubDetails: builder.mutation({
@@ -230,10 +232,12 @@ export const githubApiSlice = createApi({
         method: "POST", // Or PUT if your backend uses PUT for updates
         body: { githubName, githubEmail, githubToken },
       }),
-      invalidatesTags: (result, error, { userId }) => [{
-        type: "GitHubDetails",
-        id: userId
-      }],
+      invalidatesTags: (result, error, { userId }) => [
+        {
+          type: "GitHubDetails",
+          id: userId,
+        },
+      ],
     }),
     // New: Mutation to delete user's GitHub integration details
     deleteGitHubDetails: builder.mutation({
@@ -241,11 +245,23 @@ export const githubApiSlice = createApi({
         url: `/details/${userId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, userId) => [{
-        type: "GitHubDetails",
-        id: userId
-      }],
+      invalidatesTags: (result, error, userId) => [
+        {
+          type: "GitHubDetails",
+          id: userId,
+        },
+      ],
     }),
+
+    // Add syncContributions mutation
+    syncContributions: builder.mutation({
+      query: (projectId) => ({
+        url: `/projects/${projectId}/sync-contributions`,
+        method: "POST",
+      }),
+      invalidatesTags: ["GitHubData"],
+    }),
+
     mapGithubIdsToUserIds: builder.mutation({
       query: (githubIds) => ({
         url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/github/map-github-ids-to-user-ids`,
@@ -278,5 +294,8 @@ export const {
   useGetGitHubDetailsQuery, // New: Export the new query hook
   useAddOrUpdateGitHubDetailsMutation, // New: Export the new mutation hook
   useDeleteGitHubDetailsMutation, // New: Export the new mutation hook
+
+  useSyncContributionsMutation,
+
   useMapGithubIdsToUserIdsMutation,
 } = githubApiSlice;

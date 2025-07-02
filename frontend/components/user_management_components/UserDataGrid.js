@@ -20,6 +20,7 @@ export default function UserDataGrid({
   isDeletingUser,
   isMobile,
   theme,
+  isManager,
 }) {
   const columns = [
     {
@@ -145,7 +146,7 @@ export default function UserDataGrid({
       headerAlign: 'center',
       align: 'center',
     },
-    {
+    ...(isManager ? [{
       field: "actions",
       headerName: "Actions",
       width: 100,
@@ -193,7 +194,7 @@ export default function UserDataGrid({
       ),
       headerAlign: 'center',
       align: 'center',
-    },
+    }] : []),
   ];
 
   return (
@@ -226,6 +227,12 @@ export default function UserDataGrid({
           <Box display="flex" justifyContent="center" alignItems="center" height="100%">
             <CircularProgress />
             <Typography sx={{ ml: 2, color: theme === "dark" ? "#B0B3B8" : "#5F6368" }}>Loading users...</Typography>
+          </Box>
+        ) : filteredUsers?.length === 0 ? (
+          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+            <Typography sx={{ color: theme === "dark" ? "#B0B3B8" : "#5F6368" }}>
+              {isManager ? "No developers found. Add some developers to your team!" : "No team members found."}
+            </Typography>
           </Box>
         ) : (
           <DataGrid
