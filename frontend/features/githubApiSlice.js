@@ -218,10 +218,12 @@ export const githubApiSlice = createApi({
     // New: Query to get user's GitHub integration details
     getGitHubDetails: builder.query({
       query: (userId) => `/details/${userId}`,
-      providesTags: (result, error, userId) => [{
-        type: "GitHubDetails",
-        id: userId
-      }],
+      providesTags: (result, error, userId) => [
+        {
+          type: "GitHubDetails",
+          id: userId,
+        },
+      ],
     }),
     // New: Mutation to add or update user's GitHub integration details
     addOrUpdateGitHubDetails: builder.mutation({
@@ -230,10 +232,12 @@ export const githubApiSlice = createApi({
         method: "POST", // Or PUT if your backend uses PUT for updates
         body: { githubName, githubEmail, githubToken },
       }),
-      invalidatesTags: (result, error, { userId }) => [{
-        type: "GitHubDetails",
-        id: userId
-      }],
+      invalidatesTags: (result, error, { userId }) => [
+        {
+          type: "GitHubDetails",
+          id: userId,
+        },
+      ],
     }),
     // New: Mutation to delete user's GitHub integration details
     deleteGitHubDetails: builder.mutation({
@@ -241,10 +245,12 @@ export const githubApiSlice = createApi({
         url: `/details/${userId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, userId) => [{
-        type: "GitHubDetails",
-        id: userId
-      }],
+      invalidatesTags: (result, error, userId) => [
+        {
+          type: "GitHubDetails",
+          id: userId,
+        },
+      ],
     }),
 
     // Add syncContributions mutation
@@ -252,13 +258,15 @@ export const githubApiSlice = createApi({
       query: (projectId) => ({
         url: `/projects/${projectId}/sync-contributions`,
         method: "POST",
+      }),
+      invalidatesTags: ["GitHubData"],
+    }),
 
     mapGithubIdsToUserIds: builder.mutation({
       query: (githubIds) => ({
         url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/github/map-github-ids-to-user-ids`,
         method: "POST",
         body: { githubIds },
-
       }),
     }),
   }),
@@ -290,5 +298,4 @@ export const {
   useSyncContributionsMutation,
 
   useMapGithubIdsToUserIdsMutation,
-
 } = githubApiSlice;

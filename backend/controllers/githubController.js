@@ -4,7 +4,15 @@ const User = require("../models/User"); // Required for updating user auth statu
 const Project = require("../models/Project"); // Required for collaborator logic
 const ProjectCollaborator = require("../models/ProjectCollaborator");
 const crypto = require("crypto");
-const { Octokit } = require("@octokit/rest");
+// Dynamic imports for Octokit as it might be an ES Module
+let Octokit;
+
+// Function to dynamically import modules
+async function loadESModules() {
+  if (!Octokit) {
+    ({ Octokit } = await import("@octokit/rest"));
+  }
+}
 
 // Helper function to get authenticated user's GitHub PAT and username
 const getGitHubAuthDetails = async (userId) => {
@@ -1521,19 +1529,25 @@ const deleteGitHubDetails = async (req, res) => {
 // Manual sync endpoint for GitHub contributions
 const syncContributions = async (req, res) => {
   try {
+    await loadESModules();
     const { projectId } = req.params;
     const { branchName } = req.body; // Accept branch name from frontend
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
     // Try both string and ObjectId for userId
-    let githubData = await GitHubData.findOne({ userId: project.userId.toString() });
+    let githubData = await GitHubData.findOne({
+      userId: project.userId.toString(),
+    });
     if (!githubData) {
       githubData = await GitHubData.findOne({ userId: project.userId });
     }
 
     if (!githubData || !githubData.githubPAT) {
-      return res.status(401).json({ message: "No GitHub token found for project owner. Authorization denied." });
+      return res.status(401).json({
+        message:
+          "No GitHub token found for project owner. Authorization denied.",
+      });
     }
 
     // Extract repo info from project.githubRepoLink (assume format: https://github.com/org/repo)
@@ -1558,10 +1572,23 @@ const syncContributions = async (req, res) => {
       sha: branchToSync, // Only fetch commits from the specified branch
       per_page: 20, // Increase if needed
     });
-    console.log("Fetched commits:", commits.map(c => ({ sha: c.sha, author: c.author?.login, message: c.commit.message })));
+    console.log(
+      "Fetched commits:",
+      commits.map((c) => ({
+        sha: c.sha,
+        author: c.author?.login,
+        message: c.commit.message,
+      }))
+    );
 
     for (const commit of commits) {
-      console.log("Processing commit:", commit.sha, commit.html_url, commit.author?.login, commit.commit.author.name);
+      console.log(
+        "Processing commit:",
+        commit.sha,
+        commit.html_url,
+        commit.author?.login,
+        commit.commit.author.name
+      );
       // Fetch commit details to get stats
       let linesAdded = 0;
       try {
@@ -1572,7 +1599,11 @@ const syncContributions = async (req, res) => {
         });
         if (commitDetails.stats) linesAdded = commitDetails.stats.additions;
       } catch (err) {
-        console.error("Failed to fetch commit stats for", commit.sha, err.message);
+        console.error(
+          "Failed to fetch commit stats for",
+          commit.sha,
+          err.message
+        );
       }
       const CodeContribution = require("../models/CodeContribution");
       const exists = await CodeContribution.findOne({ prUrl: commit.html_url });
@@ -1580,7 +1611,12 @@ const syncContributions = async (req, res) => {
         console.log("Skipping existing commit:", commit.sha);
         continue;
       }
-      console.log("Creating CodeContribution for commit:", commit.sha, "Lines added:", linesAdded);
+      console.log(
+        "Creating CodeContribution for commit:",
+        commit.sha,
+        "Lines added:",
+        linesAdded
+      );
       await CodeContribution.create({
         projectId: project._id,
         contributorType: "Developer",
@@ -1598,18 +1634,24 @@ const syncContributions = async (req, res) => {
 
 const getLastCommitDetails = async (req, res) => {
   try {
+    await loadESModules();
     const { projectId } = req.params;
     const { branchName } = req.query; // Pass branchName as a query param
 
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    let githubData = await GitHubData.findOne({ userId: project.userId.toString() });
+    let githubData = await GitHubData.findOne({
+      userId: project.userId.toString(),
+    });
     if (!githubData) {
       githubData = await GitHubData.findOne({ userId: project.userId });
     }
     if (!githubData || !githubData.githubPAT) {
-      return res.status(401).json({ message: "No GitHub token found for project owner. Authorization denied." });
+      return res.status(401).json({
+        message:
+          "No GitHub token found for project owner. Authorization denied.",
+      });
     }
 
     const repoUrlParts = project.githubRepoLink.split("/");
@@ -1667,9 +1709,12 @@ const getLastCommitDetails = async (req, res) => {
 // Fetch branches from a GitHub repo (supports private repos via server token)
 const getRepoBranchesServer = async (req, res) => {
   try {
+    await loadESModules();
     const { owner, repo } = req.query;
     if (!owner || !repo) {
-      return res.status(400).json({ message: "Missing owner or repo parameter." });
+      return res
+        .status(400)
+        .json({ message: "Missing owner or repo parameter." });
     }
     const userId = req.user.id;
     let githubPAT;
@@ -1683,11 +1728,17 @@ const getRepoBranchesServer = async (req, res) => {
       githubPAT = authDetails.pat;
       githubUsername = authDetails.username;
     } else if (user.role === "developer") {
-      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(userId, owner, repo);
+      const collaboratorDetails = await getCollaboratorPatAndRepoDetails(
+        userId,
+        owner,
+        repo
+      );
       githubPAT = collaboratorDetails.pat;
       githubUsername = collaboratorDetails.username;
     } else {
-      return res.status(403).json({ message: "Unauthorized role to access this resource." });
+      return res
+        .status(403)
+        .json({ message: "Unauthorized role to access this resource." });
     }
     const octokit = new Octokit({ auth: githubPAT });
     const { data } = await octokit.repos.listBranches({ owner, repo });
@@ -1726,4 +1777,3 @@ module.exports = {
   getLastCommitDetails,
   getRepoBranchesServer,
 };
-
