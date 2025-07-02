@@ -291,6 +291,11 @@ jobs:
         run: |
           npm install --global @salesforce/cli
 
+      - name: Store JWT private key
+        run: |
+          # Store the JWT private key from GitHub secrets into a file
+          echo "\${{ secrets.SF_JWT_KEY }}" > server.key
+
       - name: Authenticate to Salesforce using JWT
         run: |
           # Authenticate to the org
@@ -298,18 +303,36 @@ jobs:
           sf org login jwt --client-id "\${{ secrets.SF_CONSUMER_KEY }}" --jwt-key-file server.key --username "\${{ secrets.SF_USERNAME }}" --instance-url "\${{ secrets.SF_LOGIN_URL }}"
           rm -f server.key # Clean up key file
 
-      - name: Deploy All Source Components
+      - name: Install jq (for JSON parsing)
         run: |
-          # This command now points to 'force-app' to deploy all metadata types
-          sf project deploy start \
-            --source-dir force-app \
-            --json --target-org \${{ secrets.SF_USERNAME }} > deploy-result.json
+          sudo apt-get update
+          sudo apt-get install -y jq
 
-      - name: List Deployed Component Details
+      - name: Deploy LWC Components (ignoring warnings)
         run: |
-          echo "✅ Deployed components in org:"
-          # This command now lists all deployed components and their types
-          cat deploy-result.json | jq -r '.result.files[] | "\(.type): \(.fullName)"'
+          sf project deploy start \
+            -d force-app/main/default/lwc \
+            -o "\${{ secrets.SF_USERNAME }}" \
+            --ignore-warnings \
+            --json > deploy-result.json
+
+      - name: Debug Deployment Errors
+        if: failure()
+        run: |
+          echo "❌ Deployment failed. Details:"
+          cat deploy-result.json | jq .
+
+      - name: List Deployed LWC Component Names
+        if: success()
+        run: |
+          echo "✅ Deployed LWC components in org:"
+          jq -r 'if .result.details.componentSuccess then
+             .result.details.componentSuccess[] 
+             | select(.componentType == "LightningComponentBundle") 
+             | .fullName 
+           else 
+             "⚠️ No LWC components deployed." 
+           end' deploy-result.json
 `, // Note the escaped "$" characters for YAML variables
         },
       ];
