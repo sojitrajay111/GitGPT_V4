@@ -114,4 +114,23 @@ router.get("/data", authenticateUser, getGitHubData);
 // Add route to fetch branches from backend
 router.get("/branches", getRepoBranchesServer);
 
+// @route POST /api/github/map-github-ids-to-user-ids
+// @desc Map an array of githubIds to userIds
+// @access Private
+router.post('/map-github-ids-to-user-ids', authenticateUser, async (req, res) => {
+  try {
+    const { githubIds } = req.body;
+    if (!Array.isArray(githubIds)) {
+      return res.status(400).json({ message: 'githubIds must be an array.' });
+    }
+    const GithubData = require('../models/GithubData');
+    const githubDataDocs = await GithubData.find({ githubId: { $in: githubIds.map(String) } });
+    const userIds = githubDataDocs.map((doc) => doc.userId);
+    res.status(200).json({ userIds });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to map githubIds to userIds', error: error.message });
+  }
+});
+
+
 module.exports = router;

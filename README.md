@@ -1,185 +1,90 @@
-<h1 align="center">🤖 GitGPT</h1>
-<p align="center">
-  <b>AI-powered GitHub project management platform for Developers & Managers</b><br />
-  Built with Next.js (Full-Stack) + MERN Stack + GitHub API + OpenAI
-</p>
+# 🚀 gitGPT – AI-Powered Salesforce Project Management Platform
 
-<hr/>
+**gitGPT** is a full-stack project management solution tailored for Salesforce development teams. It brings together AI-powered code generation, GitHub automation, smart team collaboration, Jira and Google Drive integrations, and real-time analytics — all in one seamless, role-based platform.
 
-<h2>📌 Overview</h2>
-<p>
-  <strong>GitGPT</strong> is an intelligent project management solution tailored for developers and managers.
-  It combines GitHub integration and AI functionalities to streamline user stories, code analysis, documentation,
-  and PR management — all while tracking productivity with advanced analytics.
-</p>
+---
 
-<hr/>
+## 🌟 Features
 
-<h2>🧠 Core Features</h2>
+### 🔐 Authentication & Roles
+- Role-based login for **Managers** and **Developers**
+- Developers are added by managers via email invitation
 
-<table>
-  <thead>
-    <tr>
-      <th>🔹 Feature</th>
-      <th>💡 Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><b>User Authentication</b></td>
-      <td>Login via username and password. First-time users link their GitHub using <code>Username</code>, <code>Email</code>, and <code>PAT Token</code> (with full permissions).</td>
-    </tr>
-    <tr>
-      <td><b>Role-Based Dashboard</b></td>
-      <td>Managers can view created projects. Developers see their contributed projects with activity graphs.</td>
-    </tr>
-    <tr>
-      <td><b>Project Creation</b></td>
-      <td>Managers can create new projects with title, description, and GitHub repo (or auto-create private repo).</td>
-    </tr>
-    <tr>
-      <td><b>Collaborator Control</b></td>
-      <td>Managers assign developers by GitHub username and set permission for features (PR Review, PR Create, Code Analysis, etc).</td>
-    </tr>
-    <tr>
-      <td><b>User Story (AI-Powered)</b></td>
-      <td>Create and assign user stories manually or use AI to generate detailed professional stories.</td>
-    </tr>
-    <tr>
-      <td><b>Code Analysis</b></td>
-      <td>Like ChatGPT: select branch → ask questions → AI replies based on codebase → AI generates code → pushes to new branch → creates PR with full info.</td>
-    </tr>
-    <tr>
-      <td><b>Documentation Hub</b></td>
-      <td>Upload documents or auto-generate project documentation with AI based on repo files.</td>
-    </tr>
-    <tr>
-      <td><b>PR & Branch Management</b></td>
-      <td>Create PRs, assign reviewers, manage branches — controlled via roles & permissions.</td>
-    </tr>
-    <tr>
-      <td><b>Project Reports</b></td>
-      <td>Graphical insights on project progress, developer productivity, AI contribution, time saved, cost reduced, and AI tokens used.</td>
-    </tr>
-    <tr>
-      <td><b>Project Control</b></td>
-      <td>Edit or delete projects securely from the manager dashboard.</td>
-    </tr>
-  </tbody>
-</table>
+### ⚙️ Configurations
+- **GitHub Integration** (OAuth)
+- **Jira Sync** (optional)
+- **GPT AI Model Selection**
+- Company profile settings (name, logo, website, description)
 
-<hr/>
+### 👥 User Management
+- Managers add developers by email
+- Developers receive an invitation link to register
+- Full employee list management UI
 
-<h2>🧭 Sidebar Navigation</h2>
+### 📁 Project Management
+- Create and view Salesforce projects
+- Auto-create GitHub repo + initial Salesforce boilerplate
+- Auto-generate `main`, `dev`, `qat`, and `uat` branches
 
-<ul>
-  <li><strong>📊 Dashboard:</strong> View overview of active projects and contributions with graphs.</li>
-  <li><strong>📁 Projects:</strong> 
-    <ul>
-      <li><strong>Managers:</strong> Create/manage projects, add collaborators, set permissions.</li>
-      <li><strong>Developers:</strong> View assigned projects and functionality access.</li>
-    </ul>
-  </li>
-  <li><strong>📄 Reports:</strong> Visual data on contributions, AI usage, cost and time saved.</li>
-</ul>
+### 📂 Project Details & Core Modules
 
-<hr/>
+#### 1. 🧾 User Stories + AI Code Generation
+- Create user stories with details
+- Assign to collaborators
+- AI generates Salesforce code from user story
+- Auto-creates new branch and pull request to `dev`
 
-<h2>🛠 Tech Stack</h2>
+#### 2. 💬 AI Code Analysis
+- Ask AI for help with code explanations, debugging, and logic
+- AI reads live GitHub repo and responds contextually
+- Conversations stored in MongoDB
 
-<table>
-  <thead>
-    <tr>
-      <th>📦 Frontend</th>
-      <th>⚙️ Backend</th>
-      <th>🧠 AI & Tools</th>
-      <th>🗃️ Database</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Next.js, Tailwind CSS</td>
-      <td>Node.js, Express.js</td>
-      <td>OpenAI GPT, GitHub REST API</td>
-      <td>MongoDB, Mongoose</td>
-    </tr>
-  </tbody>
-</table>
+#### 3. 📄 Google Drive Documentation
+- Connect and upload relevant project docs
+- Centralized document access for teams
 
-<hr/>
+#### 4. 🔀 Branch & PR Management
+- View and manage all active branches and pull requests
+- Approve, reject, or merge PRs from within the platform
 
-<h2>🔐 Security</h2>
-<ul>
-  <li>🔒 Full route protection using custom middleware.</li>
-  <li>🔐 GitHub PAT stored securely and encrypted.</li>
-  <li>🛂 Role-based permission for critical operations.</li>
-</ul>
+### 📈 Analytics & Reporting
+- Graphs showing:
+  - Code generated by AI vs manually written
+  - Developer productivity
+  - Time saved using AI
+- Company-wide reports to measure AI impact and efficiency
 
-<hr/>
+---
 
-<h2>📈 AI-Powered Insights</h2>
+## 👨‍💻 Developer Role
+- Can:
+  - View assigned projects
+  - Work on user stories
+  - Use AI tools (code generation + analysis)
+- Cannot:
+  - Create new projects
+  - Manage users or settings
 
-<ul>
-  <li>📊 Contribution graphs per project/user</li>
-  <li>🧑‍💻 Developer vs Manager code contribution</li>
-  <li>⏱️ AI time saved & 📉 cost reduced statistics</li>
-  <li>🧮 AI token usage tracking</li>
-</ul>
+---
 
-<hr/>
+## 🧰 Tech Stack
 
-<h2>⚙️ Installation</h2>
+### 🔧 Backend
+- Node.js + Express
+- MongoDB + Mongoose
+- GitHub REST API + OAuth
+- GPT-based AI (OpenAI)
 
-<pre><code># Clone the repo
-git clone https://github.com/yourusername/gitgpt.git
+### 🖼️ Frontend
+- Next.js + React
+- Tailwind CSS + Material UI
+- React Hook Form + Zustand/Redux Toolkit
+- RTK Query for API communication
 
-# Move to project
-cd gitgpt
+### ☁️ Integrations
+- GitHub (OAuth, Repos, Branches, PRs)
+- Google Drive (Docs)
+- Jira (Project Sync)
+- OpenAI (Code generation & explanation)
 
-# Install dependencies
-npm install
-
-# Create environment file
-touch .env
-
-# Add the following environment variables in .env:
-MONGO_URI=your_mongodb_uri
-JWT_SECRET=your_jwt_secret
-OPENAI_API_KEY=your_openai_key
-GITHUB_CLIENT_ID=your_github_id
-GITHUB_CLIENT_SECRET=your_github_secret
-
-# Run the project
-npm run dev
-</code></pre>
-
-<hr/>
-
-<h2>📷 Screenshots</h2>
-<p>Add screenshots of dashboard, project page, code analysis, PR management, etc.</p>
-
-<hr/>
-
-<h2>🤝 Contributing</h2>
-<p>We welcome contributions! Please fork the repo, make changes, and submit a pull request. Check the <a href="https://github.com/yourusername/gitgpt/issues">Issues</a> tab for open feature requests or bugs.</p>
-
-<hr/>
-
-<h2>📃 License</h2>
-<p>This project is licensed under the MIT License.</p>
-
-<hr/>
-
-<h2>👨‍💻 Author</h2>
-<ul>
-  <li><strong>Name:</strong> Raj Patel</li>
-  <li><strong>LinkedIn:</strong> <a href="https://linkedin.com/in/your-link">linkedin.com/in/your-link</a></li>
-  <li><strong>Portfolio:</strong> <a href="https://your-portfolio.com">your-portfolio.com</a></li>
-</ul>
-
-<hr/>
-
-<p align="center">
-  🔧 Built with dedication for smarter project development<br/>
-  💡 Empowered by AI | Managed through GitHub | Delivered by GitGPT
-</p>
+---

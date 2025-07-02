@@ -4,11 +4,11 @@ const Project = require("../models/Project"); // Ensure Project model is importe
 const ProjectCollaborator = require("../models/ProjectCollaborator"); // Ensure this is imported
 const GitHubData = require("../models/GithubData"); // Import the GitHubData model
 const CodeContribution = require("../models/CodeContribution"); // NEW: Import CodeContribution model
+const Configuration = require("../models/Configuration");
+const User = require("../models/User");
 const { parseDiffForLoc } = require("./metricsController"); // NEW: Import diff parser
 const path = require("path");
 require("dotenv").config();
-const Configuration = require("../models/Configuration"); // Import the Configuration model
-const User = require("../models/User");
 
 // Dynamic imports for Octokit as it might be an ES Module
 let Octokit;
@@ -19,6 +19,68 @@ async function loadESModules() {
     ({ Octokit } = await import("@octokit/rest"));
   }
 }
+
+const getCollaboratorPatAndRepoDetails = async (
+  developerUserId,
+  owner,
+  repo
+) => {
+  // 1. Get developer's GitHub ID
+  const developerGithubData = await GitHubData.findOne({
+    userId: developerUserId,
+  });
+  if (!developerGithubData) {
+    throw Object.assign(new Error("Developer's GitHub data not found."), {
+      status: 404,
+    });
+  }
+  const developerGithubId = developerGithubData.githubId;
+
+  // 2. Find the project linked to this repo
+  // Construct the regex to match both with and without .git
+  const githubRepoLinkRegex = new RegExp(
+    `^https?://github.com/${owner}/${repo}(.git)?/?$`,
+    "i"
+  );
+  const project = await Project.findOne({
+    githubRepoLink: githubRepoLinkRegex,
+  });
+  if (!project) {
+    throw Object.assign(
+      new Error("Project not found for the given repository."),
+      { status: 404 }
+    );
+  }
+
+  // 3. Check if the developer is a collaborator on this project
+  const projectCollaboratorDoc = await ProjectCollaborator.findOne({
+    project_id: project._id,
+    "collaborators.githubId": developerGithubId,
+  });
+
+  if (!projectCollaboratorDoc) {
+    throw Object.assign(
+      new Error("Developer is not an accepted collaborator for this project."),
+      { status: 403 }
+    );
+  }
+
+  // 4. Get the manager's (project owner's) GitHub PAT
+  const managerUserId = project.userId; // Assuming project.userId is the manager's ID
+  const managerGithubData = await GitHubData.findOne({ userId: managerUserId });
+  if (!managerGithubData || !managerGithubData.githubPAT) {
+    throw Object.assign(
+      new Error("Manager's GitHub PAT not found. Cannot grant access."),
+      { status: 500 }
+    );
+  }
+
+  return {
+    pat: managerGithubData.githubPAT,
+    username: managerGithubData.githubUsername,
+    repoFullName: `${owner}/${repo}`,
+  };
+};
 
 /**
  * Helper function to send a status update to the client.
@@ -463,11 +525,16 @@ Enhanced User Story Output (provide only the enhanced content, ready to be store
     });
     console.log("Gemini config found:", geminiConfig);
     const apiKeyObj = geminiConfig?.configValue.find(
-      v => v.key.toLowerCase() === "apikey" || v.key.toLowerCase() === "gemini_api_key" || v.key.toLowerCase() === "api_key"
+      (v) =>
+        v.key.toLowerCase() === "apikey" ||
+        v.key.toLowerCase() === "gemini_api_key" ||
+        v.key.toLowerCase() === "api_key"
     );
     const apiKey = apiKeyObj?.value;
     if (!apiKey) {
-      throw new Error("Gemini integration not configured. Please add your Gemini API key in settings.");
+      throw new Error(
+        "Gemini integration not configured. Please add your Gemini API key in settings."
+      );
     }
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -553,10 +620,9 @@ const generateSalesforceCodeAndPush = async (req, res) => {
 
   const { userStoryId } = req.params;
   const { projectId } = req.body;
-  const authenticatedUserId = req.user.id;
+  const authenticatedUserId = req.user.id; // The user who clicked the button
 
   // Set response headers for Server-Sent Events immediately
-  // This should be done only once.
   if (!res.headersSent) {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -566,11 +632,9 @@ const generateSalesforceCodeAndPush = async (req, res) => {
   }
 
   // Helper to send status and check connection.
-  // Updated sendStatusUpdate to be safer when used multiple times.
   const sendSafeStatusUpdate = (message, type = "status", data = {}) => {
     try {
       if (!res.writableEnded) {
-        // Check if the response stream is still open
         res.write(`data: ${JSON.stringify({ type, message, ...data })}\n\n`);
       } else {
         console.warn(
@@ -593,7 +657,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
   try {
     sendSafeStatusUpdate("AI code generation initiated...");
 
-    // 1. Fetch project and user's GitHub data
+    // 1. Fetch project and determine GitHub authentication details based on user role
     const project = await Project.findById(projectId);
     if (!project) {
       sendSafeStatusUpdate("Project not found.", "error");
@@ -605,27 +669,6 @@ const generateSalesforceCodeAndPush = async (req, res) => {
         "GitHub repository link not found for this project. Please configure it in project settings.",
         "error"
       );
-      return res.end();
-    }
-
-    const userGitHubData = await GitHubData.findOne({
-      userId: authenticatedUserId,
-    });
-    if (!userGitHubData || !userGitHubData.githubPAT) {
-      sendSafeStatusUpdate(
-        "User's GitHub PAT not found. Please authenticate with GitHub.",
-        "error"
-      );
-      return res.end();
-    }
-    const githubToken = userGitHubData.githubPAT;
-    const githubUsername = userGitHubData.githubUsername;
-
-    const octokit = new Octokit({ auth: githubToken });
-
-    const userStory = await UserStory.findById(userStoryId);
-    if (!userStory) {
-      sendSafeStatusUpdate("User story not found.", "error");
       return res.end();
     }
 
@@ -641,6 +684,66 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     }
     const owner = repoMatch[1];
     const repoName = repoMatch[2];
+
+    let githubToken;
+    let githubUsername;
+
+    const user = await User.findById(authenticatedUserId);
+    if (!user) {
+      sendSafeStatusUpdate("Authenticated user not found.", "error");
+      return res.end();
+    }
+
+    if (user.role === "manager") {
+      // If manager, use their own PAT
+      const userGitHubData = await GitHubData.findOne({
+        userId: authenticatedUserId,
+      });
+      if (!userGitHubData || !userGitHubData.githubPAT) {
+        sendSafeStatusUpdate(
+          "Manager's GitHub PAT not found. Please authenticate with GitHub.",
+          "error"
+        );
+        return res.end();
+      }
+      githubToken = userGitHubData.githubPAT;
+      githubUsername = userGitHubData.githubUsername;
+      console.log("Using manager's GitHub PAT for operations.");
+    } else if (user.role === "developer") {
+      // If developer, get manager's PAT via the helper function
+      console.log("User is a developer. Attempting to get manager's PAT.");
+      try {
+        const collaboratorDetails = await getCollaboratorPatAndRepoDetails(
+          authenticatedUserId,
+          owner,
+          repoName
+        );
+        githubToken = collaboratorDetails.pat; // This is the manager's PAT
+        githubUsername = collaboratorDetails.username; // This is the manager's username
+        console.log("Successfully retrieved manager's PAT for developer.");
+      } catch (collabError) {
+        console.error(
+          "Error getting collaborator PAT details:",
+          collabError.message
+        );
+        sendSafeStatusUpdate(
+          `Developer not authorized or manager's GitHub PAT not found for this project: ${collabError.message}`,
+          "error"
+        );
+        return res.end();
+      }
+    } else {
+      sendSafeStatusUpdate("Unauthorized user role for this action.", "error");
+      return res.end();
+    }
+
+    const octokit = new Octokit({ auth: githubToken });
+
+    const userStory = await UserStory.findById(userStoryId);
+    if (!userStory) {
+      sendSafeStatusUpdate("User story not found.", "error");
+      return res.end();
+    }
 
     let baseBranchSha;
     let actualBaseBranchName = "main"; // Default to 'main' as a safe fallback for PR base
@@ -705,14 +808,12 @@ const generateSalesforceCodeAndPush = async (req, res) => {
         } catch (listError) {
           if (listError.status === 404) {
             sendSafeStatusUpdate(
-              res,
               `Repository '${owner}/${repoName}' appears to be empty or uninitialized. Please create an initial commit and a 'dev' branch or a default branch (e.g., 'main') first.`,
               "error"
             );
             return res.end();
           }
           sendSafeStatusUpdate(
-            res,
             `Failed to list branches or get default branch details for ${owner}/${repoName}: ${listError.message}`,
             "error"
           );
@@ -720,7 +821,6 @@ const generateSalesforceCodeAndPush = async (req, res) => {
         }
       } else {
         sendSafeStatusUpdate(
-          res,
           `Failed to get 'dev' branch details for ${owner}/${repoName}: ${error.message}`,
           "error"
         );
@@ -874,7 +974,7 @@ const generateSalesforceCodeAndPush = async (req, res) => {
       {
         "force-app/main/default/classes/ExistingClass.cls": "public class ExistingClass { /* ... modified content ... */ }",
         "force-app/main/default/classes/ExistingClass.cls-meta.xml": "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\\n<ApexClass xmlns=\\"http://soap.sforce.com/2006/04/metadata\\">\\n    <apiVersion>59.0</apiVersion>\\n    <status>Active</status>\\n</ApexClass>",
-        "force-app/main/default/lwc/newComponent/newComponent.js": "import { LightningElement, api } from 'lwc';\\nimport { ShowToastEvent } from 'lightning/platformShowToastEvent';\\n\\nexport default class NewComponent extends LightningElement {\\n    @api recordId;\\n\\n    // ... more JS ...\\n}",
+        "force-app/main/default/lwc/newComponent/newComponent.js": "import { LightningElement, api } from 'lwc';\\nimport { ShowToastEvent } from 'lwc/platformShowToastEvent';\\n\\nexport default class NewComponent extends LightningElement {\\n    @api recordId;\\n\\n    // ... more JS ...\\n}",
         "force-app/main/default/lwc/newComponent/newComponent.html": "<template>\\n    <lightning-card title=\\"New Component\\">\\n        <lightning-spinner if:true={isLoading} alternative-text=\\"Loading\\"></lightning-spinner>\\n        <div class=\\"slds-var-p-around_medium\\">\\n            \\n        </div>\\n    </lightning-card>\\n</template>",
         "force-app/main/default/lwc/newComponent/newComponent.js-meta.xml": "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\\n<LightningComponentBundle xmlns=\\"http://soap.sforce.com/2006/04/metadata\\">\\n    <apiVersion>59.0</apiVersion>\\n    <isExposed>true</isExposed>\\n    <targets>\\n        <target>lightning__RecordPage</target>\\n        <target>lightning__AppPage</target>\\n    </targets>\\n</LightningComponentBundle>",
         "sfdx-project.json": "{\\"packageDirectories\\":[{\\"path\\":\\"force-app\\",\\"default\\":true}],\\"namespace\\":\\"\\",\\"sfdcApiVersion\\":\\"59.0\\",\\"sourceApiVersion\\":\\"59.0\\"}",
@@ -921,19 +1021,25 @@ const generateSalesforceCodeAndPush = async (req, res) => {
     // --- END AI PROMPT MODIFICATIONS ---
 
     // 4. Call AI to generate Salesforce code
-    const user = await User.findById(req.user.id);
-    const configOwnerId = user.role === "developer" ? user.managerId : user._id;
+    const user_Data = await User.findById(req.user.id);
+    const configOwnerId =
+      user_Data.role === "developer" ? user_Data.managerId : user_Data._id;
     const geminiConfig = await Configuration.findOne({
       userId: configOwnerId,
       configTitle: { $regex: /^gemini$/i },
       isActive: true,
     });
     const apiKeyObj = geminiConfig?.configValue.find(
-      v => v.key.toLowerCase() === "apikey" || v.key.toLowerCase() === "gemini_api_key" || v.key.toLowerCase() === "api_key"
+      (v) =>
+        v.key.toLowerCase() === "apikey" ||
+        v.key.toLowerCase() === "gemini_api_key" ||
+        v.key.toLowerCase() === "api_key"
     );
     const apiKey = apiKeyObj?.value;
     if (!apiKey) {
-      throw new Error("Gemini integration not configured. Please add your Gemini API key in settings.");
+      throw new Error(
+        "Gemini integration not configured. Please add your Gemini API key in settings."
+      );
     }
 
     const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
