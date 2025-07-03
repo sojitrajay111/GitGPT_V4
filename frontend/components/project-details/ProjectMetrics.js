@@ -14,8 +14,7 @@ import {
   Cell,
 } from "recharts";
 import { styled } from "@mui/system";
-import { useGithubBranches } from "../../lib/useGithubBranches";
-import BranchSyncBar from "./BranchSyncBar";
+
 
 // Styled component for chart cards, adapted for dynamic theme
 const ChartCard = styled(Card)(({ theme }) => ({
@@ -48,7 +47,6 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
 
   return (
     <>
-      <BranchSyncBar project={project} />
       <Typography
         variant="h5"
         component="h2"
