@@ -32,6 +32,7 @@ app.use(
       "http://localhost:3002",
       "http://localhost:3003",
       "https://git-gpt-v2.vercel.app",
+      "https://gitgpt-v3.vercel.app"
     ],
     credentials: true,
   })
