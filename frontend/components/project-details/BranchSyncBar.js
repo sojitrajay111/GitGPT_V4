@@ -74,31 +74,7 @@ export default function BranchSyncBar({ project }) {
         </Select>
       </FormControl>
       <Box sx={{ flex: isMobile ? "unset" : 1, width: isMobile ? "100%" : "auto" }}>
-        <SyncContributionsButton
-          projectId={project._id}
-          branchName={selectedBranch}
-          repoUrl={project.githubRepoLink}
-          ButtonProps={{
-            startIcon: <SyncIcon />,
-            sx: {
-              width: "100%",
-              background: "linear-gradient(90deg, #a18cd1 0%, #fbc2eb 100%)",
-              color: "#23232b",
-              fontWeight: 700,
-              borderRadius: 3,
-              boxShadow: "0 4px 16px rgba(160,140,210,0.18)",
-              px: 4,
-              py: 1.5,
-              fontSize: "1.1rem",
-              transition: "all 0.2s",
-              '&:hover': {
-                background: "linear-gradient(90deg, #fbc2eb 0%, #a18cd1 100%)",
-                transform: "scale(1.04)",
-                boxShadow: "0 6px 24px rgba(160,140,210,0.22)",
-              },
-            },
-          }}
-        />
+        {/* Removed SyncContributionsButton, sync is now handled by webhook */}
       </Box>
     </Paper>
   );
