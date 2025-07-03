@@ -1,6 +1,7 @@
 import { Box, FormControl, InputLabel, Select, MenuItem, useMediaQuery, useTheme, Paper, Button } from "@mui/material";
 import React from "react";
 import SyncIcon from "@mui/icons-material/Sync";
+import { useGithubBranches } from "../../lib/useGithubBranches";
 
 export default function BranchSyncBar({ project }) {
   const theme = useTheme();
