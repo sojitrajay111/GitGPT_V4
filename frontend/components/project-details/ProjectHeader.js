@@ -5,7 +5,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import { styled, alpha } from "@mui/system";
-import { useGithubBranches } from "../../lib/useGithubBranches";
+
 
 // Styled component for the header, adapted for dynamic theme
 const LightHeader = styled(Box)(({ theme }) => ({
@@ -51,7 +51,7 @@ const ProjectHeader = ({
   console.log("Repo link for branch fetch:", project.githubRepoLink);
 
   const [selectedBranch, setSelectedBranch] = React.useState("");
-  const { branches, loading: branchesLoading } = useGithubBranches(project?.githubRepoLink);
+  
 
   React.useEffect(() => {
     if (branches.length > 0) {
