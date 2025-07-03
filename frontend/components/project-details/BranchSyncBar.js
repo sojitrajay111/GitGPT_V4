@@ -1,6 +1,4 @@
 import { Box, FormControl, InputLabel, Select, MenuItem, useMediaQuery, useTheme, Paper, Button } from "@mui/material";
-import SyncContributionsButton from "./SyncContributionsButton";
-import { useGithubBranches } from "../../lib/useGithubBranches";
 import React from "react";
 import SyncIcon from "@mui/icons-material/Sync";
 

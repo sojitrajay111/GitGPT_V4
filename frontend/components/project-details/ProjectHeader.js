@@ -5,7 +5,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import { styled, alpha } from "@mui/system";
-import SyncContributionsButton from "./SyncContributionsButton";
 import { useGithubBranches } from "../../lib/useGithubBranches";
 
 // Styled component for the header, adapted for dynamic theme
