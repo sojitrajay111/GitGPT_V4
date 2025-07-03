@@ -36,15 +36,6 @@ const ChartCard = styled(Card)(({ theme }) => ({
  * @param {object} props.project - The project object.
  */
 const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project }) => {
-  // Branch selection logic
-  const { branches, loading: branchesLoading } = useGithubBranches(project?.githubRepoLink);
-  const [selectedBranch, setSelectedBranch] = React.useState("");
-  React.useEffect(() => {
-    if (branches.length > 0) {
-      setSelectedBranch(branches[0].name);
-    }
-  }, [branches]);
-
   return (
     <>
       <Typography

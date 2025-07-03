@@ -50,15 +50,6 @@ const ProjectHeader = ({
   console.log("Project branch for sync:", project.githubBranch);
   console.log("Repo link for branch fetch:", project.githubRepoLink);
 
-  const [selectedBranch, setSelectedBranch] = React.useState("");
-  
-
-  React.useEffect(() => {
-    if (branches.length > 0) {
-      setSelectedBranch(branches[0].name); // Default to first branch
-    }
-  }, [branches]);
-
   return (
     <LightHeader className="p-6 md:p-8 mb-8">
       {/* Background glowing circles for futuristic touch in dark mode */}
