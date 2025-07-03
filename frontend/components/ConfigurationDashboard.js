@@ -131,7 +131,7 @@ const ConfigurationDashboard = () => {
       }
 
       const response = await axios.get(
-        `http://localhost:3001/api/configurations/${ownerId}`,
+        `http://https://gitgpt-v3.onrender.com/api/configurations/${ownerId}`,
         getAuthHeaders()
       );
 
