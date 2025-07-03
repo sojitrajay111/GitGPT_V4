@@ -14,7 +14,6 @@ import {
   Cell,
 } from "recharts";
 import { styled } from "@mui/system";
-import SyncContributionsButton from "./SyncContributionsButton";
 import { useGithubBranches } from "../../lib/useGithubBranches";
 import BranchSyncBar from "./BranchSyncBar";
 

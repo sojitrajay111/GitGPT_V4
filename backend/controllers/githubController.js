@@ -1772,8 +1772,6 @@ module.exports = {
   getGitHubDetails,
   addOrUpdateGitHubDetails,
   deleteGitHubDetails,
-
-  syncContributions,
   getLastCommitDetails,
   getRepoBranchesServer,
 };

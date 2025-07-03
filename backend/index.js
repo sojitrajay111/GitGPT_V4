@@ -20,6 +20,8 @@ const googleAuthRoutes = require("./routes/googleAuthRoutes");
 const companyRoutes = require("./routes/companyRoutes");
 const userRoutes = require("./routes/userRoutes");
 const collaboratorRoutes = require("./routes/collaboratorRoutes");
+const githubWebHookRoutes = require("./routes/GithubWebHook");
+
 const app = express();
 
 // Middleware
@@ -59,6 +61,7 @@ app.use("/api/company", companyRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/theme", themeRoutes);
 app.use("/api/collaborators", collaboratorRoutes );
+app.use("/api/github", githubWebHookRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
