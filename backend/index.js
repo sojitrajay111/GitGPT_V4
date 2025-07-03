@@ -41,7 +41,7 @@ app.use(
 );
 app.use(cookieParser());
 
-// Connect to MongoDB
+// Connect MongoDB
 connectDB();
 
 // Routes
