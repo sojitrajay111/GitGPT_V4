@@ -546,11 +546,15 @@ jobs:
       const repoUrlParts = finalGithubRepoLink.split("/");
       const owner = repoUrlParts[repoUrlParts.length - 2];
       const repo = repoUrlParts[repoUrlParts.length - 1];
-      const githubData = await GitHubData.findOne({ userId });
-      if (githubData && githubData.githubPAT) {
+      // Reuse the existing githubData variable if it exists, otherwise fetch it
+      let managerGitHubData = githubData;
+      if (!managerGitHubData) {
+        managerGitHubData = await GitHubData.findOne({ userId });
+      }
+      if (managerGitHubData && managerGitHubData.githubPAT) {
         const webhookUrl = process.env.WEBHOOK_URL || "https://your-backend.com/api/github/webhook";
         try {
-          await createGitHubWebhook(githubData.githubPAT, owner, repo, webhookUrl);
+          await createGitHubWebhook(managerGitHubData.githubPAT, owner, repo, webhookUrl);
         } catch (err) {
           console.error("Error creating GitHub webhook:", err.message);
           // Optionally, you can return a warning in the response, but don't block project creation
