@@ -118,14 +118,26 @@ const getProjectMetrics = async (req, res) => {
     const timeSavedByAI =
       (aiLinesOfCode / 100) * estimatedHoursSavedPer100LinesAI;
 
-    // Mock monthly data for chart visualization
-    const monthlyTimeSaved = [
-      { name: "Jan", "Hours Saved": Math.round(timeSavedByAI * 0.15) },
-      { name: "Feb", "Hours Saved": Math.round(timeSavedByAI * 0.2) },
-      { name: "Mar", "Hours Saved": Math.round(timeSavedByAI * 0.25) },
-      { name: "Apr", "Hours Saved": Math.round(timeSavedByAI * 0.2) },
-      { name: "May", "Hours Saved": Math.round(timeSavedByAI * 0.2) },
-    ];
+    // Weekly data for chart visualization (last 5 weeks)
+    const weeks = [];
+    const now = new Date();
+    for (let i = 4; i >= 0; i--) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay() - i * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      weeks.push({ label: weekLabel, start: new Date(weekStart), end: new Date(weekEnd) });
+    }
+    // Aggregate AI lines of code by week
+    const weeklyTimeSaved = weeks.map(({ label, start, end }) => {
+      const weekAiLoc = allContributions.filter(c => c.contributorType === 'AI' && c.createdAt >= start && c.createdAt <= end)
+        .reduce((sum, c) => sum + c.linesOfCode, 0);
+      return {
+        name: label,
+        "Hours Saved": Math.round((weekAiLoc / 100) * estimatedHoursSavedPer100LinesAI)
+      };
+    });
 
     // --- 3. Gemini AI Token Usage ---
     const totalTokenBudget = 1000000; // Example budget
@@ -212,7 +224,7 @@ const getProjectMetrics = async (req, res) => {
       success: true,
       projectWorkProgressData: sortedProgressData,
       codeContributionData,
-      timeSavedData: monthlyTimeSaved,
+      timeSavedData: weeklyTimeSaved,
       geminiTokenData,
       prStatusData,
       prContributionData,

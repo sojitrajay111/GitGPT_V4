@@ -23,6 +23,11 @@ const ChartCard = styled(Card)(({ theme }) => ({
   flexDirection: "column",
   height: "400px",
   minHeight: "300px",
+  background: theme.palette.mode === 'dark' ? '#181818' : theme.palette.background.paper,
+  color: theme.palette.mode === 'dark' ? '#e0e0e0' : theme.palette.text.primary,
+  borderRadius: '16px',
+  border: theme.palette.mode === 'dark' ? '1px solid #333' : `1px solid ${theme.palette.divider}`,
+  boxShadow: theme.palette.mode === 'dark' ? '0 4px 24px rgba(0,0,0,0.7)' : theme.shadows[2],
 }));
 
 /**
@@ -237,12 +242,17 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      borderRadius: "10px",
-                      backgroundColor: activeTheme.palette.background.paper,
-                      border: `1px solid ${activeTheme.palette.divider}`,
+                      borderRadius: '10px',
+                      backgroundColor: activeTheme.palette.mode === 'dark' ? '#222' : activeTheme.palette.background.paper,
+                      color: '#fff',
+                      border: activeTheme.palette.mode === 'dark' ? '1px solid #444' : `1px solid ${activeTheme.palette.divider}`,
                     }}
+                    itemStyle={{ color: '#fff' }}
+                    labelStyle={{ color: '#fff' }}
                   />
-                  <Legend />
+                  <Legend
+                    wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </Box>
