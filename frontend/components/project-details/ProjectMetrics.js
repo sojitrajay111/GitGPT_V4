@@ -85,7 +85,7 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
                       border: `1px solid ${activeTheme.palette.divider}`,
                     }}
                   />
-                  <Legend />
+                  <Legend wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }} />
                   <Bar
                     dataKey="Lines of Code"
                     fill={CHART_COLORS[2]}
@@ -131,7 +131,7 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
                       border: `1px solid ${activeTheme.palette.divider}`,
                     }}
                   />
-                  <Legend />
+                  <Legend wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }} />
                   <Bar
                     dataKey="Hours Saved"
                     fill={CHART_COLORS[3]}
@@ -192,7 +192,7 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
                       border: `1px solid ${activeTheme.palette.divider}`,
                     }}
                   />
-                  <Legend />
+                  <Legend wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }} />
                 </PieChart>
               </ResponsiveContainer>
             </Box>
@@ -250,9 +250,7 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
                     itemStyle={{ color: '#fff' }}
                     labelStyle={{ color: '#fff' }}
                   />
-                  <Legend
-                    wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }}
-                  />
+                  <Legend wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }} />
                 </PieChart>
               </ResponsiveContainer>
             </Box>
