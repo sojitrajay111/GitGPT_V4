@@ -823,7 +823,12 @@ const handleGitHubWebhook = async (req, res) => {
             ref: commit.id,
           });
           let linesAdded = 0;
-          if (commitDetails.stats) linesAdded = commitDetails.stats.additions;
+          let linesDeleted = 0;
+          if (commitDetails.stats) {
+            linesAdded = commitDetails.stats.additions;
+            linesDeleted = commitDetails.stats.deletions;
+          }
+          const netLinesChanged = linesAdded - linesDeleted;
           // Avoid duplicate entries for the same commit
           const exists = await CodeContribution.findOne({ prUrl: commit.url });
           if (exists) {
@@ -835,11 +840,11 @@ const handleGitHubWebhook = async (req, res) => {
             userStoryId: userStory ? userStory._id : undefined,
             contributorType,
             githubUsername: githubUsername,
-            linesOfCode: linesAdded,
+            linesOfCode: netLinesChanged,
             prUrl: commit.url,
             contributionDate: new Date(commit.timestamp),
           });
-          console.log(`CodeContribution created for commit ${commit.id}: ${linesAdded} lines. Type: ${contributorType}`);
+          console.log(`CodeContribution created for commit ${commit.id}: ${netLinesChanged} lines. Type: ${contributorType}`);
         } catch (err) {
           console.error(`Error processing commit ${commit.id}:`, err.message);
         }
@@ -1630,13 +1635,17 @@ const syncContributions = async (req, res) => {
       );
       // Fetch commit details to get stats
       let linesAdded = 0;
+      let linesDeleted = 0;
       try {
         const { data: commitDetails } = await octokit.repos.getCommit({
           owner,
           repo,
           ref: commit.sha,
         });
-        if (commitDetails.stats) linesAdded = commitDetails.stats.additions;
+        if (commitDetails.stats) {
+          linesAdded = commitDetails.stats.additions;
+          linesDeleted = commitDetails.stats.deletions;
+        }
       } catch (err) {
         console.error(
           "Failed to fetch commit stats for",
@@ -1650,18 +1659,19 @@ const syncContributions = async (req, res) => {
         console.log("Skipping existing commit:", commit.sha);
         continue;
       }
+      const netLinesChanged = linesAdded - linesDeleted;
       console.log(
         "Creating CodeContribution for commit:",
         commit.sha,
         "Lines added:",
-        linesAdded
+        netLinesChanged
       );
       await CodeContribution.create({
         projectId: project._id,
         userStoryId: userStory ? userStory._id : undefined,
         contributorType: "Developer",
         githubUsername: commit.author?.login || commit.commit.author.name,
-        linesOfCode: linesAdded,
+        linesOfCode: netLinesChanged,
         prUrl: commit.html_url,
         contributionDate: new Date(commit.commit.author.date),
       });
