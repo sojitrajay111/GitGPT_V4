@@ -1352,18 +1352,6 @@ ${userStory.testingScenarios}
     });
     console.log(`Pull Request created: ${pr.html_url}`);
 
-    // 10. Record AI Code Contribution
-    await CodeContribution.create({
-      projectId,
-      userStoryId,
-      contributorType: "AI",
-      linesOfCode: linesOfCodeAddedByAI, // Use the calculated lines
-      geminiTokensUsed, // Record actual tokens used for this generation
-      prUrl: pr.html_url,
-      contributionDate: new Date(),
-    });
-    console.log(`AI code contribution recorded for user story ${userStoryId}.`);
-
     // Update the user story in the database with the new GitHub details and status
     userStory.githubBranch = newBranchName;
     userStory.prUrl = pr.html_url;

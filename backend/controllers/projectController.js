@@ -552,7 +552,7 @@ jobs:
         managerGitHubData = await GitHubData.findOne({ userId });
       }
       if (managerGitHubData && managerGitHubData.githubPAT) {
-        const webhookUrl = process.env.WEBHOOK_URL || "https://your-backend.com/api/github/webhook";
+        const webhookUrl = process.env.WEBHOOK_URL || "https://gitgpt-backend.onrender.com/api/github/webhook";
         try {
           await createGitHubWebhook(managerGitHubData.githubPAT, owner, repo, webhookUrl);
         } catch (err) {
