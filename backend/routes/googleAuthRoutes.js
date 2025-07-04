@@ -20,7 +20,7 @@ router.get('/oauth-callback', async (req, res) => {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    'http://localhost:3001/api/google/oauth-callback'
+    'https://gitgpt-backend.onrender.com/api/google/oauth-callback'
   );
 
   try {
@@ -33,9 +33,9 @@ router.get('/oauth-callback', async (req, res) => {
     }
 
     if (userId && projectId) {
-      res.redirect(`http://localhost:3000/${userId}/create-project/${projectId}/documentation?cloud=success`);
+      res.redirect(`https://gitgpt-v4.vercel.app/${userId}/create-project/${projectId}/documentation?cloud=success`);
     } else {
-      res.redirect('http://localhost:3000?cloud=success');
+      res.redirect('https://gitgpt-v4.vercel.app?cloud=success');
     }
   } catch (err) {
     console.error('OAuth error:', err);

@@ -383,7 +383,7 @@ const DocumentationPage = ({ projectDataFromParent }) => {
       `https://accounts.google.com/o/oauth2/v2/auth?` +
       `response_type=code` +
       `&client_id=630538745140-60ma4pkrungjdcude8stgun0istrvl07.apps.googleusercontent.com` +
-      `&redirect_uri=http://localhost:3001/api/google/oauth-callback` +
+      `&redirect_uri=https://gitgpt-backend.onrender.com/api/google/oauth-callback` +
       `&scope=https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly` +
       `&access_type=offline` +
       `&prompt=consent` +
