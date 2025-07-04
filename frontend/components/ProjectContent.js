@@ -8,6 +8,7 @@ import {
   useGetProjectsQuery,
   useGetUserGithubReposQuery,
 } from "@/features/projectApiSlice";
+import CustomSnackbar from "./documentations_components/CustomSnackbar";
 
 export default function ProjectsPage() {
   const { userId } = useParams();
@@ -21,6 +22,7 @@ export default function ProjectsPage() {
   const [selectedRepo, setSelectedRepo] = useState("");
   const [createNewRepoOption, setCreateNewRepoOption] = useState(false);
   const [newRepoName, setNewRepoName] = useState("");
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
   // RTK Query hooks
   const {
@@ -135,8 +137,20 @@ export default function ProjectsPage() {
         repoName: createNewRepoOption ? newRepoName : undefined,
       };
 
-      await createProjectMutation(projectPayload).unwrap();
+      const response = await createProjectMutation(projectPayload).unwrap();
+      setSnackbar({
+        open: true,
+        message: response.webhookStatus === 'failed'
+          ? response.webhookWarning || 'Project created, but webhook setup failed.'
+          : 'Project and webhook created successfully!',
+        severity: response.webhookStatus === 'failed' ? 'warning' : 'success'
+      });
     } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err.data?.message || 'Failed to create project.',
+        severity: 'error'
+      });
       console.error("Failed to create project:", err);
     }
   };
@@ -430,6 +444,12 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
+      <CustomSnackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      />
     </div>
   );
 }

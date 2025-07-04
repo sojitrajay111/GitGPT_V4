@@ -1787,6 +1787,36 @@ const getRepoBranchesServer = async (req, res) => {
   }
 };
 
+// Helper to create a webhook on a GitHub repo
+async function createGitHubWebhook(managerPAT, owner, repo, webhookUrl) {
+  await loadESModules();
+  const octokit = new Octokit({ auth: managerPAT });
+
+  // Check if webhook already exists
+  const { data: hooks } = await octokit.repos.listWebhooks({ owner, repo });
+  const exists = hooks.some(hook => hook.config.url === webhookUrl);
+  if (exists) {
+    console.log("Webhook already exists for this repo.");
+    return;
+  }
+
+  // Create the webhook
+  await octokit.repos.createWebhook({
+    owner,
+    repo,
+    config: {
+      url: webhookUrl,
+      content_type: "json",
+      secret: process.env.GITHUB_WEBHOOK_SECRET, // for signature verification
+      insecure_ssl: "0"
+    },
+    events: ["push", "pull_request", "member"], // Add more as needed
+    active: true,
+  });
+
+  console.log("Webhook created for repo:", `${owner}/${repo}`);
+}
+
 module.exports = {
   authenticateGitHub,
   getGitHubStatus,
@@ -1813,4 +1843,5 @@ module.exports = {
   deleteGitHubDetails,
   getLastCommitDetails,
   getRepoBranchesServer,
+  createGitHubWebhook,
 };

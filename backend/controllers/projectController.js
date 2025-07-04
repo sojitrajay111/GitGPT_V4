@@ -2,6 +2,7 @@ const Project = require("../models/Project");
 const GitHubData = require("../models/GithubData"); // To get PAT for repo creation
 const User = require("../models/User"); // To update isAuthenticatedToGithub if PAT becomes invalid
 const ProjectCollaborator = require("../models/ProjectCollaborator"); // Import ProjectCollaborator
+const { createGitHubWebhook } = require("./githubController");
 
 const createProject = async (req, res) => {
   try {
@@ -539,6 +540,21 @@ jobs:
         // It's important to decide if this should be a hard failure or allow project creation
         // but with a warning that the GitHub repo might not be fully initialized as expected.
         // For now, it will proceed but log a warning. You might want to return an error.
+      }
+
+      // After finalGithubRepoLink is set (repo is created or linked)
+      const repoUrlParts = finalGithubRepoLink.split("/");
+      const owner = repoUrlParts[repoUrlParts.length - 2];
+      const repo = repoUrlParts[repoUrlParts.length - 1];
+      const githubData = await GitHubData.findOne({ userId });
+      if (githubData && githubData.githubPAT) {
+        const webhookUrl = process.env.WEBHOOK_URL || "https://your-backend.com/api/github/webhook";
+        try {
+          await createGitHubWebhook(githubData.githubPAT, owner, repo, webhookUrl);
+        } catch (err) {
+          console.error("Error creating GitHub webhook:", err.message);
+          // Optionally, you can return a warning in the response, but don't block project creation
+        }
       }
     } else if (!githubRepoLink) {
       // If not creating a new repo, a GitHub repo link must be provided
