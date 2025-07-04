@@ -4,6 +4,7 @@ const User = require("../models/User"); // Required for updating user auth statu
 const Project = require("../models/Project"); // Required for collaborator logic
 const ProjectCollaborator = require("../models/ProjectCollaborator");
 const crypto = require("crypto");
+const UserStory = require("../models/UserStory");
 // Dynamic imports for Octokit as it might be an ES Module
 let Octokit;
 
@@ -797,6 +798,12 @@ const handleGitHubWebhook = async (req, res) => {
         console.log(`No project found for repository: ${repoFullName}`);
         return res.status(200).send("Webhook received, but no project found.");
       }
+      // Check if this branch is an AI-generated branch (linked to a UserStory)
+      const userStory = await UserStory.findOne({
+        projectId: project._id,
+        githubBranch: branchName,
+      });
+      const contributorType = userStory ? "AI" : "Developer";
       // Get manager's GitHub PAT for Octokit
       const GitHubData = require("../models/GithubData");
       const managerGithubData = await GitHubData.findOne({ userId: project.userId });
@@ -825,13 +832,14 @@ const handleGitHubWebhook = async (req, res) => {
           }
           await CodeContribution.create({
             projectId: project._id,
-            contributorType: "Developer",
+            userStoryId: userStory ? userStory._id : undefined,
+            contributorType,
             githubUsername: githubUsername,
             linesOfCode: linesAdded,
             prUrl: commit.url,
             contributionDate: new Date(commit.timestamp),
           });
-          console.log(`CodeContribution created for commit ${commit.id}: ${linesAdded} lines.`);
+          console.log(`CodeContribution created for commit ${commit.id}: ${linesAdded} lines. Type: ${contributorType}`);
         } catch (err) {
           console.error(`Error processing commit ${commit.id}:`, err.message);
         }
