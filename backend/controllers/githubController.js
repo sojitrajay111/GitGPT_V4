@@ -1658,6 +1658,7 @@ const syncContributions = async (req, res) => {
       );
       await CodeContribution.create({
         projectId: project._id,
+        userStoryId: userStory ? userStory._id : undefined,
         contributorType: "Developer",
         githubUsername: commit.author?.login || commit.commit.author.name,
         linesOfCode: linesAdded,
