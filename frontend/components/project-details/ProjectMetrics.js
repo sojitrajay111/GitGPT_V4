@@ -85,7 +85,7 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
                       border: `1px solid ${activeTheme.palette.divider}`,
                     }}
                   />
-                  <Legend wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }} />
+                  <Legend />
                   <Bar
                     dataKey="Lines of Code"
                     fill={CHART_COLORS[2]}
@@ -131,7 +131,7 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
                       border: `1px solid ${activeTheme.palette.divider}`,
                     }}
                   />
-                  <Legend wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }} />
+                  <Legend />
                   <Bar
                     dataKey="Hours Saved"
                     fill={CHART_COLORS[3]}
@@ -187,12 +187,17 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      borderRadius: "10px",
-                      backgroundColor: activeTheme.palette.background.paper,
-                      border: `1px solid ${activeTheme.palette.divider}`,
+                      borderRadius: '10px',
+                      backgroundColor: activeTheme.palette.mode === 'dark' ? '#222' : activeTheme.palette.background.paper,
+                      color: '#fff',
+                      border: activeTheme.palette.mode === 'dark' ? '1px solid #444' : `1px solid ${activeTheme.palette.divider}`,
                     }}
+                    itemStyle={{ color: '#fff' }}
+                    labelStyle={{ color: '#fff' }}
                   />
-                  <Legend wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }} />
+                  <Legend
+                    wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </Box>
@@ -250,7 +255,9 @@ const ProjectMetrics = ({ activeTheme, projectMetricsData, CHART_COLORS, project
                     itemStyle={{ color: '#fff' }}
                     labelStyle={{ color: '#fff' }}
                   />
-                  <Legend wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }} />
+                  <Legend
+                    wrapperStyle={{ color: activeTheme.palette.mode === 'dark' ? '#fff' : activeTheme.palette.text.primary }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </Box>
