@@ -131,7 +131,7 @@ const ConfigurationDashboard = () => {
       }
 
       const response = await axios.get(
-        `https://https://gitgpt-backend.onrender.com/api/configurations/${ownerId}`,
+        `https://gitgpt-backend.onrender.com/api/configurations/${ownerId}`,
         getAuthHeaders()
       );
 
@@ -162,13 +162,13 @@ const ConfigurationDashboard = () => {
   const fetchUserAndManagerConfigs = async () => {
     try {
       // Fetch the developer's user object to get managerId and role
-      const userRes = await axios.get(`https://https://gitgpt-backend.onrender.com/api/users/${userId}`, getAuthHeaders());
+      const userRes = await axios.get(`https://gitgpt-backend.onrender.com/api/users/${userId}`, getAuthHeaders());
       if (userRes.data && userRes.data.success) {
         const user = userRes.data.data;
         setUserRole(user.role);
         if (user.role === "developer" && user.managerId) {
           // Fetch manager's configurations
-          const configRes = await axios.get(`https://https://gitgpt-backend.onrender.com/api/configurations/${user.managerId}`, getAuthHeaders());
+          const configRes = await axios.get(`https://gitgpt-backend.onrender.com/api/configurations/${user.managerId}`, getAuthHeaders());
           if (configRes.data.success) {
             setManagerConfigs(configRes.data.data);
           } else {
@@ -188,7 +188,7 @@ const ConfigurationDashboard = () => {
       }
 
       const response = await axios.post(
-        `https://https://gitgpt-backend.onrender.com/api/configurations/${configOwnerId}`,
+        `https://gitgpt-backend.onrender.com/api/configurations/${configOwnerId}`,
         {
           configTitle: configData.title,
           configValue: configData.items.map((item) => ({
@@ -254,7 +254,7 @@ const ConfigurationDashboard = () => {
       }
 
       const response = await axios.delete(
-        `https://https://gitgpt-backend.onrender.com/api/configurations/${configOwnerId}/${configToDelete.configTitle}`,
+        `https://gitgpt-backend.onrender.com/api/configurations/${configOwnerId}/${configToDelete.configTitle}`,
         getAuthHeaders()
       );
 
@@ -296,7 +296,7 @@ const ConfigurationDashboard = () => {
       }
 
       const response = await axios.patch(
-        `https://https://gitgpt-backend.onrender.com/configurations/${configOwnerId}/${configToToggle.configTitle}/toggle`,
+        `https://gitgpt-backend.onrender.com/configurations/${configOwnerId}/${configToToggle.configTitle}/toggle`,
         {},
         getAuthHeaders()
       );
