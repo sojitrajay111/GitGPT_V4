@@ -731,31 +731,11 @@ const handleGitHubWebhook = async (req, res) => {
   const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET;
   const signature = req.headers["x-hub-signature-256"];
   const event = req.headers["x-github-event"];
-  const deliveryID = req.headers["x-github-delivery"]; // For logging
+  const deliveryID = req.headers["x-github-delivery"];
 
-  // IMPORTANT: Express.json() middleware might parse the body. For signature verification,
-  // you need the raw body. Ensure your webhook route is configured to use express.raw({ type: 'application/json' })
-  // or a similar mechanism to get the raw buffer.
-  // For this example, assuming req.rawBody is available or payload is correctly reconstructed.
-  // If using express.json(), this verification will likely fail.
-  // A common pattern is to have a separate middleware for raw body parsing just for webhook routes.
+  const payload = req.body;
 
-  // Let's assume req.rawBody is populated by a middleware like:
-  // app.use('/api/github/webhook', express.raw({ type: 'application/json' }), githubRoutes);
-  const payload = req.body; // If using express.json(), this is already parsed.
-  // For verification, you'd need the raw stringified payload.
-  // This is a common pitfall.
-
-  // For now, this verification might not work correctly if express.json() has already parsed req.body.
-  // We'll proceed with logic, but highlight this as a critical point for webhook security.
   if (GITHUB_WEBHOOK_SECRET && signature) {
-    // This needs the raw request body as a buffer or string.
-    // const hmac = crypto.createHmac("sha256", GITHUB_WEBHOOK_SECRET);
-    // const digest = "sha256=" + hmac.update(JSON.stringify(payload) /* or rawBody */).digest("hex");
-    // if (!crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature))) {
-    //   console.warn(`Webhook signature mismatch for delivery ${deliveryID}!`);
-    //   return res.status(401).send("Webhook signature mismatch.");
-    // }
     console.log(
       `Webhook signature verification would be performed here for delivery ${deliveryID}. (Skipped for now due to raw body complexities)`
     );
@@ -770,11 +750,10 @@ const handleGitHubWebhook = async (req, res) => {
       `Received GitHub webhook event: ${event}, Delivery ID: ${deliveryID}`
     );
     if (event === "member" || event === "membership") {
-      // `membership` for org member changes
+      // ... existing member/membership logic ...
       const { action, member, repository, organization, scope } = req.body;
       const relevantMember =
-        member || (scope === "user" ? req.body.user : null); // `membership` event has `user`
-
+        member || (scope === "user" ? req.body.user : null);
       if (action === "added" && relevantMember && repository) {
         const githubUsername = relevantMember.login;
         const githubId = relevantMember.id.toString();
@@ -802,7 +781,59 @@ const handleGitHubWebhook = async (req, res) => {
           githubRepoLink: { $regex: new RegExp(repoFullName, "i") },
         });
         if (project) {
-          await updateCollaboratorStatusInDb(project._id, githubId, "rejected"); // Or 'removed'
+          await updateCollaboratorStatusInDb(project._id, githubId, "rejected");
+        }
+      }
+    } else if (event === "push") {
+      // --- NEW: Handle push event to update CodeContribution ---
+      const { ref, commits, repository, pusher } = payload;
+      const branchName = ref.replace("refs/heads/", "");
+      const repoFullName = repository.full_name;
+      const githubUsername = pusher.name;
+      const project = await Project.findOne({
+        githubRepoLink: { $regex: new RegExp(repoFullName, "i") },
+      });
+      if (!project) {
+        console.log(`No project found for repository: ${repoFullName}`);
+        return res.status(200).send("Webhook received, but no project found.");
+      }
+      // Get manager's GitHub PAT for Octokit
+      const GitHubData = require("../models/GithubData");
+      const managerGithubData = await GitHubData.findOne({ userId: project.userId });
+      if (!managerGithubData || !managerGithubData.githubPAT) {
+        console.error("No GitHub PAT found for project owner. Cannot fetch commit details.");
+        return res.status(200).send("Webhook received, but no PAT found.");
+      }
+      await loadESModules();
+      const octokit = new Octokit({ auth: managerGithubData.githubPAT });
+      const CodeContribution = require("../models/CodeContribution");
+      for (const commit of commits) {
+        try {
+          // Fetch commit details for stats
+          const { data: commitDetails } = await octokit.repos.getCommit({
+            owner: repository.owner.login,
+            repo: repository.name,
+            ref: commit.id,
+          });
+          let linesAdded = 0;
+          if (commitDetails.stats) linesAdded = commitDetails.stats.additions;
+          // Avoid duplicate entries for the same commit
+          const exists = await CodeContribution.findOne({ prUrl: commit.url });
+          if (exists) {
+            console.log("Skipping existing commit:", commit.id);
+            continue;
+          }
+          await CodeContribution.create({
+            projectId: project._id,
+            contributorType: "Developer",
+            githubUsername: githubUsername,
+            linesOfCode: linesAdded,
+            prUrl: commit.url,
+            contributionDate: new Date(commit.timestamp),
+          });
+          console.log(`CodeContribution created for commit ${commit.id}: ${linesAdded} lines.`);
+        } catch (err) {
+          console.error(`Error processing commit ${commit.id}:`, err.message);
         }
       }
     }
